@@ -100,6 +100,35 @@ def test_to_4h_sessions():
     assert out.iloc[1].open == 4 and out.iloc[1].close == 6 and out.iloc[1].high == 7
 
 
+def test_to_4h_incomplete_last_bar():
+    et = "America/New_York"
+    idx = pd.date_range("2026-09-24 09:30", periods=6, freq="1h", tz=et)      # нет часового бара 15:30
+    hr = pd.DataFrame(dict(open=range(6), high=range(1, 7), low=range(6), close=range(6),
+                           volume=[1] * 6), index=idx, dtype=float)
+    assert list(to_4h(hr, pd.Timestamp("2026-09-24 16:10", tz=et)).index.strftime("%H:%M")) == ["09:30"]
+    assert list(to_4h(hr, pd.Timestamp("2026-09-25 09:00", tz=et)).index.strftime("%H:%M")) == ["09:30", "13:30"]
+
+
+def test_telegram_private_bot(tmp_path):
+    import tg
+    tg.SETTINGS_FILE = tmp_path / "tg.json"
+    tg.LEGACY_CHAT_FILE = tmp_path / "none"
+    sent, q = [], []
+
+    def api(tok, method, **p):
+        if method == "getUpdates":
+            return [u for u in q if u["update_id"] >= (p.get("offset") or 0)]
+        sent.append(p["chat_id"])
+
+    tg.api = api
+    msg = lambda i, c, t: {"update_id": i, "message": {"chat": {"id": c, "type": "private"}, "text": t}}
+    q += [msg(1, 111, "/start"), msg(2, 999, "/all"), msg(3, 111, "/all")]
+    st = tg.process_updates("x")
+    assert st["chat_id"] == "111" and st["only_new"] is False and st["offset"] == 3
+    q.append(msg(4, 111, "/only_new"))
+    assert tg.process_updates("x")["only_new"] is True
+
+
 if __name__ == "__main__":
     test_matches_pine_reference(); test_scenario_formed_touched_mitigated(); test_to_4h_sessions()
     print("OK")
