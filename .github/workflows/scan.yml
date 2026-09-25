@@ -1,0 +1,71 @@
+name: Проверка ордер-блоков
+
+on:
+  schedule:
+    # после закрытия 4H свечей (13:30 и 16:00 Нью-Йорк), летнее и зимнее время
+    - cron: '40 17 * * 1-5'
+    - cron: '40 18 * * 1-5'
+    - cron: '10 20 * * 1-5'
+    - cron: '10 21 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Кэш свечей
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/bars
+          key: bars-${{ github.run_id }}
+          restore-keys: bars-
+
+      - name: Проверка + сборка сайта
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python build_site.py
+
+      - name: Сохранить кэш свечей
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/bars
+          key: bars-${{ github.run_id }}
+
+      - name: Сохранить состояние
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          git add -f cache/state.json cache/signals.jsonl cache/snapshot.json cache/universe_*.json cache/chat_id 2>/dev/null || true
+          git commit -m "Проверка $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"
+          git push || echo "push не удался"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
