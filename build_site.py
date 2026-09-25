@@ -28,7 +28,8 @@ log = logging.getLogger("ob_bot.site")
 
 
 def build(s: dict, telegram: bool) -> None:
-    tgs = tg.process_updates(s["token"]) if telegram and s["token"] else tg.load()
+    # команды боту обрабатывает отдельная задача (telegram.yml); здесь только читаем настройки
+    tgs = tg.load()
     if not s["chat_id"]:
         s["chat_id"] = tgs.get("chat_id", "")
     s["only_new"] = bool(tgs.get("only_new"))
