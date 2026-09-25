@@ -58,6 +58,25 @@ input[type=search],input[type=text]{border:1px solid var(--line);background:var(
 .sig{display:grid;grid-template-columns:54px 84px minmax(0,1fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
 .sig:hover{background:var(--panel2)}
 .sig .tk{font-weight:700}
+.sig.new{background:linear-gradient(90deg,var(--nb) 0,transparent 70%);box-shadow:inset 3px 0 0 var(--nc)}
+.sig.new.bull{--nb:var(--bull-bg);--nc:var(--bull)} .sig.new.bear{--nb:var(--bear-bg);--nc:var(--bear)}
+.sig.new .tk{font-size:15px}
+.newtag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:5px;background:var(--accent);color:#fff;vertical-align:1px;margin-left:6px}
+.hero{margin-bottom:14px}
+.hero h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+.hero .sub{color:var(--muted);font-weight:400;font-size:12.5px}
+.hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.hcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel);cursor:pointer;box-shadow:inset 3px 0 0 var(--hc)}
+.hcard:hover{border-color:var(--hc)}
+.hcard.bull{--hc:var(--bull)} .hcard.bear{--hc:var(--bear)}
+.hcard .t{font-weight:700;font-size:16px;display:flex;justify-content:space-between;align-items:center}
+.hcard .z{font-size:12.5px;color:var(--muted);margin-top:3px}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;user-select:none;padding:5px 10px 5px 6px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.switch.on{border-color:var(--accent);color:var(--accent)}
+.switch i{width:30px;height:18px;border-radius:9px;background:var(--line);position:relative;transition:.15s}
+.switch i:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.switch.on i{background:var(--accent)} .switch.on i:after{left:14px}
+.chips.dim{opacity:.4;pointer-events:none}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap}
 .badge.bull{color:var(--bull);background:var(--bull-bg)} .badge.bear{color:var(--bear);background:var(--bear-bg)}
 .badge.gray{color:var(--muted);background:var(--panel2)}
@@ -117,7 +136,9 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
 <main>
   <!-- СИГНАЛЫ -->
   <section class="view on" id="v-signals">
+    <div class="hero" id="hero"></div>
     <div class="toolbar">
+      <span class="switch" id="onlyNew" role="switch" aria-checked="false"><i></i>🆕 Только новые OB</span>
       <div class="chips" id="sigType">
         <button class="chip on" data-f="all">Все</button>
         <button class="chip" data-f="formed">Новые OB</button>
@@ -142,6 +163,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
         <button class="chip on" data-f="all">Все</button>
         <button class="chip" data-f="in">Цена в зоне OB</button>
         <button class="chip" data-f="near">До зоны ≤ 2%</button>
+        <button class="chip" data-f="fresh">🆕 Новый OB за сутки</button>
       </div>
       <div class="chips" id="scrSide">
         <button class="chip on" data-f="all">Обе стороны</button>
@@ -235,12 +257,17 @@ function route() {
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
 
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ob.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ob.' + k, JSON.stringify(v)); } catch (e) {} },
+};
 function chipGroup(sel, onChange) {
-  const g = $(sel); let val = 'all';
-  g.querySelectorAll('.chip').forEach(c => c.onclick = () => {
-    g.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === c));
-    val = c.dataset.f; onChange();
-  });
+  const g = $(sel), key = 'chip' + sel;
+  let val = store.get(key, 'all');
+  if (!g.querySelector(`.chip[data-f="${val}"]`)) val = 'all';
+  const paint = () => g.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x.dataset.f === val));
+  paint();
+  g.querySelectorAll('.chip').forEach(c => c.onclick = () => { val = c.dataset.f; store.set(key, val); paint(); onChange(); });
   return () => val;
 }
 
@@ -257,7 +284,7 @@ async function refreshStatus() {
     parts.push(`<span><span class="dot ok"></span>проверено ${dtf(st.last_run)} ET</span>`);
   }
   if (st.next_run) parts.push(`<span>следующая ${dtf(st.next_run)} ET</span>`);
-  parts.push(`<span>Telegram: ${st.telegram ? 'вкл' : 'выкл'}</span>`);
+  parts.push(`<span>Telegram: ${!st.telegram ? 'выкл' : st.only_new ? 'только новые OB' : 'все сигналы'}</span>`);
   $('#status').innerHTML = parts.join('');
   $('#scanBtn').disabled = st.running;
   if (wasRunning && !st.running) loadAll();
@@ -274,9 +301,31 @@ let signals = [];
 const sigType = chipGroup('#sigType', renderSignals);
 const sigSide = chipGroup('#sigSide', renderSignals);
 $('#sigSearch').oninput = renderSignals;
+let onlyNew = store.get('onlyNew', false);
+function paintOnlyNew() {
+  $('#onlyNew').classList.toggle('on', onlyNew); $('#onlyNew').setAttribute('aria-checked', onlyNew);
+  $('#sigType').classList.toggle('dim', onlyNew);
+}
+$('#onlyNew').onclick = () => { onlyNew = !onlyNew; store.set('onlyNew', onlyNew); paintOnlyNew(); renderSignals(); };
+paintOnlyNew();
+function renderHero() {
+  const formed = signals.filter(r => r.type === 'formed');
+  if (!formed.length) { $('#hero').innerHTML = ''; return; }
+  const lastBar = formed.reduce((m, r) => r.bar_time > m ? r.bar_time : m, '');
+  const day = lastBar.slice(0, 10);
+  const fresh = formed.filter(r => r.bar_time.slice(0, 10) === day).sort((a, b) => b.bar_time.localeCompare(a.bar_time));
+  $('#hero').innerHTML = `<h3>🆕 Новые ордер-блоки <span class="sub">${day.slice(8, 10)}.${day.slice(5, 7)} · ${fresh.length} шт.</span></h3>
+    <div class="hero-grid">${fresh.map(r => `<div class="hcard ${r.side}" data-t="${esc(r.ticker)}">
+      <div class="t">${esc(r.ticker)}<span class="badge ${r.side}">${r.side === 'bull' ? '▲ бычий' : '▼ медвежий'}</span></div>
+      <div class="z mono">${fmt(r.btm)} – ${fmt(r.top)} · закр. ${fmt(r.close)}</div>
+      <div class="z">свеча ${r.bar_time.slice(11, 16)} ET</div></div>`).join('')}</div>`;
+  $$('#hero .hcard').forEach(el => el.onclick = () => openChart(el.dataset.t));
+}
 function renderSignals() {
+  renderHero();
   const q = $('#sigSearch').value.trim().toUpperCase();
-  const rows = signals.filter(r => (sigType() === 'all' || r.type === sigType()) &&
+  const type = onlyNew ? 'formed' : sigType();
+  const rows = signals.filter(r => (type === 'all' || r.type === type) &&
     (sigSide() === 'all' || r.side === sigSide()) && (!q || r.ticker.startsWith(q)));
   $('#sigCount').textContent = rows.length ? `${rows.length} сигналов` : '';
   if (!rows.length) { $('#sigList').innerHTML = `<div class="empty">${signals.length ? 'Под фильтр ничего не попало' : 'Сигналов пока нет — они появятся после первой проверки'}</div>`; return; }
@@ -289,9 +338,10 @@ function renderSignals() {
     let desc = `зона <b class="mono">${fmt(r.btm)} – ${fmt(r.top)}</b>`;
     if (r.type === 'touched') desc += r.side === 'bull' ? ` · мин <span class="mono">${fmt(r.low)}</span>` : ` · макс <span class="mono">${fmt(r.high)}</span>`;
     desc += ` · закрытие <span class="mono">${fmt(r.close)}</span>`;
-    html += `<div class="sig" data-t="${esc(r.ticker)}">
+    const isNew = r.type === 'formed';
+    html += `<div class="sig${isNew ? ' new ' + r.side : ''}" data-t="${esc(r.ticker)}">
       <span class="time mono">${r.bar_time.slice(11, 16)}</span>
-      <span class="tk">${esc(r.ticker)}</span>
+      <span class="tk">${esc(r.ticker)}${isNew ? '<span class="newtag">NEW</span>' : ''}</span>
       <span class="desc"><span class="badge ${cls}">${icon} ${TYPE[r.type]} ${SIDE[r.side]}</span>&nbsp; ${desc}</span>
       </div>`;
   }
@@ -314,9 +364,10 @@ function nearest(obs, side) {
 function zoneCell(o) {
   if (!o) return '<span style="color:var(--muted)">—</span>';
   const w = Math.max(4, 100 - Math.min(o.dist, 10) * 10);
+  const nw = o.fresh ? '<span class="newtag">NEW</span>' : '';
   const label = o.dist === 0 ? `<span class="badge ${o.side}">в зоне</span>` : `<span class="mono">${o.dist.toFixed(2).replace('.', ',')}%</span>`;
   return `<div class="zone"><span class="meter"><i style="width:${w}%;background:var(--${o.side})"></i></span>${label}
-    <span class="mono" style="color:var(--muted)">${fmt(o.btm)}–${fmt(o.top)}</span></div>`;
+    <span class="mono" style="color:var(--muted)">${fmt(o.btm)}–${fmt(o.top)}</span>${nw}</div>`;
 }
 function renderScreener() {
   if (!snap) { $('#scrBody').innerHTML = '<tr><td colspan="5" class="empty">Данных ещё нет — нажмите «Проверить сейчас»</td></tr>'; return; }
@@ -324,13 +375,15 @@ function renderScreener() {
   const f = scrFilter(), sd = scrSide();
   let rows = snap.rows.map(r => {
     const b = nearest(r.obs, 'bull'), s = nearest(r.obs, 'bear');
-    return {...r, b, s, bullDist: b ? b.dist : 1e9, bearDist: s ? s.dist : 1e9};
+    const fresh = r.obs.filter(o => o.fresh);
+    return {...r, b, s, fresh, bullDist: b ? b.dist : 1e9, bearDist: s ? s.dist : 1e9};
   });
   rows = rows.filter(r => {
     if (q && !r.ticker.startsWith(q)) return false;
     const d = sd === 'bull' ? r.bullDist : sd === 'bear' ? r.bearDist : Math.min(r.bullDist, r.bearDist);
     if (f === 'in') return d === 0;
     if (f === 'near') return d <= 2;
+    if (f === 'fresh') return r.fresh.some(o => sd === 'all' || o.side === sd);
     return sd === 'all' || d < 1e9;
   });
   rows.forEach(r => r.minDist = sd === 'bull' ? r.bullDist : sd === 'bear' ? r.bearDist : Math.min(r.bullDist, r.bearDist));
@@ -338,7 +391,7 @@ function renderScreener() {
   $$('th[data-k]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.k === sortK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${sortDir > 0 ? '↑' : '↓'}</span>`); });
   $('#scrCount').textContent = `${rows.length} из ${snap.rows.length} акций · данные на ${dtf(snap.updated)} ET`;
   $('#scrBody').innerHTML = rows.slice(0, 600).map(r => `<tr data-t="${esc(r.ticker)}">
-      <td><b>${esc(r.ticker)}</b></td>
+      <td><b>${esc(r.ticker)}</b>${r.fresh.map(o => `<span class="newtag" style="background:var(--${o.side})" title="Новый ${o.side === 'bull' ? 'бычий' : 'медвежий'} OB ${fmt(o.btm)}–${fmt(o.top)}">NEW ${o.side === 'bull' ? '▲' : '▼'}</span>`).join('')}</td>
       <td class="r mono">${fmt(r.close)}</td>
       <td class="r mono hide-sm ${r.chg >= 0 ? 'up' : 'down'}">${pct(r.chg)}</td>
       <td>${zoneCell(r.b)}</td><td>${zoneCell(r.s)}</td></tr>`).join('') ||
@@ -426,13 +479,22 @@ function chartDraw() {
     const y1 = yOf(o.top), y2 = yOf(o.btm);
     ctx.fillStyle = o.side === 'bull' ? col.bullBg : col.bearBg;
     ctx.fillRect(x, y1, pw - x, y2 - y1);
-    ctx.strokeStyle = o.side === 'bull' ? col.bull : col.bear; ctx.globalAlpha = .45;
+    if (o.fresh) { ctx.fillRect(x, y1, pw - x, y2 - y1); }          // новый OB — заливка ярче
+    ctx.strokeStyle = o.side === 'bull' ? col.bull : col.bear; ctx.globalAlpha = o.fresh ? 1 : .45;
+    ctx.lineWidth = o.fresh ? 1.5 : 1;
     ctx.beginPath(); ctx.moveTo(x, Math.round(y1) + .5); ctx.lineTo(pw, Math.round(y1) + .5);
     ctx.moveTo(x, Math.round(y2) + .5); ctx.lineTo(pw, Math.round(y2) + .5); ctx.stroke();
     ctx.globalAlpha = .7; ctx.strokeStyle = 'rgb(149,152,161)'; ctx.setLineDash([4, 3]);
     const ym = Math.round(yOf((o.top + o.btm) / 2)) + .5;
     ctx.beginPath(); ctx.moveTo(x, ym); ctx.lineTo(pw, ym); ctx.stroke();
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    if (o.fresh) {
+      ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const lx = Math.min(x + 4, pw - 40), ly = Math.min(y1, y2) - 9;
+      ctx.fillStyle = o.side === 'bull' ? col.bull : col.bear;
+      ctx.fillRect(lx, ly - 7, 34, 14); ctx.fillStyle = '#fff'; ctx.fillText('NEW', lx + 6, ly);
+      ctx.font = '11px "JetBrains Mono", ui-monospace, monospace';
+    }
   }
   // свечи
   const cw = Math.max(1, bw * .7);
@@ -530,7 +592,7 @@ async function loadChart(t) {
   const evs = d.events.slice(-8).reverse();
   $('#chartSide').innerHTML = `<h3>Действующие ордер-блоки</h3>` + (obs.length ? obs.map(o => `
     <div class="obrow"><div><span class="badge ${o.side}">${o.side === 'bull' ? 'Бычий' : 'Медвежий'}</span>
-      <span class="z mono">&nbsp;${fmt(o.btm)} – ${fmt(o.top)}</span></div>
+      <span class="z mono">&nbsp;${fmt(o.btm)} – ${fmt(o.top)}</span>${o.fresh ? '<span class="newtag">NEW</span>' : ''}</div>
       <div class="m">${o.dist === 0 ? 'цена в зоне' : 'до зоны ' + o.dist.toFixed(2).replace('.', ',') + '%'} · свеча ${dtf(o.ob_time)}</div></div>`).join('')
     : '<div class="empty">Нет непробитых OB</div>') +
     `<h3>Последние события</h3>` + (evs.length ? evs.map(e => `
