@@ -1,5 +1,11 @@
 {
- "only_new": true,
  "offset": 656947631,
- "chat_id": "364342488"
+ "subs": {
+  "364342488": {
+   "only_new": true,
+   "name": "",
+   "since": "2026-09-25"
+  }
+ },
+ "owner": "364342488"
 }
