@@ -34,12 +34,18 @@ UA = {"User-Agent": "Mozilla/5.0 (ob-bot; personal use)"}
 
 # ---------------------------------------------------------------- список акций
 def _wiki_tickers(name: str) -> List[str]:
-    url, col = WIKI[name]
+    url, _ = WIKI[name]
     html = requests.get(url, headers=UA, timeout=30).text
+    best: List[str] = []
     for table in pd.read_html(io.StringIO(html)):
-        if col in table.columns:
-            return [str(s).strip().replace(".", "-") for s in table[col].dropna()]
-    raise RuntimeError(f"не нашёл таблицу {col} на {url}")
+        for col in table.columns:
+            if str(col).strip().lower() in ("symbol", "ticker", "ticker symbol"):
+                vals = [str(s).strip().replace(".", "-") for s in table[col].dropna()]
+                if len(vals) > len(best):
+                    best = vals
+    if len(best) < 50:
+        raise RuntimeError(f"не нашёл список тикеров на {url}")
+    return best
 
 
 def load_universe(spec: str, tickers_file: Path) -> List[str]:
@@ -70,7 +76,9 @@ def load_universe(spec: str, tickers_file: Path) -> List[str]:
                 log.warning("не обновил %s (%s), беру старый кэш", part, e)
                 out += json.loads(cache.read_text())
             else:
-                raise
+                log.warning("список %s не загрузился: %s", part, e)
+    if not out:
+        raise RuntimeError("не удалось загрузить ни один список акций")
     seen, uniq = set(), []
     for t in out:
         if t not in seen:
