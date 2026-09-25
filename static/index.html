@@ -284,7 +284,9 @@ async function refreshStatus() {
     parts.push(`<span><span class="dot ok"></span>проверено ${dtf(st.last_run)} ET</span>`);
   }
   if (st.next_run) parts.push(`<span>следующая ${dtf(st.next_run)} ET</span>`);
-  parts.push(`<span>Telegram: ${!st.telegram ? 'выкл' : st.only_new ? 'только новые OB' : 'все сигналы'}</span>`);
+  parts.push(STATIC
+    ? `<a href="https://t.me/OBDen_bot" target="_blank" style="color:inherit">Telegram-бот: @OBDen_bot${st.subscribers ? ' · ' + st.subscribers + ' подписч.' : ''}</a>`
+    : `<span>Telegram: ${st.telegram ? 'вкл' : 'выкл'}</span>`);
   $('#status').innerHTML = parts.join('');
   $('#scanBtn').disabled = st.running;
   if (wasRunning && !st.running) loadAll();
