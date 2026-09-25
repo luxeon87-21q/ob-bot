@@ -34,7 +34,7 @@ UA = {"User-Agent": "Mozilla/5.0 (ob-bot; personal use)"}
 
 
 # ---------------------------------------------------------------- список акций
-EXTRA_URLS = {"nasdaq100": ["https://en.wikipedia.org/wiki/List_of_Nasdaq-100_companies"]}
+EXTRA_URLS = {"nasdaq100": ["https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies"]}
 
 
 def _nasdaq_api() -> List[str]:
