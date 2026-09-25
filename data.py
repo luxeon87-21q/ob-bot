@@ -34,8 +34,34 @@ UA = {"User-Agent": "Mozilla/5.0 (ob-bot; personal use)"}
 
 
 # ---------------------------------------------------------------- список акций
+EXTRA_URLS = {"nasdaq100": ["https://en.wikipedia.org/wiki/List_of_Nasdaq-100_companies"]}
+
+
+def _nasdaq_api() -> List[str]:
+    r = requests.get("https://api.nasdaq.com/api/quote/list-type/nasdaq100",
+                     headers={**UA, "Accept": "application/json"}, timeout=30).json()
+    rows = r["data"]["data"]["rows"]
+    return [str(x["symbol"]).strip().replace(".", "-") for x in rows if x.get("symbol")]
+
+
 def _wiki_tickers(name: str) -> List[str]:
-    url, _ = WIKI[name]
+    errors = []
+    for url in [WIKI[name][0]] + EXTRA_URLS.get(name, []):
+        try:
+            return _wiki_table(url)
+        except Exception as e:
+            errors.append(f"{url}: {e}")
+    if name == "nasdaq100":
+        try:
+            tick = _nasdaq_api()
+            if len(tick) >= 50:
+                return tick
+        except Exception as e:
+            errors.append(f"api.nasdaq.com: {e}")
+    raise RuntimeError("; ".join(errors))
+
+
+def _wiki_table(url: str) -> List[str]:
     html = requests.get(url, headers=UA, timeout=30).text
     best: List[str] = []
     for table in pd.read_html(io.StringIO(html)):
