@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import io
+import re
 import json
 import logging
 import time
@@ -39,8 +40,11 @@ def _wiki_tickers(name: str) -> List[str]:
     best: List[str] = []
     for table in pd.read_html(io.StringIO(html)):
         for col in table.columns:
-            if str(col).strip().lower() in ("symbol", "ticker", "ticker symbol"):
-                vals = [str(s).strip().replace(".", "-") for s in table[col].dropna()]
+            name = " ".join(map(str, col)) if isinstance(col, tuple) else str(col)
+            name = name.strip().lower()
+            if "ticker" in name or "symbol" in name:
+                vals = [str(v).strip().replace(".", "-") for v in table[col].dropna()]
+                vals = [v for v in vals if re.fullmatch(r"[A-Z]{1,5}(-[A-Z])?", v)]
                 if len(vals) > len(best):
                     best = vals
     if len(best) < 50:
