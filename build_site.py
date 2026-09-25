@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import logging
 import shutil
 import sys
@@ -25,6 +26,32 @@ import web
 BASE = Path(__file__).resolve().parent
 SITE = BASE / "site"
 log = logging.getLogger("ob_bot.site")
+
+
+def expected_last_bar(now: pd.Timestamp) -> pd.Timestamp:
+    """Время открытия последней 4H свечи, которая уже закрылась (с запасом 10 минут на задержку Yahoo)."""
+    day = now.normalize()
+    for back in range(0, 10):
+        d = day - pd.Timedelta(days=back)
+        if d.weekday() >= 5:
+            continue
+        for h, m, dur in ((13, 30, 150), (9, 30, 240)):
+            start = d + pd.Timedelta(hours=h, minutes=m)
+            if start + pd.Timedelta(minutes=dur + 10) <= now:
+                return start
+    return day
+
+
+def nothing_new() -> bool:
+    """True, если последняя закрытая свеча уже обработана — тогда проверку можно пропустить."""
+    try:
+        state = json.loads(bot.STATE_FILE.read_text())
+        done = max(pd.Timestamp(v) for v in state.values())
+    except Exception:
+        return False
+    want = expected_last_bar(pd.Timestamp.now(tz=data.ET))
+    log.info("последняя закрытая свеча: %s, обработано до: %s", want, done)
+    return done >= want
 
 
 def build(s: dict, telegram: bool) -> None:
@@ -86,7 +113,15 @@ def main():
     logging.getLogger("yfinance").setLevel(logging.CRITICAL)
     p = argparse.ArgumentParser()
     p.add_argument("--no-tg", action="store_true")
+    p.add_argument("--if-new", action="store_true", help="пропустить, если новой свечи ещё нет")
     a = p.parse_args()
+    if a.if_new and nothing_new():
+        log.info("новой закрытой свечи нет — пропускаю")
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a") as f:
+                f.write("skip=true\n")
+        return
     build(bot.settings(), telegram=not a.no_tg)
 
 
