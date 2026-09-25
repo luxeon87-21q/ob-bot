@@ -1,0 +1,6 @@
+yfinance>=0.2.40
+pandas>=2.0
+numpy
+requests
+lxml
+curl_cffi
