@@ -112,7 +112,8 @@ def fmt(x: float) -> str:
 
 
 def link(t: str) -> str:
-    return (f'<a href="https://www.tradingview.com/chart/?symbol={html.escape(t)}&amp;interval=240">'
+    tv = t.replace("-", ".")          # BRK-B (Yahoo) -> BRK.B (TradingView)
+    return (f'<a href="https://www.tradingview.com/chart/?symbol={html.escape(tv)}&amp;interval=240">'
             f'<b>{html.escape(t)}</b></a>')
 
 
@@ -179,6 +180,7 @@ def save_state(st: Dict[str, str]) -> None:
 
 SNAPSHOT_FILE = BASE / "cache" / "snapshot.json"
 HISTORY_FILE = BASE / "cache" / "signals.jsonl"
+HISTORY_MAX = 30000         # сколько последних событий хранить в ленте
 HISTORY_SEED_BARS = 30      # при первом запуске кладём в ленту сигналы за последние ~15 дней (без отправки)
 
 
@@ -261,6 +263,9 @@ def run_once(s: dict, dry: bool = False, progress=None) -> int:
         with HISTORY_FILE.open("a", encoding="utf-8") as f:
             for r in history:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        lines = HISTORY_FILE.read_text(encoding="utf-8").splitlines()
+        if len(lines) > HISTORY_MAX:                      # не даём файлу расти бесконечно
+            HISTORY_FILE.write_text("\n".join(lines[-HISTORY_MAX:]) + "\n", encoding="utf-8")
     return sum(len(v) for v in found.values())
 
 
