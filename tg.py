@@ -151,7 +151,8 @@ def process_updates(token: str) -> dict:
                     disable_web_page_preview=True)
             except Exception as e:
                 log.warning("sendMessage %s: %s", cid, e)
-    if ups or not SETTINGS_FILE.exists():
+    old_format = not SETTINGS_FILE.exists() or '"subs"' not in SETTINGS_FILE.read_text(encoding="utf-8")
+    if ups or old_format:
         save(st)
     return st
 
