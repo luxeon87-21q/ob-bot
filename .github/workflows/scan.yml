@@ -15,7 +15,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: scan
+  group: repo-write
   cancel-in-progress: false
 
 jobs:
@@ -59,10 +59,11 @@ jobs:
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/state.json cache/signals.jsonl cache/snapshot.json cache/chat_id cache/universe_*.json; do
+          for f in cache/state.json cache/signals.jsonl cache/snapshot.json cache/tg_settings.json cache/universe_*.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
           git commit -m "Проверка $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"
+          git pull --rebase -X theirs || true
           git push || echo "push не удался"
 
       - uses: actions/configure-pages@v5
