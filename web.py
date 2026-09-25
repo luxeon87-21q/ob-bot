@@ -111,7 +111,7 @@ def chart_payload(ticker: str, s: dict, bars_limit: int = 500) -> dict:
     k = s["track_last"] or None
     obs = []
     for o in bulls[:k] + bears[:k]:
-        d = bot.ob_dict(o, close)
+        d = bot.ob_dict(o, close, o.detected_idx >= len(df) - 2)
         d["t"] = wall_epoch(max(o.ob_time, start))
         obs.append(d)
     evs = []
