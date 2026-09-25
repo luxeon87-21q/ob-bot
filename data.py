@@ -138,13 +138,23 @@ def to_4h(hourly: pd.DataFrame, now_et: pd.Timestamp | None = None) -> pd.DataFr
         "low": g["low"].min(),
         "close": g["close"].last(),
         "volume": g["volume"].sum(),
+        "n": g["close"].count(),
     }).dropna(subset=["open", "high", "low", "close"])
     out.index.name = "time"
 
     now_et = now_et or pd.Timestamp.now(tz=ET)
     end = out.index + pd.to_timedelta(
         [240 if t.hour == 9 else 150 for t in out.index], unit="min")
-    return out[end <= now_et]
+    out = out[end <= now_et]
+    # Последняя свеча: Yahoo мог ещё не отдать все часовые бары (09:30-бар = 4 часа, 13:30-бар = 3).
+    # Пока свеча «свежая» (< 3 ч после закрытия) и неполная — не считаем её закрытой.
+    if len(out):
+        t = out.index[-1]
+        need = 4 if t.hour == 9 else 3
+        t_end = t + pd.Timedelta(minutes=240 if t.hour == 9 else 150)
+        if out["n"].iloc[-1] < need and now_et - t_end < pd.Timedelta(hours=3):
+            out = out.iloc[:-1]
+    return out.drop(columns="n")
 
 
 def _download(tickers: List[str], period: str) -> Dict[str, pd.DataFrame]:
