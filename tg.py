@@ -177,11 +177,15 @@ def broadcast(token: str, st: dict, msg_all: str, msg_new: str) -> int:
         text = msg_new if sub.get("only_new", True) else msg_all
         if not text:
             continue
+        ok = True
         for part in chunks(text):
+            delivered = False
             for attempt in range(3):
                 try:
-                    api(token, "sendMessage", chat_id=cid, text=part, parse_mode="HTML",
-                        disable_web_page_preview=True)
+                    r = api(token, "sendMessage", chat_id=cid, text=part, parse_mode="HTML",
+                            disable_web_page_preview=True)
+                    delivered = True
+                    log.info("→ %s (%s): сообщение %s", cid, sub.get("name", ""), r.get("message_id"))
                     break
                 except Exception as e:
                     msg = str(e)
@@ -193,8 +197,10 @@ def broadcast(token: str, st: dict, msg_all: str, msg_new: str) -> int:
                     else:
                         log.warning("sendMessage %s: %s", cid, msg)
                         time.sleep(1)
+            ok = ok and delivered
             time.sleep(0.05)          # лимит Telegram ~30 сообщений/сек
-        sent += 1
+        if ok:
+            sent += 1
     return sent
 
 
