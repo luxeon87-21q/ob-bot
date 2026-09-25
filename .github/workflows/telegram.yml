@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: repo-write
+  group: telegram
   cancel-in-progress: false
 
 jobs:
@@ -33,5 +33,7 @@ jobs:
           if [ -e cache/tg_settings.json ]; then git add -f cache/tg_settings.json; fi
           if git diff --cached --quiet; then echo "без изменений"; exit 0; fi
           git commit -m "Настройки Telegram [skip ci]"
-          git pull --rebase -X theirs || true
-          git push || echo "push не удался"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs && git push && break
+            sleep 5
+          done
