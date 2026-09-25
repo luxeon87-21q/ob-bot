@@ -19,38 +19,19 @@ import pandas as pd
 
 import bot
 import data
+import tg
 import web
 
 BASE = Path(__file__).resolve().parent
 SITE = BASE / "site"
-CHAT_FILE = BASE / "cache" / "chat_id"
 log = logging.getLogger("ob_bot.site")
 
 
-def discover_chat_id(token: str) -> str:
-    """Если TELEGRAM_CHAT_ID не задан — берём чат, из которого боту писали /start."""
-    if CHAT_FILE.exists():
-        return CHAT_FILE.read_text().strip()
-    try:
-        ups = bot.tg("getUpdates", token)
-    except Exception as e:
-        log.warning("getUpdates: %s", e)
-        return ""
-    for u in reversed(ups):
-        ch = (u.get("message") or {}).get("chat") or {}
-        if ch.get("type") == "private" and ch.get("id"):
-            cid = str(ch["id"])
-            CHAT_FILE.parent.mkdir(exist_ok=True)
-            CHAT_FILE.write_text(cid)
-            bot.send("✅ Бот ордер-блоков подключён. Сигналы будут приходить сюда после закрытия "
-                     "4H свечей (20:40 и 23:10 по Кишинёву).", dict(token=token, chat_id=cid))
-            return cid
-    return ""
-
-
 def build(s: dict, telegram: bool) -> None:
-    if telegram and s["token"] and not s["chat_id"]:
-        s["chat_id"] = discover_chat_id(s["token"])
+    tgs = tg.process_updates(s["token"]) if telegram and s["token"] else tg.load()
+    if not s["chat_id"]:
+        s["chat_id"] = tgs.get("chat_id", "")
+    s["only_new"] = bool(tgs.get("only_new"))
     run = dict(s)
     if not telegram:
         run["token"] = ""
@@ -86,7 +67,8 @@ def build(s: dict, telegram: bool) -> None:
     nxt = bot.next_run(now, 10) + pd.Timedelta(minutes=10)   # GitHub запускает с небольшой задержкой
     (SITE / "data" / "status.json").write_text(json.dumps(dict(
         running=False, last_run=now.isoformat(), next_run=nxt.isoformat(), last_error=None,
-        last_signals=n, telegram=bool(telegram and s["token"] and s["chat_id"]))), encoding="utf-8")
+        last_signals=n, telegram=bool(telegram and s["token"] and s["chat_id"]),
+        only_new=s["only_new"])), encoding="utf-8")
     log.info("сайт собран: %d графиков", ok)
 
 
