@@ -85,8 +85,16 @@ def process_updates(token: str) -> dict:
         if ch.get("type") != "private":
             continue
         cid = str(ch["id"])
-        text = (m.get("text") or "").strip().split("@")[0].lower()
+        words = (m.get("text") or "").strip().split()
+        text = words[0].split("@")[0].lower() if words else ""
         first = not st.get("chat_id")
+        if not first and cid != str(st["chat_id"]):
+            # бот личный: чужим не отвечаем командами и не отдаём сигналы
+            try:
+                api(token, "sendMessage", chat_id=cid, text="⛔ Это личный бот, он уже подключён к другому пользователю.")
+            except Exception as e:
+                log.warning("sendMessage: %s", e)
+            continue
         st["chat_id"] = cid
         if text in ("/only_new", "/onlynew", "/new"):
             st["only_new"] = True
