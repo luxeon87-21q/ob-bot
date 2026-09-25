@@ -1,0 +1,37 @@
+name: Команды Telegram
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  commands:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Обработать команды боту
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        run: python tg.py
+      - name: Сохранить настройки
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          if [ -e cache/tg_settings.json ]; then git add -f cache/tg_settings.json; fi
+          if git diff --cached --quiet; then echo "без изменений"; exit 0; fi
+          git commit -m "Настройки Telegram [skip ci]"
+          git pull --rebase -X theirs || true
+          git push || echo "push не удался"
