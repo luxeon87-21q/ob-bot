@@ -2,11 +2,10 @@ name: Проверка ордер-блоков
 
 on:
   schedule:
-    # после закрытия 4H свечей (13:30 и 16:00 Нью-Йорк), летнее и зимнее время
-    - cron: '40 17 * * 1-5'
-    - cron: '40 18 * * 1-5'
-    - cron: '10 20 * * 1-5'
-    - cron: '10 21 * * 1-5'
+    # GitHub часто пропускает запуски по расписанию, поэтому стучимся каждые 20 минут
+    # в окне закрытия свечей (13:30 и 16:00 Нью-Йорк, летнее и зимнее время).
+    # Если новой свечи ещё нет, запуск завершается за несколько секунд (--if-new).
+    - cron: '7,27,47 17-22 * * 1-5'
   workflow_dispatch: {}
 
 permissions:
@@ -43,19 +42,21 @@ jobs:
           restore-keys: bars-
 
       - name: Проверка + сборка сайта
+        id: scan
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python build_site.py
+        run: python build_site.py ${{ github.event_name == 'schedule' && '--if-new' || '' }}
 
       - name: Сохранить кэш свечей
-        if: always()
+        if: always() && steps.scan.outputs.skip != 'true'
         uses: actions/cache/save@v4
         with:
           path: cache/bars
           key: bars-${{ github.run_id }}
 
       - name: Сохранить состояние
+        if: steps.scan.outputs.skip != 'true'
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
@@ -69,8 +70,11 @@ jobs:
           done
 
       - uses: actions/configure-pages@v5
+        if: steps.scan.outputs.skip != 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.scan.outputs.skip != 'true'
         with:
           path: site
       - id: deployment
+        if: steps.scan.outputs.skip != 'true'
         uses: actions/deploy-pages@v4
