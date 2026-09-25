@@ -1,0 +1,13 @@
+# Свой список тикеров — по одному на строку.
+# Используется, если в .env указано UNIVERSE=file (или, например, UNIVERSE=sp500,file)
+# Тикеры с точкой пишите через дефис: BRK-B
+AAPL
+MSFT
+NVDA
+TSLA
+AMZN
+META
+GOOGL
+AMD
+PLTR
+COIN
