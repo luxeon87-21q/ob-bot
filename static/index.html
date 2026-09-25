@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ордер-блоки 4H</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel2:#f0f2f5; --line:#e3e6eb; --text:#141820; --muted:#6b7280;
+  --bull:#169400; --bull-bg:rgba(22,148,0,.12); --bear:#e5250f; --bear-bg:rgba(229,37,15,.11);
+  --accent:#2f6fed; --warn:#b7791f; --chart-grid:#eef0f3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1116; --panel:#151a21; --panel2:#1b212a; --line:#262d38; --text:#e6e9ee; --muted:#8b95a5;
+    --bull:#3fbf2a; --bull-bg:rgba(63,191,42,.14); --bear:#ff5a45; --bear-bg:rgba(255,90,69,.13);
+    --accent:#5b8cff; --warn:#e0a84a; --chart-grid:#1c222b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --panel:#151a21; --panel2:#1b212a; --line:#262d38; --text:#e6e9ee; --muted:#8b95a5;
+  --bull:#3fbf2a; --bull-bg:rgba(63,191,42,.14); --bear:#ff5a45; --bear-bg:rgba(255,90,69,.13);
+  --accent:#5b8cff; --warn:#e0a84a; --chart-grid:#1c222b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+a{color:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar{max-width:1280px;margin:0 auto;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:-.01em;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.brand i{display:inline-block;width:14px;height:14px;border-radius:3px;background:linear-gradient(135deg,var(--bull) 50%,var(--bear) 50%)}
+nav{display:flex;gap:2px;background:var(--panel2);padding:3px;border-radius:9px}
+nav button{border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:6px 12px;border-radius:7px;cursor:pointer}
+nav button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.spacer{flex:1}
+.status{color:var(--muted);font-size:12.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px}
+.dot.ok{background:var(--bull)} .dot.run{background:var(--warn);animation:p 1s infinite} .dot.err{background:var(--bear)}
+@keyframes p{50%{opacity:.3}}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-weight:500;padding:6px 12px;border-radius:8px;cursor:pointer}
+.btn:hover{border-color:var(--accent)} .btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.icon-btn{border:0;background:none;color:var(--muted);cursor:pointer;padding:4px;display:flex}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.view{display:none} .view.on{display:block}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--muted);font:inherit;font-size:13px;padding:5px 10px;border-radius:999px;cursor:pointer}
+.chip.on{color:var(--text);border-color:var(--text)}
+input[type=search],input[type=text]{border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;padding:6px 10px;border-radius:8px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+/* signals */
+.day{padding:8px 14px;font-size:12px;font-weight:600;color:var(--muted);background:var(--panel2);border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.04em}
+.sig{display:grid;grid-template-columns:54px 84px minmax(0,1fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.sig:hover{background:var(--panel2)}
+.sig .tk{font-weight:700}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.badge.bull{color:var(--bull);background:var(--bull-bg)} .badge.bear{color:var(--bear);background:var(--bear-bg)}
+.badge.gray{color:var(--muted);background:var(--panel2)}
+.sig .desc{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sig .desc b{color:var(--text);font-weight:500}
+.time{color:var(--muted);font-size:12.5px}
+/* table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;font-size:12px;text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;user-select:none}
+th.r,td.r{text-align:right}
+th .arr{opacity:.6}
+td{padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
+.up{color:var(--bull)} .down{color:var(--bear)}
+.zone{display:flex;gap:8px;align-items:center}
+.meter{width:56px;height:5px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%}
+.count{color:var(--muted);font-size:12.5px;margin-left:auto}
+/* chart */
+.chart-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start}
+.chart-head{display:flex;gap:12px;align-items:baseline;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.chart-head h2{margin:0;font-size:20px}
+#chartBox{position:relative;height:max(420px,calc(100vh - 230px))}
+.side{max-height:calc(100vh - 150px);overflow:auto}
+#cv{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#legend{position:absolute;left:8px;top:6px;font-size:12px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--panel) 85%,transparent);padding:2px 6px;border-radius:6px}
+.side h3{margin:0;padding:12px 14px;font-size:13px;border-bottom:1px solid var(--line)}
+.obrow{padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.obrow .z{font-weight:500}
+.obrow .m{color:var(--muted);font-size:12px}
+.hint{color:var(--muted);font-size:12.5px;margin-top:10px}
+@media (max-width:900px){
+  .chart-layout{grid-template-columns:1fr} #chartBox{height:420px}
+  .sig{grid-template-columns:40px 58px minmax(0,1fr);gap:8px;padding:10px 12px} .sig .desc{white-space:normal;line-height:1.7}
+  .status{order:5;width:100%;gap:8px;font-size:12px} .bar{gap:10px}
+  .hide-sm{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand"><i></i>Ордер-блоки 4H</div>
+    <nav id="tabs">
+      <button data-v="signals" class="on">Сигналы</button>
+      <button data-v="screener">Скринер</button>
+      <button data-v="chart">График</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="status" id="status"><span><span class="dot"></span>…</span></div>
+    <button class="btn primary" id="scanBtn">Проверить сейчас</button>
+    <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Тема"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+  </div>
+</header>
+
+<main>
+  <!-- СИГНАЛЫ -->
+  <section class="view on" id="v-signals">
+    <div class="toolbar">
+      <div class="chips" id="sigType">
+        <button class="chip on" data-f="all">Все</button>
+        <button class="chip" data-f="formed">Новые OB</button>
+        <button class="chip" data-f="touched">Касания</button>
+        <button class="chip" data-f="mitigated">Пробития</button>
+      </div>
+      <div class="chips" id="sigSide">
+        <button class="chip on" data-f="all">Обе стороны</button>
+        <button class="chip" data-f="bull">Бычьи</button>
+        <button class="chip" data-f="bear">Медвежьи</button>
+      </div>
+      <input type="search" id="sigSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="sigCount"></span>
+    </div>
+    <div class="card" id="sigList"><div class="empty">Загрузка…</div></div>
+  </section>
+
+  <!-- СКРИНЕР -->
+  <section class="view" id="v-screener">
+    <div class="toolbar">
+      <div class="chips" id="scrFilter">
+        <button class="chip on" data-f="all">Все</button>
+        <button class="chip" data-f="in">Цена в зоне OB</button>
+        <button class="chip" data-f="near">До зоны ≤ 2%</button>
+      </div>
+      <div class="chips" id="scrSide">
+        <button class="chip on" data-f="all">Обе стороны</button>
+        <button class="chip" data-f="bull">У бычьего OB</button>
+        <button class="chip" data-f="bear">У медвежьего OB</button>
+      </div>
+      <input type="search" id="scrSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="scrCount"></span>
+    </div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-k="ticker">Тикер</th>
+          <th data-k="close" class="r">Цена</th>
+          <th data-k="chg" class="r hide-sm">За день</th>
+          <th data-k="bullDist">Ближайший бычий OB (поддержка)</th>
+          <th data-k="bearDist">Ближайший медвежий OB (сопротивление)</th>
+        </tr></thead>
+        <tbody id="scrBody"><tr><td colspan="5" class="empty">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint">«До зоны» — сколько процентов цене пройти до края ордер-блока. 0% значит, что цена уже в зоне. Учитываются последние непробитые OB каждой стороны, сколько задано в OB_TRACK_LAST.</div>
+  </section>
+
+  <!-- ГРАФИК -->
+  <section class="view" id="v-chart">
+    <div class="toolbar">
+      <form id="tkForm" style="display:flex;gap:6px">
+        <input type="text" id="tkInput" placeholder="Тикер, напр. NVDA" style="width:160px;text-transform:uppercase">
+        <button class="btn">Показать</button>
+      </form>
+      <span class="count" id="chartMsg"></span>
+    </div>
+    <div class="chart-layout">
+      <div class="card">
+        <div class="chart-head" id="chartHead"><h2>—</h2></div>
+        <div id="chartBox"><canvas id="cv"></canvas><div id="legend" class="mono"></div></div>
+      </div>
+      <div class="card side" id="chartSide"><h3>Действующие ордер-блоки</h3><div class="empty">Выберите тикер</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const STATIC = !!window.OB_STATIC;   // статическая версия (GitHub Pages): данные — готовые JSON-файлы
+function staticPath(p) {
+  if (p.startsWith('/api/status')) return 'data/status.json';
+  if (p.startsWith('/api/snapshot')) return 'data/snapshot.json';
+  if (p.startsWith('/api/signals')) return 'data/signals.json';
+  if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
+  return p;
+}
+const api = (p, o) => {
+  const url = STATIC ? staticPath(p) + '?v=' + Math.floor(Date.now() / 60000) : p;
+  return fetch(url, o).then(r => {
+    if (STATIC && r.status === 404 && p.startsWith('/api/chart/')) return {error: 'Нет данных по ' + decodeURIComponent(p.slice(11)) + ' — тикер не входит в список'};
+    return r.json();
+  });
+};
+const fmt = x => x == null ? '—' : Number(x).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const pct = x => (x > 0 ? '+' : '') + Number(x).toFixed(2).replace('.', ',') + '%';
+const dtf = iso => { const d = iso.slice(0, 16); return d.slice(8, 10) + '.' + d.slice(5, 7) + ' ' + d.slice(11, 16); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TYPE = {formed: 'Новый OB', touched: 'Касание', mitigated: 'Пробит'};
+const SIDE = {bull: 'бычий', bear: 'медвежий'};
+
+/* ---------- тема ---------- */
+(() => { try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+$('#themeBtn').onclick = () => {
+  const dark = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() === '#0e1116';
+  const t = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('theme', t); } catch (e) {}
+  chartDraw();
+};
+
+/* ---------- вкладки ---------- */
+function show(v) {
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  if (v === 'chart') requestAnimationFrame(chartDraw);
+}
+$$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v; });
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
+  else show(['signals', 'screener', 'chart'].includes(h) ? h : 'signals');
+}
+window.addEventListener('hashchange', route);
+const openChart = t => { location.hash = 'chart/' + t; };
+
+function chipGroup(sel, onChange) {
+  const g = $(sel); let val = 'all';
+  g.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    g.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === c));
+    val = c.dataset.f; onChange();
+  });
+  return () => val;
+}
+
+/* ---------- статус ---------- */
+async function refreshStatus() {
+  let st; try { st = await api('/api/status'); } catch (e) { $('#status').innerHTML = '<span><span class="dot err"></span>нет связи с ботом</span>'; return; }
+  const parts = [];
+  if (st.running) {
+    const p = st.total ? ` ${st.done}/${st.total}` : '';
+    parts.push(`<span><span class="dot run"></span>${esc(st.stage || 'проверка')}${p}</span>`);
+  } else if (st.last_error) {
+    parts.push(`<span title="${esc(st.last_error)}"><span class="dot err"></span>ошибка проверки</span>`);
+  } else if (st.last_run) {
+    parts.push(`<span><span class="dot ok"></span>проверено ${dtf(st.last_run)} ET</span>`);
+  }
+  if (st.next_run) parts.push(`<span>следующая ${dtf(st.next_run)} ET</span>`);
+  parts.push(`<span>Telegram: ${st.telegram ? 'вкл' : 'выкл'}</span>`);
+  $('#status').innerHTML = parts.join('');
+  $('#scanBtn').disabled = st.running;
+  if (wasRunning && !st.running) loadAll();
+  if (STATIC && lastRunSeen && st.last_run !== lastRunSeen) loadAll();
+  lastRunSeen = st.last_run;
+  wasRunning = st.running;
+}
+let wasRunning = false, lastRunSeen = null;
+if (STATIC) $('#scanBtn').style.display = 'none';
+$('#scanBtn').onclick = async () => { await api('/api/scan', {method: 'POST'}); refreshStatus(); };
+
+/* ---------- сигналы ---------- */
+let signals = [];
+const sigType = chipGroup('#sigType', renderSignals);
+const sigSide = chipGroup('#sigSide', renderSignals);
+$('#sigSearch').oninput = renderSignals;
+function renderSignals() {
+  const q = $('#sigSearch').value.trim().toUpperCase();
+  const rows = signals.filter(r => (sigType() === 'all' || r.type === sigType()) &&
+    (sigSide() === 'all' || r.side === sigSide()) && (!q || r.ticker.startsWith(q)));
+  $('#sigCount').textContent = rows.length ? `${rows.length} сигналов` : '';
+  if (!rows.length) { $('#sigList').innerHTML = `<div class="empty">${signals.length ? 'Под фильтр ничего не попало' : 'Сигналов пока нет — они появятся после первой проверки'}</div>`; return; }
+  let html = '', day = '';
+  for (const r of rows.slice(0, 400)) {
+    const d = r.bar_time.slice(0, 10);
+    if (d !== day) { day = d; html += `<div class="day">${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}</div>`; }
+    const icon = r.type === 'formed' ? (r.side === 'bull' ? '▲' : '▼') : r.type === 'touched' ? '◆' : '✕';
+    const cls = r.type === 'mitigated' ? 'gray' : r.side;
+    let desc = `зона <b class="mono">${fmt(r.btm)} – ${fmt(r.top)}</b>`;
+    if (r.type === 'touched') desc += r.side === 'bull' ? ` · мин <span class="mono">${fmt(r.low)}</span>` : ` · макс <span class="mono">${fmt(r.high)}</span>`;
+    desc += ` · закрытие <span class="mono">${fmt(r.close)}</span>`;
+    html += `<div class="sig" data-t="${esc(r.ticker)}">
+      <span class="time mono">${r.bar_time.slice(11, 16)}</span>
+      <span class="tk">${esc(r.ticker)}</span>
+      <span class="desc"><span class="badge ${cls}">${icon} ${TYPE[r.type]} ${SIDE[r.side]}</span>&nbsp; ${desc}</span>
+      </div>`;
+  }
+  $('#sigList').innerHTML = html;
+  $$('#sigList .sig').forEach(el => el.onclick = () => openChart(el.dataset.t));
+}
+
+/* ---------- скринер ---------- */
+let snap = null, sortK = 'minDist', sortDir = 1;
+const scrFilter = chipGroup('#scrFilter', renderScreener);
+const scrSide = chipGroup('#scrSide', renderScreener);
+$('#scrSearch').oninput = renderScreener;
+$$('th[data-k]').forEach(th => th.onclick = () => {
+  const k = th.dataset.k; sortDir = sortK === k ? -sortDir : 1; sortK = k; renderScreener();
+});
+function nearest(obs, side) {
+  const xs = obs.filter(o => o.side === side).sort((a, b) => a.dist - b.dist);
+  return xs[0] || null;
+}
+function zoneCell(o) {
+  if (!o) return '<span style="color:var(--muted)">—</span>';
+  const w = Math.max(4, 100 - Math.min(o.dist, 10) * 10);
+  const label = o.dist === 0 ? `<span class="badge ${o.side}">в зоне</span>` : `<span class="mono">${o.dist.toFixed(2).replace('.', ',')}%</span>`;
+  return `<div class="zone"><span class="meter"><i style="width:${w}%;background:var(--${o.side})"></i></span>${label}
+    <span class="mono" style="color:var(--muted)">${fmt(o.btm)}–${fmt(o.top)}</span></div>`;
+}
+function renderScreener() {
+  if (!snap) { $('#scrBody').innerHTML = '<tr><td colspan="5" class="empty">Данных ещё нет — нажмите «Проверить сейчас»</td></tr>'; return; }
+  const q = $('#scrSearch').value.trim().toUpperCase();
+  const f = scrFilter(), sd = scrSide();
+  let rows = snap.rows.map(r => {
+    const b = nearest(r.obs, 'bull'), s = nearest(r.obs, 'bear');
+    return {...r, b, s, bullDist: b ? b.dist : 1e9, bearDist: s ? s.dist : 1e9};
+  });
+  rows = rows.filter(r => {
+    if (q && !r.ticker.startsWith(q)) return false;
+    const d = sd === 'bull' ? r.bullDist : sd === 'bear' ? r.bearDist : Math.min(r.bullDist, r.bearDist);
+    if (f === 'in') return d === 0;
+    if (f === 'near') return d <= 2;
+    return sd === 'all' || d < 1e9;
+  });
+  rows.forEach(r => r.minDist = sd === 'bull' ? r.bullDist : sd === 'bear' ? r.bearDist : Math.min(r.bullDist, r.bearDist));
+  rows.sort((a, b) => (a[sortK] > b[sortK] ? 1 : a[sortK] < b[sortK] ? -1 : 0) * sortDir);
+  $$('th[data-k]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.k === sortK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${sortDir > 0 ? '↑' : '↓'}</span>`); });
+  $('#scrCount').textContent = `${rows.length} из ${snap.rows.length} акций · данные на ${dtf(snap.updated)} ET`;
+  $('#scrBody').innerHTML = rows.slice(0, 600).map(r => `<tr data-t="${esc(r.ticker)}">
+      <td><b>${esc(r.ticker)}</b></td>
+      <td class="r mono">${fmt(r.close)}</td>
+      <td class="r mono hide-sm ${r.chg >= 0 ? 'up' : 'down'}">${pct(r.chg)}</td>
+      <td>${zoneCell(r.b)}</td><td>${zoneCell(r.s)}</td></tr>`).join('') ||
+    '<tr><td colspan="5" class="empty">Под фильтр ничего не попало</td></tr>';
+  $$('#scrBody tr[data-t]').forEach(el => el.onclick = () => openChart(el.dataset.t));
+}
+
+/* ---------- график (свой canvas, без внешних библиотек) ---------- */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const AXW = 70, AXH = 26, RPAD = 8;
+let cur = null, view = {bw: 7, right: 0}, hover = null, drag = null;
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= raw) return m * p;
+  return 10 * p;
+}
+const tDate = t => { const d = new Date(t * 1000); return String(d.getUTCDate()).padStart(2, '0') + '.' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+const tTime = t => { const d = new Date(t * 1000); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function idxOfTime(t) {           // первый бар с time >= t
+  const C = cur.candles; let a = 0, b = C.length - 1;
+  while (a < b) { const m = (a + b) >> 1; if (C[m].time < t) a = m + 1; else b = m; }
+  return a;
+}
+function chartDraw() {
+  const box = $('#chartBox'), W = box.clientWidth, H = box.clientHeight;
+  if (!W || !H) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const col = {bg: css('--panel'), grid: css('--chart-grid'), text: css('--muted'), line: css('--line'), fg: css('--text'),
+    bull: css('--bull'), bear: css('--bear'), bullBg: css('--bull-bg'), bearBg: css('--bear-bg'), warn: css('--warn')};
+  ctx.fillStyle = col.bg; ctx.fillRect(0, 0, W, H);
+  if (!cur) return;
+  const C = cur.candles, n = C.length, pw = W - AXW, ph = H - AXH, bw = view.bw;
+  const xOf = i => pw - (view.right - i) * bw - bw / 2;
+  const i0 = Math.max(0, Math.floor(view.right - pw / bw)), i1 = Math.min(n - 1, Math.ceil(view.right));
+  let lo = Infinity, hi = -Infinity, vmax = 0;
+  for (let i = i0; i <= i1; i++) { lo = Math.min(lo, C[i].low); hi = Math.max(hi, C[i].high); vmax = Math.max(vmax, C[i].volume); }
+  if (!isFinite(lo)) return;
+  const pad = (hi - lo) * 0.07 || 1; lo -= pad; hi += pad;
+  const top = 10, bot = ph - 6;
+  const yOf = p => top + (hi - p) / (hi - lo) * (bot - top);
+  const pOf = y => hi - (y - top) / (bot - top) * (hi - lo);
+  ctx.font = '11px "JetBrains Mono", ui-monospace, monospace'; ctx.textBaseline = 'middle';
+
+  // сетка цены
+  const step = niceStep((hi - lo) / Math.max(2, ph / 56));
+  ctx.strokeStyle = col.grid; ctx.lineWidth = 1; ctx.fillStyle = col.text; ctx.textAlign = 'left';
+  for (let p = Math.ceil(lo / step) * step; p <= hi; p += step) {
+    const y = Math.round(yOf(p)) + .5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pw, y); ctx.stroke();
+    ctx.fillText(fmt(p), pw + 8, y);
+  }
+  // сетка времени: подпись при смене дня, прореживание по ширине
+  const every = Math.max(1, Math.ceil(90 / (bw * 2)));  // 2 бара в дне
+  let dayN = 0, prevDay = null;
+  ctx.textAlign = 'center';
+  for (let i = i0; i <= i1; i++) {
+    const d = tDate(C[i].time);
+    if (d === prevDay) continue;
+    prevDay = d; dayN++;
+    if (dayN % every) continue;
+    const x = Math.round(xOf(i) - bw / 2) + .5;
+    if (x < 0 || x > pw) continue;
+    ctx.strokeStyle = col.grid; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ph); ctx.stroke();
+    const dt = new Date(C[i].time * 1000);
+    const lbl = dt.getUTCDate() === 1 || every > 20 ? MONTHS[dt.getUTCMonth()] + (dt.getUTCMonth() === 0 ? ' ' + dt.getUTCFullYear() : '') : d;
+    ctx.fillStyle = col.text; ctx.fillText(lbl, x, ph + AXH / 2);
+  }
+
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, pw, ph); ctx.clip();
+  // объём
+  const vh = ph * 0.16;
+  for (let i = i0; i <= i1; i++) {
+    const c = C[i], h = vmax ? c.volume / vmax * vh : 0;
+    ctx.fillStyle = c.close >= c.open ? col.bullBg : col.bearBg;
+    ctx.fillRect(xOf(i) - bw * .4, ph - h, Math.max(1, bw * .8), h);
+  }
+  // ордер-блоки
+  for (const o of cur.obs) {
+    const i = idxOfTime(o.t), x = Math.max(0, xOf(i) - bw / 2);
+    if (x >= pw) continue;
+    const y1 = yOf(o.top), y2 = yOf(o.btm);
+    ctx.fillStyle = o.side === 'bull' ? col.bullBg : col.bearBg;
+    ctx.fillRect(x, y1, pw - x, y2 - y1);
+    ctx.strokeStyle = o.side === 'bull' ? col.bull : col.bear; ctx.globalAlpha = .45;
+    ctx.beginPath(); ctx.moveTo(x, Math.round(y1) + .5); ctx.lineTo(pw, Math.round(y1) + .5);
+    ctx.moveTo(x, Math.round(y2) + .5); ctx.lineTo(pw, Math.round(y2) + .5); ctx.stroke();
+    ctx.globalAlpha = .7; ctx.strokeStyle = 'rgb(149,152,161)'; ctx.setLineDash([4, 3]);
+    const ym = Math.round(yOf((o.top + o.btm) / 2)) + .5;
+    ctx.beginPath(); ctx.moveTo(x, ym); ctx.lineTo(pw, ym); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  // свечи
+  const cw = Math.max(1, bw * .7);
+  for (let i = i0; i <= i1; i++) {
+    const c = C[i], x = xOf(i), up = c.close >= c.open;
+    ctx.strokeStyle = ctx.fillStyle = up ? col.bull : col.bear;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + .5, yOf(c.high)); ctx.lineTo(Math.round(x) + .5, yOf(c.low)); ctx.stroke();
+    const yo = yOf(c.open), yc = yOf(c.close);
+    ctx.fillRect(x - cw / 2, Math.min(yo, yc), cw, Math.max(1, Math.abs(yc - yo)));
+  }
+  // отметки событий
+  for (const e of cur.events) {
+    if (e.type === 'mitigated') continue;
+    const i = idxOfTime(e.t); if (i < i0 || i > i1 || C[i].time !== e.t) continue;
+    const x = xOf(i), below = e.side === 'bull', c = C[i];
+    const y = below ? yOf(c.low) + 10 : yOf(c.high) - 10;
+    if (e.type === 'formed') {
+      ctx.fillStyle = below ? col.bull : col.bear; ctx.beginPath();
+      if (below) { ctx.moveTo(x, y - 4); ctx.lineTo(x - 5, y + 4); ctx.lineTo(x + 5, y + 4); }
+      else { ctx.moveTo(x, y + 4); ctx.lineTo(x - 5, y - 4); ctx.lineTo(x + 5, y - 4); }
+      ctx.fill();
+    } else {
+      ctx.fillStyle = col.warn; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7); ctx.fill();
+    }
+  }
+  // последняя цена
+  const last = C[n - 1], yl = Math.round(yOf(last.close)) + .5, lc = last.close >= last.open ? col.bull : col.bear;
+  ctx.strokeStyle = lc; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(0, yl); ctx.lineTo(pw, yl); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+  tag(pw, yl, fmt(last.close), lc, '#fff');
+
+  // перекрестие
+  let hi_ = n - 1;
+  if (hover && hover.x < pw && hover.y < ph) {
+    hi_ = Math.max(0, Math.min(n - 1, Math.round(view.right - (pw - hover.x - bw / 2) / bw)));
+    const x = Math.round(xOf(hi_)) + .5, y = Math.round(hover.y) + .5;
+    ctx.strokeStyle = col.text; ctx.globalAlpha = .6; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ph); ctx.moveTo(0, y); ctx.lineTo(pw, y); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    tag(pw, y, fmt(pOf(hover.y)), col.fg, col.bg);
+    const tl = tDate(C[hi_].time) + ' ' + tTime(C[hi_].time);
+    ctx.font = '11px "JetBrains Mono", monospace'; const tw = ctx.measureText(tl).width + 12;
+    ctx.fillStyle = col.fg; ctx.fillRect(x - tw / 2, ph + 3, tw, 19);
+    ctx.fillStyle = col.bg; ctx.textAlign = 'center'; ctx.fillText(tl, x, ph + 12.5);
+  }
+  const c = C[hi_];
+  const clr = c.close >= c.open ? 'up' : 'down';
+  $('#legend').innerHTML = `${tDate(c.time)} ${tTime(c.time)} ET &nbsp;Откр <span class="${clr}">${fmt(c.open)}</span> Макс <span class="${clr}">${fmt(c.high)}</span> Мин <span class="${clr}">${fmt(c.low)}</span> Закр <span class="${clr}">${fmt(c.close)}</span>`;
+
+  function tag(x, y, text, bg, fg) {
+    ctx.font = '11px "JetBrains Mono", monospace';
+    ctx.fillStyle = bg; ctx.fillRect(x + 1, y - 9, AXW - 2, 18);
+    ctx.fillStyle = fg; ctx.textAlign = 'left'; ctx.fillText(text, x + 8, y);
+  }
+}
+function clampView() {
+  if (!cur) return;
+  const n = cur.candles.length;
+  view.bw = Math.max(2, Math.min(40, view.bw));
+  view.right = Math.max(Math.min(n - 1, 15), Math.min(n - 1 + 60, view.right));
+}
+cv.addEventListener('wheel', e => {
+  if (!cur) return; e.preventDefault();
+  const pw = cv.clientWidth - AXW, r = cv.getBoundingClientRect(), x = e.clientX - r.left;
+  const at = view.right - (pw - x) / view.bw;
+  view.bw *= e.deltaY < 0 ? 1.12 : 1 / 1.12; clampView();
+  view.right = at + (pw - x) / view.bw; clampView(); chartDraw();
+}, {passive: false});
+cv.addEventListener('pointerdown', e => { drag = {x: e.clientX, right: view.right}; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+cv.addEventListener('pointermove', e => {
+  const r = cv.getBoundingClientRect(); hover = {x: e.clientX - r.left, y: e.clientY - r.top};
+  if (drag) { view.right = drag.right - (e.clientX - drag.x) / view.bw; clampView(); }
+  chartDraw();
+});
+cv.addEventListener('pointerup', () => { drag = null; cv.style.cursor = 'crosshair'; });
+cv.addEventListener('pointerleave', () => { if (!drag) { hover = null; chartDraw(); } });
+cv.addEventListener('dblclick', () => { resetView(); chartDraw(); });
+new ResizeObserver(() => chartDraw()).observe($('#chartBox'));
+function resetView() { if (!cur) return; view.bw = cv.clientWidth < 600 ? 5 : 7; view.right = cur.candles.length - 1 + RPAD; }
+
+async function loadChart(t) {
+  t = t.toUpperCase(); $('#tkInput').value = t;
+  $('#chartMsg').textContent = 'Загрузка…';
+  const d = await api('/api/chart/' + encodeURIComponent(t));
+  if (d.error) { $('#chartMsg').textContent = d.error; return; }
+  cur = d; $('#chartMsg').textContent = matchMedia('(pointer:coarse)').matches ? 'листайте график пальцем · двойной тап — сброс' : 'колесо — масштаб · тянуть — прокрутка · двойной клик — сброс';
+  resetView(); chartDraw();
+  const C = d.candles, last = C[C.length - 1], prev = C[C.length - 3] || last;
+  const ch = (last.close / prev.close - 1) * 100;
+  $('#chartHead').innerHTML = `<h2>${esc(t)}</h2><span class="mono" style="font-size:18px">${fmt(last.close)}</span>
+    <span class="mono ${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>
+    <span class="time">4H · свеча ${dtf(d.last_bar)} ET</span>
+    <a class="time" style="margin-left:auto" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t)}&interval=240">Открыть в TradingView ↗</a>`;
+  const obs = [...d.obs].sort((a, b) => a.dist - b.dist);
+  const evs = d.events.slice(-8).reverse();
+  $('#chartSide').innerHTML = `<h3>Действующие ордер-блоки</h3>` + (obs.length ? obs.map(o => `
+    <div class="obrow"><div><span class="badge ${o.side}">${o.side === 'bull' ? 'Бычий' : 'Медвежий'}</span>
+      <span class="z mono">&nbsp;${fmt(o.btm)} – ${fmt(o.top)}</span></div>
+      <div class="m">${o.dist === 0 ? 'цена в зоне' : 'до зоны ' + o.dist.toFixed(2).replace('.', ',') + '%'} · свеча ${dtf(o.ob_time)}</div></div>`).join('')
+    : '<div class="empty">Нет непробитых OB</div>') +
+    `<h3>Последние события</h3>` + (evs.length ? evs.map(e => `
+    <div class="obrow"><div><span class="badge ${e.type === 'mitigated' ? 'gray' : e.side}">${TYPE[e.type]} ${SIDE[e.side]}</span></div>
+      <div class="m mono">${dtf(e.bar_time)} · ${fmt(e.btm)}–${fmt(e.top)}</div></div>`).join('') : '<div class="empty">—</div>');
+}
+$('#tkForm').onsubmit = e => { e.preventDefault(); const t = $('#tkInput').value.trim(); if (t) openChart(t.toUpperCase()); };
+
+/* ---------- загрузка ---------- */
+async function loadAll() {
+  try { signals = await api('/api/signals?limit=1500'); } catch (e) { signals = []; }
+  try { snap = await api('/api/snapshot'); } catch (e) { snap = null; }
+  renderSignals(); renderScreener();
+}
+loadAll(); refreshStatus(); route();
+setInterval(refreshStatus, STATIC ? 60000 : 4000);
+</script>
+</body>
+</html>
