@@ -109,25 +109,36 @@ def test_to_4h_incomplete_last_bar():
     assert list(to_4h(hr, pd.Timestamp("2026-09-25 09:00", tz=et)).index.strftime("%H:%M")) == ["09:30", "13:30"]
 
 
-def test_telegram_private_bot(tmp_path):
+def test_telegram_subscribers(tmp_path):
     import tg
     tg.SETTINGS_FILE = tmp_path / "tg.json"
-    tg.LEGACY_CHAT_FILE = tmp_path / "none"
+    tg.LEGACY_CHAT_FILE = tmp_path / "chat_id"
+    tg.LEGACY_CHAT_FILE.write_text("111")                      # старый формат: один владелец
     sent, q = [], []
 
     def api(tok, method, **p):
         if method == "getUpdates":
             return [u for u in q if u["update_id"] >= (p.get("offset") or 0)]
-        sent.append(p["chat_id"])
+        sent.append((p["chat_id"], p["text"]))
 
     tg.api = api
     msg = lambda i, c, t: {"update_id": i, "message": {"chat": {"id": c, "type": "private"}, "text": t}}
-    q += [msg(1, 111, "/start"), msg(2, 999, "/all"), msg(3, 111, "/all")]
+    q += [msg(1, 222, "/start"), msg(2, 222, "/all"), msg(3, 333, "/only_new"), msg(4, 444, "/start"),
+          msg(5, 444, "/stop"), {"update_id": 6, "my_chat_member": {"chat": {"id": 111},
+                                                                    "new_chat_member": {"status": "kicked"}}}]
     st = tg.process_updates("x")
-    assert st["chat_id"] == "111" and st["only_new"] is False and st["offset"] == 3
-    q.append(msg(4, 111, "/only_new"))
-    assert tg.process_updates("x")["only_new"] is True
+    assert set(st["subs"]) == {"222"}                           # 111 заблокировал, 333 не подписан, 444 отписался
+    assert st["subs"]["222"]["only_new"] is False and st["owner"] == "111"
+    q.append(msg(7, 555, "/start"))
+    st = tg.process_updates("x")
+    assert set(st["subs"]) == {"222", "555"} and st["subs"]["555"]["only_new"] is True
 
+    sent.clear()
+    tg.broadcast("x", st, "ALL", "NEW")
+    assert sorted(sent) == [("222", "ALL\n"), ("555", "NEW\n")]
+    sent.clear()
+    tg.broadcast("x", st, "ALL", "")                            # новых OB нет — only_new молчит
+    assert sent == [("222", "ALL\n")]
 
 if __name__ == "__main__":
     test_matches_pine_reference(); test_scenario_formed_touched_mitigated(); test_to_4h_sessions()
