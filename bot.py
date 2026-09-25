@@ -127,6 +127,11 @@ SECTIONS = [
 ]
 
 
+def only_new(found: Dict[str, List[Event]]) -> Dict[str, List[Event]]:
+    out = {t: [e for e in evs if e.type == "formed"] for t, evs in found.items()}
+    return {t: evs for t, evs in out.items() if evs}
+
+
 def build_message(found: Dict[str, List[Event]]) -> str:
     if not found:
         return ""
@@ -200,7 +205,8 @@ def event_dict(t: str, e: Event) -> dict:
                 close=round(e.close, 4), high=round(e.high, 4), low=round(e.low, 4))
 
 
-def run_once(s: dict, dry: bool = False, progress=None) -> int:
+def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
+    """deliver(found) — своя доставка сигналов (рассылка подписчикам); иначе отправка в s['chat_id']."""
     tickers = data.load_universe(s["universe"], BASE / "tickers.txt")
     log.info("акций в списке: %d, загружаю свечи…", len(tickers))
     if progress:
@@ -246,11 +252,12 @@ def run_once(s: dict, dry: bool = False, progress=None) -> int:
         snap_rows.append(dict(ticker=t, close=round(close, 4), chg=round((close / prev - 1) * 100, 2),
                               bar_time=df.index[-1].isoformat(), obs=obs))
 
-    msg = build_message(found)
-    if msg:
-        send(msg, s, dry)
-    else:
+    if not found:
         log.info("новых сигналов нет")
+    elif deliver:
+        deliver(found)
+    else:
+        send(build_message(found), s, dry)
     save_state(state)
 
     STATE_FILE.parent.mkdir(exist_ok=True)
