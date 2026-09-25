@@ -28,15 +28,22 @@ log = logging.getLogger("ob_bot.site")
 
 
 def build(s: dict, telegram: bool) -> None:
-    # команды боту обрабатывает отдельная задача (telegram.yml); здесь только читаем настройки
+    # подписчиков и их команды ведёт отдельная задача (telegram.yml); здесь только читаем
     tgs = tg.load()
-    if not s["chat_id"]:
-        s["chat_id"] = tgs.get("chat_id", "")
-    s["only_new"] = bool(tgs.get("only_new"))
-    run = dict(s)
-    if not telegram:
-        run["token"] = ""
-    n = bot.run_once(run, dry=not (telegram and s["token"] and s["chat_id"]))
+    n_subs = len(tgs["subs"])
+    s["only_new"] = False                      # собираем все сигналы, режим выбирает каждый подписчик
+    live = bool(telegram and s["token"] and n_subs)
+
+    def deliver(found):
+        msg_all = bot.build_message(found)
+        msg_new = bot.build_message(bot.only_new(found))
+        if live:
+            k = tg.broadcast(s["token"], tgs, msg_all, msg_new)
+            log.info("разослано подписчикам: %d из %d", k, n_subs)
+        else:
+            print(msg_all)
+
+    n = bot.run_once(dict(s), dry=True, deliver=deliver)
     log.info("сигналов: %d", n)
 
     if SITE.exists():
@@ -68,8 +75,7 @@ def build(s: dict, telegram: bool) -> None:
     nxt = bot.next_run(now, 10) + pd.Timedelta(minutes=10)   # GitHub запускает с небольшой задержкой
     (SITE / "data" / "status.json").write_text(json.dumps(dict(
         running=False, last_run=now.isoformat(), next_run=nxt.isoformat(), last_error=None,
-        last_signals=n, telegram=bool(telegram and s["token"] and s["chat_id"]),
-        only_new=s["only_new"])), encoding="utf-8")
+        last_signals=n, telegram=live, subscribers=n_subs)), encoding="utf-8")
     log.info("сайт собран: %d графиков", ok)
 
 
