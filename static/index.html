@@ -590,7 +590,7 @@ async function loadChart(t) {
   $('#chartHead').innerHTML = `<h2>${esc(t)}</h2><span class="mono" style="font-size:18px">${fmt(last.close)}</span>
     <span class="mono ${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>
     <span class="time">4H · свеча ${dtf(d.last_bar)} ET</span>
-    <a class="time" style="margin-left:auto" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t)}&interval=240">Открыть в TradingView ↗</a>`;
+    <a class="time" style="margin-left:auto" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.replace(/-/g, '.'))}&interval=240">Открыть в TradingView ↗</a>`;
   const obs = [...d.obs].sort((a, b) => a.dist - b.dist);
   const evs = d.events.slice(-8).reverse();
   $('#chartSide').innerHTML = `<h3>Действующие ордер-блоки</h3>` + (obs.length ? obs.map(o => `
