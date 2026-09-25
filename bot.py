@@ -68,6 +68,7 @@ def settings():
         notify_formed=cfg("NOTIFY_FORMED", True, bool),
         notify_touched=cfg("NOTIFY_TOUCHED", True, bool),
         notify_mitigated=cfg("NOTIFY_MITIGATED", False, bool),
+        only_new=cfg("ONLY_NEW", False, bool),
         delay_min=cfg("CHECK_DELAY_MIN", 10, int),
     )
 
@@ -116,8 +117,8 @@ def link(t: str) -> str:
 
 
 SECTIONS = [
-    ("formed", "bull", "🟢 Новый бычий ордер-блок"),
-    ("formed", "bear", "🔴 Новый медвежий ордер-блок"),
+    ("formed", "bull", "🆕🟢 НОВЫЙ БЫЧИЙ ОРДЕР-БЛОК"),
+    ("formed", "bear", "🆕🔴 НОВЫЙ МЕДВЕЖИЙ ОРДЕР-БЛОК"),
     ("touched", "bull", "👇 Касание бычьего ордер-блока (поддержка)"),
     ("touched", "bear", "👆 Касание медвежьего ордер-блока (сопротивление)"),
     ("mitigated", "bull", "❌ Бычий ордер-блок пробит"),
@@ -131,6 +132,15 @@ def build_message(found: Dict[str, List[Event]]) -> str:
     bars = sorted({e.bar_time for evs in found.values() for e in evs})
     head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
     lines = [f"📊 <b>Ордер-блоки 4H</b> — свеча {head} ET"]
+    n_new = sum(1 for evs in found.values() for e in evs if e.type == "formed")
+    n_touch = sum(1 for evs in found.values() for e in evs if e.type == "touched")
+    summary = []
+    if n_new:
+        summary.append(f"🆕 новых OB: <b>{n_new}</b>")
+    if n_touch:
+        summary.append(f"касаний: {n_touch}")
+    if summary:
+        lines.append(" · ".join(summary))
     for etype, side, title in SECTIONS:
         rows = []
         for t in sorted(found):
@@ -172,14 +182,14 @@ HISTORY_FILE = BASE / "cache" / "signals.jsonl"
 HISTORY_SEED_BARS = 30      # при первом запуске кладём в ленту сигналы за последние ~15 дней (без отправки)
 
 
-def ob_dict(ob, close: float) -> dict:
+def ob_dict(ob, close: float, fresh: bool = False) -> dict:
     if ob.side == "bull":        # поддержка ниже цены
         dist = 0.0 if close <= ob.top else (close - ob.top) / close * 100
     else:                        # сопротивление выше цены
         dist = 0.0 if close >= ob.btm else (ob.btm - close) / close * 100
     return dict(side=ob.side, top=round(ob.top, 4), btm=round(ob.btm, 4),
                 ob_time=ob.ob_time.isoformat(), detected=ob.detected_time.isoformat(),
-                dist=round(dist, 3))
+                dist=round(dist, 3), fresh=fresh)
 
 
 def event_dict(t: str, e: Event) -> dict:
@@ -200,6 +210,8 @@ def run_once(s: dict, dry: bool = False, progress=None) -> int:
 
     wanted = {k for k, on in (("formed", s["notify_formed"]), ("touched", s["notify_touched"]),
                               ("mitigated", s["notify_mitigated"])) if on}
+    if s.get("only_new"):
+        wanted = {"formed"}
     state = load_state()
     found: Dict[str, List[Event]] = {}
     history: List[dict] = []
@@ -227,7 +239,8 @@ def run_once(s: dict, dry: bool = False, progress=None) -> int:
         close = float(df["close"].iloc[-1])
         prev = float(df["close"].iloc[-3]) if len(df) > 2 else close   # ~1 торговый день назад
         k = s["track_last"] or None
-        obs = [ob_dict(o, close) for o in bulls[:k]] + [ob_dict(o, close) for o in bears[:k]]
+        fresh_from = len(df) - 2          # «новый» = сформировался за последние 2 свечи (≈ торговый день)
+        obs = [ob_dict(o, close, o.detected_idx >= fresh_from) for o in bulls[:k] + bears[:k]]
         snap_rows.append(dict(ticker=t, close=round(close, 4), chg=round((close / prev - 1) * 100, 2),
                               bar_time=df.index[-1].isoformat(), obs=obs))
 
