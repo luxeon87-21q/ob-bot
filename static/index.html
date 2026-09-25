@@ -308,6 +308,7 @@ function paintOnlyNew() {
 }
 $('#onlyNew').onclick = () => { onlyNew = !onlyNew; store.set('onlyNew', onlyNew); paintOnlyNew(); renderSignals(); };
 paintOnlyNew();
+let heroAll = false;
 function renderHero() {
   const formed = signals.filter(r => r.type === 'formed');
   if (!formed.length) { $('#hero').innerHTML = ''; return; }
@@ -315,11 +316,13 @@ function renderHero() {
   const day = lastBar.slice(0, 10);
   const fresh = formed.filter(r => r.bar_time.slice(0, 10) === day).sort((a, b) => b.bar_time.localeCompare(a.bar_time));
   $('#hero').innerHTML = `<h3>🆕 Новые ордер-блоки <span class="sub">${day.slice(8, 10)}.${day.slice(5, 7)} · ${fresh.length} шт.</span></h3>
-    <div class="hero-grid">${fresh.map(r => `<div class="hcard ${r.side}" data-t="${esc(r.ticker)}">
+    <div class="hero-grid">${fresh.slice(0, heroAll ? 999 : 12).map(r => `<div class="hcard ${r.side}" data-t="${esc(r.ticker)}">
       <div class="t">${esc(r.ticker)}<span class="badge ${r.side}">${r.side === 'bull' ? '▲ бычий' : '▼ медвежий'}</span></div>
       <div class="z mono">${fmt(r.btm)} – ${fmt(r.top)} · закр. ${fmt(r.close)}</div>
-      <div class="z">свеча ${r.bar_time.slice(11, 16)} ET</div></div>`).join('')}</div>`;
+      <div class="z">свеча ${r.bar_time.slice(11, 16)} ET</div></div>`).join('')}</div>` +
+    (fresh.length > 12 ? `<button class="btn" id="heroMore" style="margin-top:8px">${heroAll ? 'Свернуть' : 'Показать все ' + fresh.length}</button>` : '');
   $$('#hero .hcard').forEach(el => el.onclick = () => openChart(el.dataset.t));
+  const hm = $('#heroMore'); if (hm) hm.onclick = () => { heroAll = !heroAll; renderHero(); };
 }
 function renderSignals() {
   renderHero();
