@@ -37,6 +37,10 @@ nav button{border:0;background:none;color:var(--muted);font:inherit;font-weight:
 nav button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .spacer{flex:1}
 .status{color:var(--muted);font-size:12.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.timer{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);color:var(--muted);white-space:nowrap}
+.timer b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;font-size:13.5px}
+.timer.soon{border-color:var(--accent)} .timer.soon b{color:var(--accent)}
+.timer.run{border-color:var(--warn)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:5px}
 .dot.ok{background:var(--bull)} .dot.run{background:var(--warn);animation:p 1s infinite} .dot.err{background:var(--bear)}
 @keyframes p{50%{opacity:.3}}
@@ -113,6 +117,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
   .chart-layout{grid-template-columns:1fr} #chartBox{height:420px}
   .sig{grid-template-columns:40px 58px minmax(0,1fr);gap:8px;padding:10px 12px} .sig .desc{white-space:normal;line-height:1.7}
   .status{order:5;width:100%;gap:8px;font-size:12px} .bar{gap:10px}
+  .timer{order:4}
   .hide-sm{display:none}
 }
 </style>
@@ -127,6 +132,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
       <button data-v="chart">График</button>
     </nav>
     <div class="spacer"></div>
+    <div class="timer" id="timer" title="Свечи 4H закрываются в 13:30 и 16:00 по Нью-Йорку (пн–пт). Сигналы появляются через 10–30 минут после закрытия.">⏱ …</div>
     <div class="status" id="status"><span><span class="dot"></span>…</span></div>
     <button class="btn primary" id="scanBtn">Проверить сейчас</button>
     <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Тема"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
@@ -283,7 +289,6 @@ async function refreshStatus() {
   } else if (st.last_run) {
     parts.push(`<span><span class="dot ok"></span>проверено ${dtf(st.last_run)} ET</span>`);
   }
-  if (st.next_run) parts.push(`<span>следующая ${dtf(st.next_run)} ET</span>`);
   parts.push(STATIC
     ? `<a href="https://t.me/OBDen_bot" target="_blank" style="color:inherit">Telegram-бот: @OBDen_bot${st.subscribers ? ' · ' + st.subscribers + ' подписч.' : ''}</a>`
     : `<span>Telegram: ${st.telegram ? 'вкл' : 'выкл'}</span>`);
@@ -292,9 +297,66 @@ async function refreshStatus() {
   if (wasRunning && !st.running) loadAll();
   if (STATIC && lastRunSeen && st.last_run !== lastRunSeen) loadAll();
   lastRunSeen = st.last_run;
+  lastRunMs = st.last_run ? Date.parse(st.last_run) : 0;
+  tickTimer();
   wasRunning = st.running;
 }
-let wasRunning = false, lastRunSeen = null;
+let wasRunning = false, lastRunSeen = null, lastRunMs = 0;
+
+/* ---------- таймер до следующей 4H свечи ---------- */
+// смещение Нью-Йорка от UTC (в минутах) на момент ms — учитывает летнее/зимнее время
+function nyOffset(ms) {
+  const s = new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', timeZoneName: 'shortOffset'})
+    .formatToParts(new Date(ms)).find(p => p.type === 'timeZoneName').value;   // "GMT-4"
+  const m = s.match(/GMT([+-]\d+)(?::(\d+))?/);
+  return m ? (+m[1]) * 60 + Math.sign(+m[1]) * (+(m[2] || 0)) : -300;
+}
+function nyToMs(y, mo, d, h, mi) {               // время Нью-Йорка -> UTC ms
+  const guess = Date.UTC(y, mo, d, h, mi);
+  return guess - nyOffset(guess - 5 * 3600e3) * 60e3;
+}
+function candleCloses(now) {                      // закрытия 4H свечей (13:30, 16:00 ET, пн–пт) вокруг now
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York',
+    year: 'numeric', month: 'numeric', day: 'numeric'}).formatToParts(new Date(now)).map(x => [x.type, x.value]));
+  const out = [];
+  for (let k = -4; k <= 8; k++) {
+    const base = new Date(Date.UTC(+p.year, +p.month - 1, +p.day + k));
+    const wd = base.getUTCDay();
+    if (wd === 0 || wd === 6) continue;
+    for (const [h, mi] of [[13, 30], [16, 0]])
+      out.push(nyToMs(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), h, mi));
+  }
+  return out;
+}
+const hms = ms => {
+  const t = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(t / 86400), h = Math.floor(t % 86400 / 3600),
+        m = Math.floor(t % 3600 / 60), s = t % 60, z = n => String(n).padStart(2, '0');
+  return (d ? d + 'д ' : '') + (d || h ? h + ':' + z(m) : m) + ':' + z(s);
+};
+const localHM = ms => new Date(ms).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+const localDay = ms => {
+  const a = new Date(ms), b = new Date();
+  if (a.toDateString() === b.toDateString()) return 'сегодня';
+  b.setDate(b.getDate() + 1);
+  if (a.toDateString() === b.toDateString()) return 'завтра';
+  return a.toLocaleDateString('ru-RU', {weekday: 'short', day: 'numeric', month: 'numeric'});
+};
+function tickTimer() {
+  const el = $('#timer'); if (!el) return;
+  const now = Date.now(), closes = candleCloses(now);
+  const prev = Math.max(...closes.filter(t => t <= now)), next = Math.min(...closes.filter(t => t > now));
+  const waiting = lastRunMs && lastRunMs < prev && now - prev < 75 * 60e3;   // свеча закрылась, данных ещё нет
+  if (waiting) {
+    el.className = 'timer run';
+    el.innerHTML = `<span class="dot run"></span>свеча закрылась ${Math.floor((now - prev) / 60e3)} мин назад · <b>обновление OB…</b>`;
+    return;
+  }
+  const left = next - now;
+  el.className = 'timer' + (left < 15 * 60e3 ? ' soon' : '');
+  el.innerHTML = `⏱ до обновления OB <b>${hms(left)}</b> <span class="hide-sm">· ${localDay(next) === 'сегодня' ? '' : localDay(next) + ' '}в ${localHM(next)}</span>`;
+}
+setInterval(tickTimer, 1000);
+tickTimer();
 if (STATIC) $('#scanBtn').style.display = 'none';
 $('#scanBtn').onclick = async () => { await api('/api/scan', {method: 'POST'}); refreshStatus(); };
 
@@ -613,7 +675,7 @@ async function loadAll() {
   renderSignals(); renderScreener();
 }
 loadAll(); refreshStatus(); route();
-setInterval(refreshStatus, STATIC ? 60000 : 4000);
+setInterval(refreshStatus, STATIC ? 30000 : 4000);
 </script>
 </body>
 </html>
