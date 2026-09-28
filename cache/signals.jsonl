@@ -2904,3 +2904,4 @@
 {"ticker": "WST", "type": "formed", "side": "bull", "bar_time": "2026-09-25T13:30:00-04:00", "top": 370.775, "btm": 368.2, "ob_time": "2026-09-23T09:30:00-04:00", "close": 370.38, "high": 371.5, "low": 369.63}
 {"ticker": "ZBH", "type": "formed", "side": "bear", "bar_time": "2026-09-25T13:30:00-04:00", "top": 93.25, "btm": 91.785, "ob_time": "2026-09-23T09:30:00-04:00", "close": 91.02, "high": 91.4101, "low": 90.87}
 {"ticker": "CCEP", "type": "formed", "side": "bear", "bar_time": "2026-09-25T13:30:00-04:00", "top": 102.45, "btm": 100.7475, "ob_time": "2026-09-23T09:30:00-04:00", "close": 101.77, "high": 102.25, "low": 101.265}
+{"ticker": "ADP", "type": "formed", "side": "bear", "bar_time": "2026-09-25T13:30:00-04:00", "top": 269.63, "btm": 266.07, "ob_time": "2026-09-23T09:30:00-04:00", "close": 263.78, "high": 264.52, "low": 263.13}
