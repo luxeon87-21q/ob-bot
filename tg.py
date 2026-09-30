@@ -7,10 +7,12 @@ Telegram-бот: подписчики, их команды и рассылка �
   /only_new  — присылать только новые ордер-блоки (по умолчанию)
   /all       — присылать все сигналы (новые OB + касания)
   /settings  — показать текущий режим
+  /wolfe     — включить/выключить волны Вульфа (отдельная функция)
+  /ob        — включить/выключить ордер-блоки
 
 Подписчики хранятся в cache/tg_settings.json:
   {"offset": 123, "owner": "<chat_id владельца>",
-   "subs": {"<chat_id>": {"only_new": true, "name": "Denis", "since": "2026-09-25"}}}
+   "subs": {"<chat_id>": {"only_new": true, "ob": true, "wolfe": true, "name": "Denis", "since": "2026-09-25"}}}
 
 Файл пишет только задача telegram.yml (раз в 10 минут); проверка акций его лишь читает.
 """
@@ -32,9 +34,11 @@ SITE_URL = "https://luxeon87-21q.github.io/ob-bot/"
 log = logging.getLogger("ob_bot.tg")
 
 COMMANDS = [
-    {"command": "only_new", "description": "Только новые ордер-блоки"},
-    {"command": "all", "description": "Все сигналы: новые OB и касания"},
-    {"command": "settings", "description": "Текущий режим"},
+    {"command": "only_new", "description": "Ордер-блоки: только новые"},
+    {"command": "all", "description": "Ордер-блоки: новые OB и касания"},
+    {"command": "wolfe", "description": "Волны Вульфа: вкл / выкл"},
+    {"command": "ob", "description": "Ордер-блоки: вкл / выкл"},
+    {"command": "settings", "description": "Текущие настройки"},
     {"command": "stop", "description": "Отписаться от сигналов"},
 ]
 
@@ -75,15 +79,24 @@ def api(token: str, method: str, **params):
 
 # ---------------------------------------------------------------- тексты
 def mode_text(sub: dict) -> str:
-    return ("🆕 Режим: <b>только новые ордер-блоки</b>" if sub["only_new"]
-            else "📊 Режим: <b>все сигналы</b> — новые ордер-блоки и касания")
+    if not sub.get("ob", True):
+        ob = "📦 Ордер-блоки: <b>выключены</b> (включить — /ob)"
+    elif sub["only_new"]:
+        ob = "📦 Ордер-блоки: <b>только новые</b>"
+    else:
+        ob = "📦 Ордер-блоки: <b>все сигналы</b> — новые и касания"
+    wv = ("🌊 Волны Вульфа: <b>включены</b>" if sub.get("wolfe", True)
+          else "🌊 Волны Вульфа: <b>выключены</b> (включить — /wolfe)")
+    return ob + "\n" + wv
 
 
-HELP = ("\n\nКоманды:\n/only_new — только новые ордер-блоки\n/all — все сигналы (новые OB + касания)\n"
-        "/settings — текущий режим\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
+HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
+        "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n"
+        "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
-           "Акции S&amp;P 500 и Nasdaq-100 (индикатор LuxAlgo Order Block Detector). "
+           "Акции S&amp;P 500 и Nasdaq-100: ордер-блоки (LuxAlgo Order Block Detector) "
+           "и волны Вульфа — приходят отдельными сообщениями. "
            "Сигналы приходят после закрытия 4H свечей: ≈20:40 и 23:10 по Кишинёву, пн–пт.\n\n"
            "⚠️ Это не инвестиционная рекомендация.\n\n")
 
@@ -133,14 +146,22 @@ def process_updates(token: str) -> dict:
                 reply = "🔕 Вы отписаны. Чтобы снова получать сигналы — /start"
             else:
                 reply = "Вы и так не подписаны. Подписаться — /start"
-        elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status"):
+        elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
+                     "/wolfe", "/вульф", "/ob"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
             elif cmd in ("/settings", "/status"):
                 reply = mode_text(sub) + HELP
+            elif cmd in ("/wolfe", "/вульф"):
+                sub["wolfe"] = not sub.get("wolfe", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
+            elif cmd == "/ob":
+                sub["ob"] = not sub.get("ob", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
             else:
                 sub["only_new"] = cmd not in ("/all", "/все")
-                reply = "✅ Готово. " + mode_text(sub)
+                sub["ob"] = True
+                reply = "✅ Готово.\n" + mode_text(sub)
         elif not sub:
             reply = "Чтобы получать сигналы ордер-блоков — /start"
         else:
@@ -170,15 +191,21 @@ def chunks(text: str, limit: int = 3900):
     return out
 
 
-def broadcast(token: str, st: dict, msg_all: str, msg_new: str) -> int:
-    """Рассылает сигналы: подписчикам в режиме only_new — msg_new, остальным — msg_all."""
+def broadcast(token: str, st: dict, msg_all: str, msg_new: str, msg_wolfe: str = "") -> int:
+    """Рассылает сигналы: ордер-блоки (only_new — msg_new, иначе msg_all) и отдельным
+    сообщением волны Вульфа (кто их не выключил). Возвращает число подписчиков, кому всё дошло."""
     sent = 0
     for cid, sub in list(st["subs"].items()):
-        text = msg_new if sub.get("only_new", True) else msg_all
-        if not text:
+        texts = []
+        if sub.get("ob", True):
+            texts.append(msg_new if sub.get("only_new", True) else msg_all)
+        if sub.get("wolfe", True):
+            texts.append(msg_wolfe)
+        parts = [p for t in texts if t for p in chunks(t)]
+        if not parts:
             continue
         ok = True
-        for part in chunks(text):
+        for part in parts:
             delivered = False
             for attempt in range(3):
                 try:

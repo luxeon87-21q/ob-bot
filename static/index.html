@@ -128,6 +128,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
     <div class="brand"><i></i>Ордер-блоки 4H</div>
     <nav id="tabs">
       <button data-v="signals" class="on">Сигналы</button>
+      <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
       <button data-v="chart">График</button>
     </nav>
@@ -160,6 +161,23 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
       <span class="count" id="sigCount"></span>
     </div>
     <div class="card" id="sigList"><div class="empty">Загрузка…</div></div>
+  </section>
+
+  <!-- ВОЛНЫ ВУЛЬФА -->
+  <section class="view" id="v-wolfe">
+    <div class="toolbar">
+      <div class="chips" id="wSide">
+        <button class="chip on" data-f="all">Обе стороны</button>
+        <button class="chip" data-f="bull">Бычьи</button>
+        <button class="chip" data-f="bear">Медвежьи</button>
+      </div>
+      <input type="search" id="wSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="wCount"></span>
+    </div>
+    <div class="card" id="wList"><div class="empty">Загрузка…</div></div>
+    <div class="hint">Волна Вульфа: точки 1–4 образуют сходящийся клин (у бычьей 3 ниже 1, 4 ниже 2, но выше 1).
+      Сигнал — цена дошла до продолжения линии 1–3, это зона точки 5. Цель — линия 1–4 к моменту схождения линий 1–3 и 2–4.
+      Стоп — за экстремумом точки 5. Точка 4 подтверждается через 4 свечи, поэтому сигнал может прийти чуть позже касания.</div>
   </section>
 
   <!-- СКРИНЕР -->
@@ -235,7 +253,7 @@ const fmt = x => x == null ? '—' : Number(x).toLocaleString('ru-RU', {minimumF
 const pct = x => (x > 0 ? '+' : '') + Number(x).toFixed(2).replace('.', ',') + '%';
 const dtf = iso => { const d = iso.slice(0, 16); return d.slice(8, 10) + '.' + d.slice(5, 7) + ' ' + d.slice(11, 16); };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const TYPE = {formed: 'Новый OB', touched: 'Касание', mitigated: 'Пробит'};
+const TYPE = {formed: 'Новый OB', touched: 'Касание', mitigated: 'Пробит', wolfe: 'Вульф'};
 const SIDE = {bull: 'бычий', bear: 'медвежий'};
 
 /* ---------- тема ---------- */
@@ -258,7 +276,7 @@ $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'screener', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'wolfe', 'screener', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -392,7 +410,7 @@ function renderSignals() {
   renderHero();
   const q = $('#sigSearch').value.trim().toUpperCase();
   const type = onlyNew ? 'formed' : sigType();
-  const rows = signals.filter(r => (type === 'all' || r.type === type) &&
+  const rows = signals.filter(r => r.type !== 'wolfe' && (type === 'all' || r.type === type) &&
     (sigSide() === 'all' || r.side === sigSide()) && (!q || r.ticker.startsWith(q)));
   $('#sigCount').textContent = rows.length ? `${rows.length} сигналов` : '';
   if (!rows.length) { $('#sigList').innerHTML = `<div class="empty">${signals.length ? 'Под фильтр ничего не попало' : 'Сигналов пока нет — они появятся после первой проверки'}</div>`; return; }
@@ -414,6 +432,33 @@ function renderSignals() {
   }
   $('#sigList').innerHTML = html;
   $$('#sigList .sig').forEach(el => el.onclick = () => openChart(el.dataset.t));
+}
+
+/* ---------- волны Вульфа ---------- */
+const wSide = chipGroup('#wSide', renderWolfe);
+$('#wSearch').oninput = renderWolfe;
+function renderWolfe() {
+  const all = signals.filter(r => r.type === 'wolfe');
+  const q = $('#wSearch').value.trim().toUpperCase();
+  const rows = all.filter(r => (wSide() === 'all' || r.side === wSide()) && (!q || r.ticker.startsWith(q)));
+  $('#wCount').textContent = rows.length ? `${rows.length} сигналов` : '';
+  if (!rows.length) { $('#wList').innerHTML = `<div class="empty">${all.length ? 'Под фильтр ничего не попало' : 'Сигналов пока нет — они появятся после ближайшей проверки'}</div>`; return; }
+  let html = '', day = '';
+  for (const r of rows.slice(0, 400)) {
+    const d = r.bar_time.slice(0, 10);
+    if (d !== day) { day = d; html += `<div class="day">${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}</div>`; }
+    const up = r.side === 'bull', p = (r.target / r.close - 1) * 100;
+    html += `<div class="sig" data-t="${esc(r.ticker)}">
+      <span class="time mono">${r.bar_time.slice(11, 16)}</span>
+      <span class="tk">${esc(r.ticker)}</span>
+      <span class="desc"><span class="badge ${r.side}">🌊 ${up ? '▲ бычья' : '▼ медвежья'}</span>&nbsp;
+        цена <b class="mono">${fmt(r.close)}</b> · линия 1–3 <span class="mono">${fmt(r.line13)}</span>
+        · 🎯 цель <b class="mono ${up ? 'up' : 'down'}">${fmt(r.target)}</b> <span class="mono ${up ? 'up' : 'down'}">(${pct(p)})</span>
+        <span class="hide-sm">· ≈ ${Math.max(1, Math.round(r.eta_bars))} св.</span></span>
+      </div>`;
+  }
+  $('#wList').innerHTML = html;
+  $$('#wList .sig').forEach(el => el.onclick = () => openChart(el.dataset.t));
 }
 
 /* ---------- скринер ---------- */
@@ -587,6 +632,34 @@ function chartDraw() {
       ctx.fillStyle = col.warn; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7); ctx.fill();
     }
   }
+  // волны Вульфа: линии 1–3, 2–4 (клин), 1–4 (цель), точки 1–5
+  for (const w of (cur.wolfe || []).slice(-2)) {                 // две последние фигуры, чтобы не было каши
+    const ix = w.pts_t.map(t => idxOfTime(t)), i5 = idxOfTime(w.t);
+    if (ix[3] < i0 - 200 || ix[0] > i1) continue;
+    const ie = i5 + Math.max(1, w.eta_bars), clr = w.side === 'bull' ? col.bull : col.bear;
+    const P = w.pts.map(p => p[1]);
+    const lineAt = (a, b, i) => P[a] + (P[b] - P[a]) * (i - ix[a]) / (ix[b] - ix[a]);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#8b7cf6'; ctx.globalAlpha = .9;
+    ctx.beginPath(); ctx.moveTo(xOf(ix[0]), yOf(P[0])); for (let k = 1; k < 4; k++) ctx.lineTo(xOf(ix[k]), yOf(P[k]));
+    ctx.lineTo(xOf(i5), yOf(w.side === 'bull' ? C[i5].low : C[i5].high)); ctx.stroke();
+    ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(xOf(ix[0]), yOf(P[0])); ctx.lineTo(xOf(ie), yOf(lineAt(0, 2, ie)));
+    ctx.moveTo(xOf(ix[1]), yOf(P[1])); ctx.lineTo(xOf(ie), yOf(lineAt(1, 3, ie))); ctx.stroke();
+    ctx.strokeStyle = clr; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(xOf(ix[0]), yOf(P[0])); ctx.lineTo(xOf(ie), yOf(w.target)); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.fillStyle = clr; ctx.beginPath(); ctx.arc(xOf(ie), yOf(w.target), 4, 0, 7); ctx.fill();
+    ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lbl = (k, i, p, low) => { const x = xOf(i), y = yOf(p) + (low ? 12 : -12);
+      ctx.fillStyle = col.bg; ctx.beginPath(); ctx.arc(x, y, 7.5, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#8b7cf6'; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = col.fg; ctx.fillText(k, x, y + .5); };
+    const bull = w.side === 'bull';
+    for (let k = 0; k < 4; k++) lbl(String(k + 1), ix[k], P[k], bull ? k % 2 === 0 : k % 2 === 1);
+    lbl('5', i5, bull ? C[i5].low : C[i5].high, bull);
+    ctx.fillStyle = clr; ctx.textAlign = 'left'; ctx.font = 'bold 10px Inter, sans-serif';
+    ctx.fillText('🎯 ' + fmt(w.target), xOf(ie) + 7, yOf(w.target));
+    ctx.font = '11px "JetBrains Mono", ui-monospace, monospace'; ctx.lineWidth = 1;
+  }
   // последняя цена
   const last = C[n - 1], yl = Math.round(yOf(last.close)) + .5, lc = last.close >= last.open ? col.bull : col.bear;
   ctx.strokeStyle = lc; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(0, yl); ctx.lineTo(pw, yl); ctx.stroke(); ctx.setLineDash([]);
@@ -662,6 +735,10 @@ async function loadChart(t) {
       <span class="z mono">&nbsp;${fmt(o.btm)} – ${fmt(o.top)}</span>${o.fresh ? '<span class="newtag">NEW</span>' : ''}</div>
       <div class="m">${o.dist === 0 ? 'цена в зоне' : 'до зоны ' + o.dist.toFixed(2).replace('.', ',') + '%'} · свеча ${dtf(o.ob_time)}</div></div>`).join('')
     : '<div class="empty">Нет непробитых OB</div>') +
+    ((d.wolfe || []).length ? `<h3>🌊 Волны Вульфа</h3>` + d.wolfe.slice(-4).reverse().map(w => `
+    <div class="obrow"><div><span class="badge ${w.side}">${w.side === 'bull' ? '▲ Бычья' : '▼ Медвежья'}</span>
+      <span class="z mono">&nbsp;🎯 ${fmt(w.target)}</span></div>
+      <div class="m mono">точка 5: ${dtf(w.bar_time)} · линия 1–3 ${fmt(w.line13)}</div></div>`).join('') : '') +
     `<h3>Последние события</h3>` + (evs.length ? evs.map(e => `
     <div class="obrow"><div><span class="badge ${e.type === 'mitigated' ? 'gray' : e.side}">${TYPE[e.type]} ${SIDE[e.side]}</span></div>
       <div class="m mono">${dtf(e.bar_time)} · ${fmt(e.btm)}–${fmt(e.top)}</div></div>`).join('') : '<div class="empty">—</div>');
@@ -672,7 +749,7 @@ $('#tkForm').onsubmit = e => { e.preventDefault(); const t = $('#tkInput').value
 async function loadAll() {
   try { signals = await api('/api/signals?limit=1500'); } catch (e) { signals = []; }
   try { snap = await api('/api/snapshot'); } catch (e) { snap = null; }
-  renderSignals(); renderScreener();
+  renderSignals(); renderWolfe(); renderScreener();
 }
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);

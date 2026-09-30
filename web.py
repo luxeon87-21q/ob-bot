@@ -28,6 +28,7 @@ import pandas as pd
 import bot
 import data
 from order_blocks import detect
+import wolfe
 
 BASE = Path(__file__).resolve().parent
 INDEX = BASE / "static" / "index.html"
@@ -120,9 +121,18 @@ def chart_payload(ticker: str, s: dict, bars_limit: int = 500) -> dict:
             d = bot.event_dict(ticker, e)
             d["t"] = wall_epoch(e.bar_time)
             evs.append(d)
+    wv = []
+    if s.get("wolfe", True):
+        for e in wolfe.detect(df, s.get("wolfe_pivot", 4)):
+            if e.w.times[0] < start:
+                continue
+            d = bot.wolfe_dict(ticker, e)
+            d["t"] = wall_epoch(e.bar_time)
+            d["pts_t"] = [wall_epoch(tm) for tm in e.w.times]
+            wv.append(d)
     candles = [dict(time=wall_epoch(t), open=round(r.open, 4), high=round(r.high, 4), low=round(r.low, 4),
                     close=round(r.close, 4), volume=int(r.volume)) for t, r in view.iterrows()]
-    return dict(ticker=ticker, candles=candles, obs=obs, events=evs, close=close,
+    return dict(ticker=ticker, candles=candles, obs=obs, events=evs, wolfe=wv, close=close,
                 last_bar=df.index[-1].isoformat())
 
 
@@ -137,7 +147,7 @@ def read_signals(limit: int) -> list:
             r = json.loads(line)
         except Exception:
             continue
-        key = (r["ticker"], r["type"], r["side"], r["bar_time"], r["top"])
+        key = (r["ticker"], r["type"], r["side"], r["bar_time"], r.get("top"))
         if key in seen:
             continue
         seen.add(key)

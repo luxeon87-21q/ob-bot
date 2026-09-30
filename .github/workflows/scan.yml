@@ -60,7 +60,7 @@ jobs:
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/state.json cache/signals.jsonl cache/snapshot.json cache/tg_settings.json cache/universe_*.json; do
+          for f in cache/state.json cache/signals.jsonl cache/snapshot.json cache/tg_settings.json cache/wolfe_seeded.json cache/universe_*.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
           git commit -m "Проверка $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"

@@ -61,14 +61,16 @@ def build(s: dict, telegram: bool) -> None:
     s["only_new"] = False                      # собираем все сигналы, режим выбирает каждый подписчик
     live = bool(telegram and s["token"] and n_subs)
 
-    def deliver(found):
+    def deliver(found, found_w=None):
         msg_all = bot.build_message(found)
         msg_new = bot.build_message(bot.only_new(found))
+        msg_wolfe = bot.build_wolfe_message(found_w or {})
         if live:
-            k = tg.broadcast(s["token"], tgs, msg_all, msg_new)
+            k = tg.broadcast(s["token"], tgs, msg_all, msg_new, msg_wolfe)
             log.info("разослано подписчикам: %d из %d", k, n_subs)
         else:
             print(msg_all)
+            print(msg_wolfe)
 
     n = bot.run_once(dict(s), dry=True, deliver=deliver)
     log.info("сигналов: %d", n)

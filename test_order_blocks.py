@@ -1,5 +1,7 @@
 """Проверки: python -m pytest -q  (или python test_order_blocks.py)"""
 import numpy as np
+from pathlib import Path
+
 import pandas as pd
 
 from data import to_4h
@@ -120,6 +122,7 @@ def test_telegram_subscribers(tmp_path):
         if method == "getUpdates":
             return [u for u in q if u["update_id"] >= (p.get("offset") or 0)]
         sent.append((p["chat_id"], p["text"]))
+        return {"message_id": len(sent)}
 
     tg.api = api
     msg = lambda i, c, t: {"update_id": i, "message": {"chat": {"id": c, "type": "private"}, "text": t}}
@@ -140,6 +143,46 @@ def test_telegram_subscribers(tmp_path):
     tg.broadcast("x", st, "ALL", "")                            # новых OB нет — only_new молчит
     assert sent == [("222", "ALL\n")]
 
+    # волны Вульфа — отдельное сообщение и отдельный выключатель
+    q += [msg(8, 555, "/wolfe"), msg(9, 222, "/ob")]
+    st = tg.process_updates("x")
+    assert st["subs"]["555"]["wolfe"] is False and st["subs"]["222"]["ob"] is False
+    sent.clear()
+    assert tg.broadcast("x", st, "ALL", "NEW", "WOLFE") == 2
+    assert sorted(sent) == [("222", "WOLFE\n"), ("555", "NEW\n")]
+
+
+def _wolfe_df(pts, n):
+    import numpy as np
+    c = np.interp(np.arange(n), [p[0] for p in pts], [p[1] for p in pts])
+    idx = pd.date_range("2026-01-05 09:30", periods=n, freq="4h", tz="America/New_York")
+    return pd.DataFrame(dict(open=c, high=c + .3, low=c - .3, close=c, volume=1000.0), index=idx)
+
+
+def test_wolfe():
+    import wolfe
+    df = _wolfe_df([(0, 105), (10, 100), (20, 112), (30, 96), (40, 104), (52, 90), (75, 113)], 80)
+    ev = wolfe.detect(df, 3)
+    assert len(ev) == 1
+    e = ev[0]
+    assert e.w.side == "bull" and e.w.idx == [10, 20, 30, 40]
+    assert e.low <= e.w.line13 + 1e-9 and e.w.target > e.close           # цель выше цены
+    assert 40 + 3 <= e.bar_idx <= 52                                    # не раньше подтверждения точки 4
+    # зеркально — медвежья
+    m = df.copy(); m["open"] = 200 - df["open"]; m["close"] = 200 - df["close"]
+    m["high"] = 200 - df["low"]; m["low"] = 200 - df["high"]
+    eb = wolfe.detect(m, 3)
+    assert len(eb) == 1 and eb[0].w.side == "bear" and eb[0].w.target < eb[0].close
+    # расходящиеся линии (не клин) — не Вульф
+    bad = _wolfe_df([(0, 105), (10, 100), (20, 110), (30, 95), (40, 106), (52, 88), (75, 113)], 80)
+    assert wolfe.detect(bad, 3) == []
+    # цена ушла выше точки 4 до касания линии 1–3 — фигура сломана
+    brk = _wolfe_df([(0, 105), (10, 100), (20, 112), (30, 96), (40, 104), (46, 101), (50, 108), (60, 85)], 70)
+    assert wolfe.detect(brk, 3) == []
+
 if __name__ == "__main__":
+    import tempfile
     test_matches_pine_reference(); test_scenario_formed_touched_mitigated(); test_to_4h_sessions()
+    test_to_4h_incomplete_last_bar(); test_wolfe()
+    test_telegram_subscribers(Path(tempfile.mkdtemp()))
     print("OK")

@@ -29,6 +29,7 @@ import requests
 
 import data
 from order_blocks import Event, detect
+import wolfe
 
 BASE = Path(__file__).resolve().parent
 STATE_FILE = BASE / "cache" / "state.json"
@@ -70,6 +71,8 @@ def settings():
         notify_mitigated=cfg("NOTIFY_MITIGATED", False, bool),
         only_new=cfg("ONLY_NEW", False, bool),
         delay_min=cfg("CHECK_DELAY_MIN", 10, int),
+        wolfe=cfg("WOLFE", True, bool),                 # волны Вульфа — отдельная функция
+        wolfe_pivot=cfg("WOLFE_PIVOT", 4, int),
     )
 
 
@@ -170,6 +173,42 @@ def build_message(found: Dict[str, List[Event]]) -> str:
     return "\n".join(lines)
 
 
+def build_wolfe_message(found: Dict[str, list]) -> str:
+    """Отдельное сообщение по волнам Вульфа: цена дошла до линии 1–3 (зона точки 5)."""
+    if not found:
+        return ""
+    bars = sorted({e.bar_time for evs in found.values() for e in evs})
+    head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
+    n = sum(len(v) for v in found.values())
+    lines = [f"🌊 <b>Волны Вульфа 4H</b> — свеча {head} ET",
+             f"Цена дошла до линии 1–3 (зона точки 5): <b>{n}</b>"]
+    for side, title in (("bull", "🟢 Бычья волна — ждём разворот вверх"),
+                        ("bear", "🔴 Медвежья волна — ждём разворот вниз")):
+        rows = []
+        for t in sorted(found):
+            for e in found[t]:
+                if e.w.side != side:
+                    continue
+                w = e.w
+                pct = (w.target - e.close) / e.close * 100
+                rows.append(f"• {link(t)}  цена {fmt(e.close)} · линия 1–3 {fmt(w.line13)} · "
+                            f"точка 3 {fmt(w.price[2])}\n   🎯 цель (линия 1–4) <b>{fmt(w.target)}</b> "
+                            f"({pct:+.1f}%) <i>≈ через {max(1, round(w.eta_bars))} св.</i>")
+        if rows:
+            lines += ["", f"<b>{title}</b>"] + rows
+    lines += ["", "<i>Стоп — за экстремумом точки 5. Не инвестиционная рекомендация.</i>"]
+    return "\n".join(lines)
+
+
+def wolfe_dict(t: str, e) -> dict:
+    w = e.w
+    return dict(ticker=t, type="wolfe", side=w.side, bar_time=e.bar_time.isoformat(),
+                top=round(w.target, 4), btm=round(w.line13, 4), target=round(w.target, 4),
+                line13=round(w.line13, 4), eta_bars=round(w.eta_bars, 1),
+                pts=[[tm.isoformat(), round(p, 4)] for tm, p in zip(w.times, w.price)],
+                close=round(e.close, 4), high=round(e.high, 4), low=round(e.low, 4))
+
+
 # ---------------------------------------------------------------- проверка
 def load_state() -> Dict[str, str]:
     try:
@@ -187,6 +226,7 @@ SNAPSHOT_FILE = BASE / "cache" / "snapshot.json"
 HISTORY_FILE = BASE / "cache" / "signals.jsonl"
 HISTORY_MAX = 30000         # сколько последних событий хранить в ленте
 HISTORY_SEED_BARS = 30      # при первом запуске кладём в ленту сигналы за последние ~15 дней (без отправки)
+WOLFE_SEEDED_FILE = BASE / "cache" / "wolfe_seeded.json"   # лента Вульфа уже заполнена историей
 
 
 def ob_dict(ob, close: float, fresh: bool = False) -> dict:
@@ -222,6 +262,8 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         wanted = {"formed"}
     state = load_state()
     found: Dict[str, List[Event]] = {}
+    found_w: Dict[str, list] = {}          # волны Вульфа
+    wolfe_seed = bool(s.get("wolfe")) and not WOLFE_SEEDED_FILE.exists()
     history: List[dict] = []
     snap_rows = []
     for n, (t, df) in enumerate(bars.items()):
@@ -242,6 +284,20 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         new = [e for e in new if e.type in wanted]
         if new:
             found[t] = new
+
+        if s.get("wolfe"):
+            wev = wolfe.detect(df, s.get("wolfe_pivot", 4))
+            if last_seen:
+                wnew = [e for e in wev if e.bar_time > pd.Timestamp(last_seen)]
+            else:
+                wnew = [e for e in wev if e.bar_time == df.index[-1]]
+            if wolfe_seed or not last_seen:      # первый запуск: история в ленту без отправки
+                seed_from = df.index[max(0, len(df) - HISTORY_SEED_BARS)]
+                history += [wolfe_dict(t, e) for e in wev if e.bar_time >= seed_from]
+            else:
+                history += [wolfe_dict(t, e) for e in wnew]
+            if wnew:
+                found_w[t] = wnew
         state[t] = df.index[-1].isoformat()
 
         close = float(df["close"].iloc[-1])
@@ -252,13 +308,18 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         snap_rows.append(dict(ticker=t, close=round(close, 4), chg=round((close / prev - 1) * 100, 2),
                               bar_time=df.index[-1].isoformat(), obs=obs))
 
-    if not found:
+    if not found and not found_w:
         log.info("новых сигналов нет")
     elif deliver:
-        deliver(found)
+        deliver(found, found_w)
     else:
-        send(build_message(found), s, dry)
+        if found:
+            send(build_message(found), s, dry)
+        if found_w:
+            send(build_wolfe_message(found_w), s, dry)
     save_state(state)
+    if wolfe_seed:
+        WOLFE_SEEDED_FILE.write_text(json.dumps({"seeded": pd.Timestamp.now(tz=data.ET).isoformat()}))
 
     STATE_FILE.parent.mkdir(exist_ok=True)
     SNAPSHOT_FILE.write_text(json.dumps(dict(
@@ -273,7 +334,8 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         lines = HISTORY_FILE.read_text(encoding="utf-8").splitlines()
         if len(lines) > HISTORY_MAX:                      # не даём файлу расти бесконечно
             HISTORY_FILE.write_text("\n".join(lines[-HISTORY_MAX:]) + "\n", encoding="utf-8")
-    return sum(len(v) for v in found.values())
+    log.info("волн Вульфа: %d", sum(len(v) for v in found_w.values()))
+    return sum(len(v) for v in found.values()) + sum(len(v) for v in found_w.values())
 
 
 def next_run(now: pd.Timestamp, delay_min: int) -> pd.Timestamp:
