@@ -81,6 +81,8 @@ input[type=search],input[type=text]{border:1px solid var(--line);background:var(
 .switch i:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
 .switch.on i{background:var(--accent)} .switch.on i:after{left:14px}
 .chips.dim{opacity:.4;pointer-events:none}
+.oi{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 5px;border-radius:5px;background:var(--panel2);color:var(--muted);margin-left:6px;vertical-align:1px;white-space:nowrap}
+.oi.lo{text-decoration:line-through;opacity:.7}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap}
 .badge.bull{color:var(--bull);background:var(--bull-bg)} .badge.bear{color:var(--bear);background:var(--bear-bg)}
 .badge.gray{color:var(--muted);background:var(--panel2)}
@@ -146,6 +148,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
     <div class="hero" id="hero"></div>
     <div class="toolbar">
       <span class="switch" id="onlyNew" role="switch" aria-checked="false"><i></i>🆕 Только новые OB</span>
+      <span class="switch" id="oiOnly" role="switch" aria-checked="false" title="Открытый интерес опционов (коллы + путы) по экспирациям в ближайшие 30 дней"><i></i>OI опционов ≥ 5000</span>
       <div class="chips" id="sigType">
         <button class="chip on" data-f="all">Все</button>
         <button class="chip" data-f="formed">Новые OB</button>
@@ -188,6 +191,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
         <button class="chip" data-f="in">Цена в зоне OB</button>
         <button class="chip" data-f="near">До зоны ≤ 2%</button>
         <button class="chip" data-f="fresh">🆕 Новый OB за сутки</button>
+        <button class="chip" data-f="oi">OI ≥ 5000</button>
       </div>
       <div class="chips" id="scrSide">
         <button class="chip on" data-f="all">Обе стороны</button>
@@ -203,10 +207,11 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
           <th data-k="ticker">Тикер</th>
           <th data-k="close" class="r">Цена</th>
           <th data-k="chg" class="r hide-sm">За день</th>
+          <th data-k="oiv" class="r hide-sm" title="Открытый интерес опционов (коллы + путы), экспирации ≤ 30 дней">OI 30д</th>
           <th data-k="bullDist">Ближайший бычий OB (поддержка)</th>
           <th data-k="bearDist">Ближайший медвежий OB (сопротивление)</th>
         </tr></thead>
-        <tbody id="scrBody"><tr><td colspan="5" class="empty">Загрузка…</td></tr></tbody>
+        <tbody id="scrBody"><tr><td colspan="6" class="empty">Загрузка…</td></tr></tbody>
       </table>
     </div>
     <div class="hint">«До зоны» — сколько процентов цене пройти до края ордер-блока. 0% значит, что цена уже в зоне. Учитываются последние непробитые OB каждой стороны, сколько задано в OB_TRACK_LAST.</div>
@@ -390,16 +395,30 @@ function paintOnlyNew() {
 }
 $('#onlyNew').onclick = () => { onlyNew = !onlyNew; store.set('onlyNew', onlyNew); paintOnlyNew(); renderSignals(); };
 paintOnlyNew();
+/* открытый интерес опционов (из snapshot): фильтр OB-сигналов */
+const OI_MIN = 5000;
+let OI = {};
+let oiOnly = store.get('oiOnly', true);
+function paintOiOnly() { $('#oiOnly').classList.toggle('on', oiOnly); $('#oiOnly').setAttribute('aria-checked', oiOnly); }
+$('#oiOnly').onclick = () => { oiOnly = !oiOnly; store.set('oiOnly', oiOnly); paintOiOnly(); renderSignals(); };
+paintOiOnly();
+const oiKnown = t => OI[t] !== undefined && OI[t] !== null;
+const oiPass = t => !oiKnown(t) || OI[t] >= OI_MIN;          // нет данных — не отсекаем
+function oiTag(t) {
+  if (!oiKnown(t)) return '';
+  const v = OI[t], txt = v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v;
+  return `<span class="oi${v < OI_MIN ? ' lo' : ''}" title="Открытый интерес опционов, экспирации ≤ 30 дней">OI ${txt}</span>`;
+}
 let heroAll = false;
 function renderHero() {
-  const formed = signals.filter(r => r.type === 'formed');
+  const formed = signals.filter(r => r.type === 'formed' && (!oiOnly || oiPass(r.ticker)));
   if (!formed.length) { $('#hero').innerHTML = ''; return; }
   const lastBar = formed.reduce((m, r) => r.bar_time > m ? r.bar_time : m, '');
   const day = lastBar.slice(0, 10);
   const fresh = formed.filter(r => r.bar_time.slice(0, 10) === day).sort((a, b) => b.bar_time.localeCompare(a.bar_time));
   $('#hero').innerHTML = `<h3>🆕 Новые ордер-блоки <span class="sub">${day.slice(8, 10)}.${day.slice(5, 7)} · ${fresh.length} шт.</span></h3>
     <div class="hero-grid">${fresh.slice(0, heroAll ? 999 : 12).map(r => `<div class="hcard ${r.side}" data-t="${esc(r.ticker)}">
-      <div class="t">${esc(r.ticker)}<span class="badge ${r.side}">${r.side === 'bull' ? '▲ бычий' : '▼ медвежий'}</span></div>
+      <div class="t"><span>${esc(r.ticker)}${oiTag(r.ticker)}</span><span class="badge ${r.side}">${r.side === 'bull' ? '▲ бычий' : '▼ медвежий'}</span></div>
       <div class="z mono">${fmt(r.btm)} – ${fmt(r.top)} · закр. ${fmt(r.close)}</div>
       <div class="z">свеча ${r.bar_time.slice(11, 16)} ET</div></div>`).join('')}</div>` +
     (fresh.length > 12 ? `<button class="btn" id="heroMore" style="margin-top:8px">${heroAll ? 'Свернуть' : 'Показать все ' + fresh.length}</button>` : '');
@@ -410,7 +429,7 @@ function renderSignals() {
   renderHero();
   const q = $('#sigSearch').value.trim().toUpperCase();
   const type = onlyNew ? 'formed' : sigType();
-  const rows = signals.filter(r => r.type !== 'wolfe' && (type === 'all' || r.type === type) &&
+  const rows = signals.filter(r => r.type !== 'wolfe' && (!oiOnly || oiPass(r.ticker)) && (type === 'all' || r.type === type) &&
     (sigSide() === 'all' || r.side === sigSide()) && (!q || r.ticker.startsWith(q)));
   $('#sigCount').textContent = rows.length ? `${rows.length} сигналов` : '';
   if (!rows.length) { $('#sigList').innerHTML = `<div class="empty">${signals.length ? 'Под фильтр ничего не попало' : 'Сигналов пока нет — они появятся после первой проверки'}</div>`; return; }
@@ -422,7 +441,7 @@ function renderSignals() {
     const cls = r.type === 'mitigated' ? 'gray' : r.side;
     let desc = `зона <b class="mono">${fmt(r.btm)} – ${fmt(r.top)}</b>`;
     if (r.type === 'touched') desc += r.side === 'bull' ? ` · мин <span class="mono">${fmt(r.low)}</span>` : ` · макс <span class="mono">${fmt(r.high)}</span>`;
-    desc += ` · закрытие <span class="mono">${fmt(r.close)}</span>`;
+    desc += ` · закрытие <span class="mono">${fmt(r.close)}</span>${oiTag(r.ticker)}`;
     const isNew = r.type === 'formed';
     html += `<div class="sig${isNew ? ' new ' + r.side : ''}" data-t="${esc(r.ticker)}">
       <span class="time mono">${r.bar_time.slice(11, 16)}</span>
@@ -482,13 +501,13 @@ function zoneCell(o) {
     <span class="mono" style="color:var(--muted)">${fmt(o.btm)}–${fmt(o.top)}</span>${nw}</div>`;
 }
 function renderScreener() {
-  if (!snap) { $('#scrBody').innerHTML = '<tr><td colspan="5" class="empty">Данных ещё нет — нажмите «Проверить сейчас»</td></tr>'; return; }
+  if (!snap) { $('#scrBody').innerHTML = '<tr><td colspan="6" class="empty">Данных ещё нет — нажмите «Проверить сейчас»</td></tr>'; return; }
   const q = $('#scrSearch').value.trim().toUpperCase();
   const f = scrFilter(), sd = scrSide();
   let rows = snap.rows.map(r => {
     const b = nearest(r.obs, 'bull'), s = nearest(r.obs, 'bear');
     const fresh = r.obs.filter(o => o.fresh);
-    return {...r, b, s, fresh, bullDist: b ? b.dist : 1e9, bearDist: s ? s.dist : 1e9};
+    return {...r, b, s, fresh, oiv: r.oi ?? -1, bullDist: b ? b.dist : 1e9, bearDist: s ? s.dist : 1e9};
   });
   rows = rows.filter(r => {
     if (q && !r.ticker.startsWith(q)) return false;
@@ -496,6 +515,7 @@ function renderScreener() {
     if (f === 'in') return d === 0;
     if (f === 'near') return d <= 2;
     if (f === 'fresh') return r.fresh.some(o => sd === 'all' || o.side === sd);
+    if (f === 'oi') return r.oi != null && r.oi >= OI_MIN && (sd === 'all' || d < 1e9);
     return sd === 'all' || d < 1e9;
   });
   rows.forEach(r => r.minDist = sd === 'bull' ? r.bullDist : sd === 'bear' ? r.bearDist : Math.min(r.bullDist, r.bearDist));
@@ -506,8 +526,9 @@ function renderScreener() {
       <td><b>${esc(r.ticker)}</b>${r.fresh.map(o => `<span class="newtag" style="background:var(--${o.side})" title="Новый ${o.side === 'bull' ? 'бычий' : 'медвежий'} OB ${fmt(o.btm)}–${fmt(o.top)}">NEW ${o.side === 'bull' ? '▲' : '▼'}</span>`).join('')}</td>
       <td class="r mono">${fmt(r.close)}</td>
       <td class="r mono hide-sm ${r.chg >= 0 ? 'up' : 'down'}">${pct(r.chg)}</td>
+      <td class="r mono hide-sm" style="${r.oi != null && r.oi < OI_MIN ? 'color:var(--muted)' : ''}">${r.oi == null ? '—' : Number(r.oi).toLocaleString('ru-RU')}</td>
       <td>${zoneCell(r.b)}</td><td>${zoneCell(r.s)}</td></tr>`).join('') ||
-    '<tr><td colspan="5" class="empty">Под фильтр ничего не попало</td></tr>';
+    '<tr><td colspan="6" class="empty">Под фильтр ничего не попало</td></tr>';
   $$('#scrBody tr[data-t]').forEach(el => el.onclick = () => openChart(el.dataset.t));
 }
 
@@ -726,7 +747,7 @@ async function loadChart(t) {
   const ch = (last.close / prev.close - 1) * 100;
   $('#chartHead').innerHTML = `<h2>${esc(t)}</h2><span class="mono" style="font-size:18px">${fmt(last.close)}</span>
     <span class="mono ${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>
-    <span class="time">4H · свеча ${dtf(d.last_bar)} ET</span>
+    <span class="time">4H · свеча ${dtf(d.last_bar)} ET</span>${oiTag(t)}
     <a class="time" style="margin-left:auto" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.replace(/-/g, '.'))}&interval=240">Открыть в TradingView ↗</a>`;
   const obs = [...d.obs].sort((a, b) => a.dist - b.dist);
   const evs = d.events.slice(-8).reverse();
@@ -749,6 +770,7 @@ $('#tkForm').onsubmit = e => { e.preventDefault(); const t = $('#tkInput').value
 async function loadAll() {
   try { signals = await api('/api/signals?limit=1500'); } catch (e) { signals = []; }
   try { snap = await api('/api/snapshot'); } catch (e) { snap = null; }
+  OI = {}; if (snap) for (const r of snap.rows) OI[r.ticker] = r.oi;
   renderSignals(); renderWolfe(); renderScreener();
 }
 loadAll(); refreshStatus(); route();

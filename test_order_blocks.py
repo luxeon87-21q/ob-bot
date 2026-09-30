@@ -180,9 +180,30 @@ def test_wolfe():
     brk = _wolfe_df([(0, 105), (10, 100), (20, 112), (30, 96), (40, 104), (46, 101), (50, 108), (60, 85)], 70)
     assert wolfe.detect(brk, 3) == []
 
+def test_options_oi(tmp_path):
+    import options
+    options.OPTIONS_FILE = tmp_path / "options.json"
+    calls = []
+
+    def fetch(t, today):
+        calls.append(t)
+        if t == "BAD":
+            raise RuntimeError("yahoo")
+        return {"oi": {"AAPL": 900000, "SMALL": 1200}.get(t, 0), "exp": 4}
+
+    d = options.refresh(["AAPL", "SMALL", "BAD", "BRK.B"], fetch=fetch, workers=2)
+    assert d["AAPL"]["oi"] == 900000 and d["SMALL"]["oi"] == 1200 and "BAD" not in d
+    assert "BRK-B" in calls                                        # тикер в формате Yahoo
+    assert options.passes(d, "AAPL") and not options.passes(d, "SMALL") and options.passes(d, "BAD")
+    calls.clear()
+    options.refresh(["AAPL", "SMALL", "BAD"], fetch=fetch)          # за сегодня уже есть — повторно не качаем
+    assert set(calls) == {"BAD"}
+    assert options.fmt_oi(912345) == "OI 912.3K" and options.fmt_oi(None) == "OI н/д"
+
+
 if __name__ == "__main__":
     import tempfile
     test_matches_pine_reference(); test_scenario_formed_touched_mitigated(); test_to_4h_sessions()
     test_to_4h_incomplete_last_bar(); test_wolfe()
-    test_telegram_subscribers(Path(tempfile.mkdtemp()))
+    test_telegram_subscribers(Path(tempfile.mkdtemp())); test_options_oi(Path(tempfile.mkdtemp()))
     print("OK")

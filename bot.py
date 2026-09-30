@@ -29,6 +29,7 @@ import requests
 
 import data
 from order_blocks import Event, detect
+import options
 import wolfe
 
 BASE = Path(__file__).resolve().parent
@@ -73,6 +74,7 @@ def settings():
         delay_min=cfg("CHECK_DELAY_MIN", 10, int),
         wolfe=cfg("WOLFE", True, bool),                 # волны Вульфа — отдельная функция
         wolfe_pivot=cfg("WOLFE_PIVOT", 4, int),
+        oi_min=cfg("OI_MIN", options.OI_MIN, int),    # фильтр OB по открытому интересу опционов (0 — выкл)
     )
 
 
@@ -135,7 +137,10 @@ def only_new(found: Dict[str, List[Event]]) -> Dict[str, List[Event]]:
     return {t: evs for t, evs in out.items() if evs}
 
 
-def build_message(found: Dict[str, List[Event]]) -> str:
+LAST_OI: Dict[str, dict] = {}     # OI опционов с последней проверки (для подписей в сообщениях)
+
+
+def build_message(found: Dict[str, List[Event]], oi_min: int = 0) -> str:
     if not found:
         return ""
     bars = sorted({e.bar_time for evs in found.values() for e in evs})
@@ -150,6 +155,8 @@ def build_message(found: Dict[str, List[Event]]) -> str:
         summary.append(f"касаний: {n_touch}")
     if summary:
         lines.append(" · ".join(summary))
+    if oi_min:
+        lines.append(f"<i>Только акции с OI опционов ≥ {oi_min:,} контрактов (экспирации ≤ 30 дн.)</i>".replace(",", " "))
     for etype, side, title in SECTIONS:
         rows = []
         for t in sorted(found):
@@ -167,7 +174,8 @@ def build_message(found: Dict[str, List[Event]]) -> str:
                              f"закрытие {fmt(e.close)} ({dist:+.1f}% от середины)")
                 else:
                     extra = f"закрытие {fmt(e.close)}"
-                rows.append(f"• {link(t)}  {zone}  <i>{extra}</i>")
+                oi_lbl = f"  · {options.fmt_oi(options.oi_of(LAST_OI, t))}" if LAST_OI else ""
+                rows.append(f"• {link(t)}  {zone}  <i>{extra}</i>{oi_lbl}")
         if rows:
             lines += ["", f"<b>{title}</b>"] + rows
     return "\n".join(lines)
@@ -256,6 +264,17 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
     if len(bars) < max(1, len(tickers) // 3):
         raise RuntimeError(f"Yahoo отдал данные только по {len(bars)} из {len(tickers)} акций — проверка отменена")
 
+    global LAST_OI
+    oi_min = s.get("oi_min", 0)
+    if oi_min:
+        if progress:
+            progress("опционы (OI)", 0, len(bars))
+        try:
+            LAST_OI = options.refresh(list(bars))
+        except Exception as e:                       # фильтр не должен ломать проверку
+            log.warning("опционы: %s", e)
+            LAST_OI = options.load()
+
     wanted = {k for k, on in (("formed", s["notify_formed"]), ("touched", s["notify_touched"]),
                               ("mitigated", s["notify_mitigated"])) if on}
     if s.get("only_new"):
@@ -306,15 +325,19 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         fresh_from = len(df) - 2          # «новый» = сформировался за последние 2 свечи (≈ торговый день)
         obs = [ob_dict(o, close, o.detected_idx >= fresh_from) for o in bulls[:k] + bears[:k]]
         snap_rows.append(dict(ticker=t, close=round(close, 4), chg=round((close / prev - 1) * 100, 2),
-                              bar_time=df.index[-1].isoformat(), obs=obs))
+                              bar_time=df.index[-1].isoformat(), obs=obs, oi=options.oi_of(LAST_OI, t)))
 
+    if oi_min and found:                              # OB — только акции с большим OI опционов
+        before = len(found)
+        found = {t: evs for t, evs in found.items() if options.passes(LAST_OI, t, oi_min)}
+        log.info("фильтр OI ≥ %d: акций с сигналами OB %d → %d", oi_min, before, len(found))
     if not found and not found_w:
         log.info("новых сигналов нет")
     elif deliver:
         deliver(found, found_w)
     else:
         if found:
-            send(build_message(found), s, dry)
+            send(build_message(found, oi_min), s, dry)
         if found_w:
             send(build_wolfe_message(found_w), s, dry)
     save_state(state)

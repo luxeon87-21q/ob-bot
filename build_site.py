@@ -62,8 +62,8 @@ def build(s: dict, telegram: bool) -> None:
     live = bool(telegram and s["token"] and n_subs)
 
     def deliver(found, found_w=None):
-        msg_all = bot.build_message(found)
-        msg_new = bot.build_message(bot.only_new(found))
+        msg_all = bot.build_message(found, s.get("oi_min", 0))
+        msg_new = bot.build_message(bot.only_new(found), s.get("oi_min", 0))
         msg_wolfe = bot.build_wolfe_message(found_w or {})
         if live:
             k = tg.broadcast(s["token"], tgs, msg_all, msg_new, msg_wolfe)
