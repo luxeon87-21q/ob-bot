@@ -32,8 +32,8 @@ header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px
 .bar{max-width:1280px;margin:0 auto;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .brand{font-weight:700;letter-spacing:-.01em;display:flex;gap:8px;align-items:center;white-space:nowrap}
 .brand i{display:inline-block;width:14px;height:14px;border-radius:3px;background:linear-gradient(135deg,var(--bull) 50%,var(--bear) 50%)}
-nav{display:flex;gap:2px;background:var(--panel2);padding:3px;border-radius:9px}
-nav button{border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:6px 12px;border-radius:7px;cursor:pointer}
+nav{display:flex;gap:2px;background:var(--panel2);padding:3px;border-radius:9px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+nav button{border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:6px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;flex:none}
 nav button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .spacer{flex:1}
 .status{color:var(--muted);font-size:12.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
@@ -115,6 +115,10 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
 .obrow .z{font-weight:500}
 .obrow .m{color:var(--muted);font-size:12px}
 .hint{color:var(--muted);font-size:12.5px;margin-top:10px}
+.yrs{display:inline-flex;gap:2px;vertical-align:middle}
+.yrs i{width:7px;height:14px;border-radius:2px;background:var(--panel2);border:1px solid var(--line)}
+.yrs i.ok{background:var(--bull);border-color:transparent} .yrs.bear i.ok{background:var(--bear)}
+.warnc{color:var(--warn);font-weight:600}
 @media (max-width:900px){
   .chart-layout{grid-template-columns:1fr} #chartBox{height:420px}
   .sig{grid-template-columns:40px 58px minmax(0,1fr);gap:8px;padding:10px 12px} .sig .desc{white-space:normal;line-height:1.7}
@@ -132,6 +136,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
       <button data-v="signals" class="on">Сигналы</button>
       <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
+      <button data-v="season">Сезонность</button>
       <button data-v="chart">График</button>
     </nav>
     <div class="spacer"></div>
@@ -217,6 +222,40 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
     <div class="hint">«До зоны» — сколько процентов цене пройти до края ордер-блока. 0% значит, что цена уже в зоне. Учитываются последние непробитые OB каждой стороны, сколько задано в OB_TRACK_LAST.</div>
   </section>
 
+  <!-- СЕЗОННОСТЬ -->
+  <section class="view" id="v-season">
+    <div class="toolbar">
+      <div class="chips" id="seSide">
+        <button class="chip on" data-f="all">Оба направления</button>
+        <button class="chip" data-f="bull">Рост</button>
+        <button class="chip" data-f="bear">Падение</button>
+      </div>
+      <input type="search" id="seSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="seCount"></span>
+    </div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-sk="ticker">Тикер</th>
+          <th data-sk="start">Окно</th>
+          <th data-sk="win" class="r">Удачных лет</th>
+          <th data-sk="base" class="r hide-sm" title="Как часто такой ход бывает при входе в любой день года">Обычно</th>
+          <th data-sk="recent_wins" class="r hide-sm">Посл. 5 лет</th>
+          <th data-sk="days_avg" class="r hide-sm" title="За сколько дней в среднем достигалась цель">Дней до цели</th>
+          <th data-sk="mae_avg" class="r hide-sm" title="Средний ход против направления до достижения цели">Против нас</th>
+          <th data-sk="p" class="r hide-sm" title="Вероятность получить столько удачных лет случайно">Случайность</th>
+          <th data-sk="oi" class="r hide-sm">OI 30д</th>
+          <th data-sk="earnings">Отчёт</th>
+          <th class="hide-sm">По годам</th>
+        </tr></thead>
+        <tbody id="seBody"><tr><td colspan="11" class="empty">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint" id="seHint">Сканер считается по пятницам. Год засчитывается, если за окно цена коснулась цели раньше, чем ушла против нас на стоп; путь внутри окна не важен.
+      Конец окна подобран автоматически: самое короткое окно, в котором цель достигалась в нужной доле лет.
+      «Обычно» — как часто такой же ход бывает при входе в любой день. Тикер открывает дневной график TradingView.</div>
+  </section>
+
   <!-- ГРАФИК -->
   <section class="view" id="v-chart">
     <div class="toolbar">
@@ -244,6 +283,7 @@ function staticPath(p) {
   if (p.startsWith('/api/status')) return 'data/status.json';
   if (p.startsWith('/api/snapshot')) return 'data/snapshot.json';
   if (p.startsWith('/api/signals')) return 'data/signals.json';
+  if (p.startsWith('/api/seasonal')) return 'data/seasonal.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
 }
@@ -281,7 +321,7 @@ $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'wolfe', 'screener', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'wolfe', 'screener', 'season', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -532,6 +572,41 @@ function renderScreener() {
   $$('#scrBody tr[data-t]').forEach(el => el.onclick = () => openChart(el.dataset.t));
 }
 
+/* ---------- сезонность ---------- */
+let seas = null, seK = 'p', seDir = 1;
+const seSide = chipGroup('#seSide', renderSeason);
+$('#seSearch').oninput = renderSeason;
+$$('th[data-sk]').forEach(th => th.onclick = () => {
+  const k = th.dataset.sk; seDir = seK === k ? -seDir : 1; seK = k; renderSeason();
+});
+const dm = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '—';
+const pp = x => x * 100 < 0.01 ? '<0,01%' : (x * 100).toPrecision(2).replace('.', ',') + '%';
+function renderSeason() {
+  if (!seas || !seas.rows) { $('#seBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер запускается по пятницам</td></tr>'; return; }
+  const P = seas.params, q = $('#seSearch').value.trim().toUpperCase(), sd = seSide();
+  let rows = seas.rows.filter(r => (sd === 'all' || r.side === sd) && (!q || r.ticker.startsWith(q)));
+  rows.sort((a, b) => ((a[seK] ?? -1) > (b[seK] ?? -1) ? 1 : (a[seK] ?? -1) < (b[seK] ?? -1) ? -1 : 0) * seDir);
+  $$('th[data-sk]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.sk === seK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${seDir > 0 ? '↑' : '↓'}</span>`); });
+  $('#seCount').textContent = `окон: ${rows.length} · старт ${dm(seas.starts[0])}–${dm(seas.starts[1])} · цель ${P.move}% / стоп ${P.adverse}% · посчитано ${seas.today.slice(8, 10)}.${seas.today.slice(5, 7)}`;
+  $('#seBody').innerHTML = rows.map(r => {
+    const up = r.side === 'bull', tv = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(r.ticker.replace('-', '.')) + '&interval=D';
+    const yrs = r.years.map(([y, d]) => `<i class="${d != null ? 'ok' : ''}" title="${y}: ${d != null ? 'цель за ' + d + ' дн.' : 'нет'}"></i>`).join('');
+    const earn = r.earnings ? `<span class="${r.earnings_in ? 'warnc' : ''}" title="${r.earnings_in ? 'Отчёт внутри окна' : ''}">${r.earnings_in ? '⚠️ ' : ''}${dm(r.earnings)}</span>` : '—';
+    return `<tr>
+      <td><a href="${tv}" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a> <span class="badge ${r.side}">${up ? '▲ рост' : '▼ падение'}</span></td>
+      <td class="mono">${dm(r.start)} → ${dm(r.end)} <span style="color:var(--muted)">${r.L} дн.</span></td>
+      <td class="r mono"><b>${r.wins}/${r.n}</b> <span style="color:var(--muted)">${Math.round(r.win * 100)}%</span></td>
+      <td class="r mono hide-sm">${Math.round(r.base * 100)}%</td>
+      <td class="r mono hide-sm">${r.recent_wins}/${r.recent_n}</td>
+      <td class="r mono hide-sm">${r.days_avg == null ? '—' : Math.round(r.days_avg)}</td>
+      <td class="r mono hide-sm ${up ? 'down' : 'up'}">${pct(r.mae_avg)}</td>
+      <td class="r mono hide-sm">${pp(r.p)}</td>
+      <td class="r mono hide-sm">${r.oi == null ? '—' : Number(r.oi).toLocaleString('ru-RU')}</td>
+      <td class="mono">${earn}</td>
+      <td class="hide-sm"><span class="yrs ${r.side}">${yrs}</span></td></tr>`;
+  }).join('') || '<tr><td colspan="11" class="empty">' + (seas.rows.length ? 'Под фильтр ничего не попало' : 'На ближайшие две недели устойчивых окон не нашлось') + '</td></tr>';
+}
+
 /* ---------- график (свой canvas, без внешних библиотек) ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const AXW = 70, AXH = 26, RPAD = 8;
@@ -771,7 +846,8 @@ async function loadAll() {
   try { signals = await api('/api/signals?limit=1500'); } catch (e) { signals = []; }
   try { snap = await api('/api/snapshot'); } catch (e) { snap = null; }
   OI = {}; if (snap) for (const r of snap.rows) OI[r.ticker] = r.oi;
-  renderSignals(); renderWolfe(); renderScreener();
+  try { seas = await api('/api/seasonal'); } catch (e) { seas = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason();
 }
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);

@@ -84,6 +84,9 @@ def build(s: dict, telegram: bool) -> None:
     (SITE / ".nojekyll").write_text("")
 
     shutil.copy(bot.SNAPSHOT_FILE, SITE / "data" / "snapshot.json")
+    seas = BASE / "cache" / "seasonal.json"
+    if seas.exists():
+        shutil.copy(seas, SITE / "data" / "seasonal.json")
     (SITE / "data" / "signals.json").write_text(
         json.dumps(web.read_signals(2000), ensure_ascii=False), encoding="utf-8")
 

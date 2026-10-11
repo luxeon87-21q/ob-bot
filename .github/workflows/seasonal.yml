@@ -1,0 +1,48 @@
+name: Сезонность (по пятницам)
+
+on:
+  schedule:
+    # пятница 12:10 UTC (≈15:10 по Кишинёву летом, 14:10 зимой); второй запуск — на случай,
+    # если GitHub пропустит первый (повторно не считает: --if-new)
+    - cron: '10 12 * * 5'
+    - cron: '40 14 * * 5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seasonal
+  cancel-in-progress: false
+
+jobs:
+  seasonal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Поиск сезонных окон
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        run: python seasonal.py ${{ github.event_name == 'schedule' && '--if-new' || '' }}
+
+      - name: Сохранить результат
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          for f in cache/seasonal.json cache/options.json; do
+            if [ -e "$f" ]; then git add -f "$f"; fi
+          done
+          git commit -m "Сезонность $(date -u +'%Y-%m-%d') [skip ci]" || echo "без изменений"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs && git push && break
+            sleep 5
+          done

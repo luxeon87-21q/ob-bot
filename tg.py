@@ -9,6 +9,7 @@ Telegram-бот: подписчики, их команды и рассылка �
   /settings  — показать текущий режим
   /wolfe     — включить/выключить волны Вульфа (отдельная функция)
   /ob        — включить/выключить ордер-блоки
+  /season    — включить/выключить пятничный отчёт по сезонности (seasonal.py)
 
 Подписчики хранятся в cache/tg_settings.json:
   {"offset": 123, "owner": "<chat_id владельца>",
@@ -38,6 +39,7 @@ COMMANDS = [
     {"command": "all", "description": "Ордер-блоки: новые OB и касания"},
     {"command": "wolfe", "description": "Волны Вульфа: вкл / выкл"},
     {"command": "ob", "description": "Ордер-блоки: вкл / выкл"},
+    {"command": "season", "description": "Сезонность (по пятницам): вкл / выкл"},
     {"command": "settings", "description": "Текущие настройки"},
     {"command": "stop", "description": "Отписаться от сигналов"},
 ]
@@ -87,17 +89,22 @@ def mode_text(sub: dict) -> str:
         ob = "📦 Ордер-блоки: <b>все сигналы</b> — новые и касания"
     wv = ("🌊 Волны Вульфа: <b>включены</b>" if sub.get("wolfe", True)
           else "🌊 Волны Вульфа: <b>выключены</b> (включить — /wolfe)")
-    return ob + "\n" + wv
+    se = ("📅 Сезонность (по пятницам): <b>включена</b>" if sub.get("season", True)
+          else "📅 Сезонность: <b>выключена</b> (включить — /season)")
+    return ob + "\n" + wv + "\n" + se
 
 
 HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
         "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n"
+        "/season — сезонность вкл/выкл\n"
         "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
            "Акции S&amp;P 500 и Nasdaq-100: ордер-блоки (LuxAlgo Order Block Detector) "
            "и волны Вульфа — приходят отдельными сообщениями. "
-           "Сигналы приходят после закрытия 4H свечей: ≈20:40 и 23:10 по Кишинёву, пн–пт.\n\n"
+           "Сигналы приходят после закрытия 4H свечей: ≈20:40 и 23:10 по Кишинёву, пн–пт.\n"
+           "По пятницам — отчёт по сезонности: акции, которые в ближайшие недели "
+           "из года в год делают ход ≥10%.\n\n"
            "⚠️ Это не инвестиционная рекомендация.\n\n")
 
 
@@ -147,13 +154,16 @@ def process_updates(token: str) -> dict:
             else:
                 reply = "Вы и так не подписаны. Подписаться — /start"
         elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
-                     "/wolfe", "/вульф", "/ob"):
+                     "/wolfe", "/вульф", "/ob", "/season", "/сезон"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
             elif cmd in ("/settings", "/status"):
                 reply = mode_text(sub) + HELP
             elif cmd in ("/wolfe", "/вульф"):
                 sub["wolfe"] = not sub.get("wolfe", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
+            elif cmd in ("/season", "/сезон"):
+                sub["season"] = not sub.get("season", True)
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd == "/ob":
                 sub["ob"] = not sub.get("ob", True)
@@ -202,33 +212,45 @@ def broadcast(token: str, st: dict, msg_all: str, msg_new: str, msg_wolfe: str =
         if sub.get("wolfe", True):
             texts.append(msg_wolfe)
         parts = [p for t in texts if t for p in chunks(t)]
-        if not parts:
-            continue
-        ok = True
-        for part in parts:
-            delivered = False
-            for attempt in range(3):
-                try:
-                    r = api(token, "sendMessage", chat_id=cid, text=part, parse_mode="HTML",
-                            disable_web_page_preview=True)
-                    delivered = True
-                    log.info("→ %s (%s): сообщение %s", cid, sub.get("name", ""), r.get("message_id"))
-                    break
-                except Exception as e:
-                    msg = str(e)
-                    if "blocked" in msg or "deactivated" in msg or "chat not found" in msg:
-                        log.info("подписчик %s недоступен: %s", cid, msg)
-                        break
-                    if "Too Many Requests" in msg:
-                        time.sleep(5 * (attempt + 1))
-                    else:
-                        log.warning("sendMessage %s: %s", cid, msg)
-                        time.sleep(1)
-            ok = ok and delivered
-            time.sleep(0.05)          # лимит Telegram ~30 сообщений/сек
-        if ok:
+        if parts and send_parts(token, cid, sub, parts):
             sent += 1
     return sent
+
+
+def broadcast_one(token: str, st: dict, text: str, key: str) -> int:
+    """Одно сообщение всем подписчикам, у кого включена функция key (по умолчанию включена)."""
+    sent = 0
+    parts = chunks(text) if text else []
+    for cid, sub in list(st["subs"].items()):
+        if parts and sub.get(key, True) and send_parts(token, cid, sub, parts):
+            sent += 1
+    return sent
+
+
+def send_parts(token: str, cid: str, sub: dict, parts) -> bool:
+    ok = True
+    for part in parts:
+        delivered = False
+        for attempt in range(3):
+            try:
+                r = api(token, "sendMessage", chat_id=cid, text=part, parse_mode="HTML",
+                        disable_web_page_preview=True)
+                delivered = True
+                log.info("→ %s (%s): сообщение %s", cid, sub.get("name", ""), r.get("message_id"))
+                break
+            except Exception as e:
+                msg = str(e)
+                if "blocked" in msg or "deactivated" in msg or "chat not found" in msg:
+                    log.info("подписчик %s недоступен: %s", cid, msg)
+                    break
+                if "Too Many Requests" in msg:
+                    time.sleep(5 * (attempt + 1))
+                else:
+                    log.warning("sendMessage %s: %s", cid, msg)
+                    time.sleep(1)
+        ok = ok and delivered
+        time.sleep(0.05)          # лимит Telegram ~30 сообщений/сек
+    return ok
 
 
 def set_commands(token: str) -> None:
