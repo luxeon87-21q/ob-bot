@@ -42,6 +42,10 @@ def _yahoo_oi(ticker: str, today: pd.Timestamp, days: int = DAYS) -> Optional[di
     import yfinance as yf
     tk = yf.Ticker(ticker)
     exps = tk.options or ()
+    if not exps:
+        # Yahoo при лимите запросов молча отдаёт пустой список экспираций — это не «нет опционов»,
+        # иначе в кэш попадает OI 0 (так было с AME/ROK 11.10). Считаем ошибкой: повтор позже.
+        raise RuntimeError("пустой список экспираций")
     end = today + pd.Timedelta(days=days)
     use = [e for e in exps if today <= pd.Timestamp(e) <= end]
     total = 0
@@ -59,7 +63,8 @@ def refresh(tickers: Iterable[str], fetch=_yahoo_oi, workers: int = 6, budget_s:
     data = load()
     today = pd.Timestamp.now(tz=ET).normalize().tz_localize(None)
     tstr = today.strftime("%Y-%m-%d")
-    todo = [t for t in tickers if data.get(t, {}).get("date") != tstr]
+    # exp == 0 — «экспираций не нашлось»: перепроверяем, это часто сбой Yahoo, а не отсутствие опционов
+    todo = [t for t in tickers if data.get(t, {}).get("date") != tstr or not data.get(t, {}).get("exp")]
     if not todo:
         return data
     log.info("опционы: обновляю OI по %d акциям", len(todo))

@@ -6,7 +6,12 @@ on:
     # если GitHub пропустит первый (повторно не считает: --if-new)
     - cron: '10 12 * * 5'
     - cron: '40 14 * * 5'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      telegram:
+        description: 'Разослать результат подписчикам в Telegram'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,7 +37,7 @@ jobs:
       - name: Поиск сезонных окон
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        run: python seasonal.py ${{ github.event_name == 'schedule' && '--if-new' || '' }}
+        run: python seasonal.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
 
       - name: Сохранить результат
         run: |

@@ -436,18 +436,31 @@ def run(P: Params, tickers: Optional[List[str]] = None, today: Optional[date] = 
     log.info("проверено ликвидных акций: %d, окон-кандидатов: %d", checked, len(found))
 
     # фильтр по опционам — только для найденных (дорогой запрос)
-    oi_data = {}
+    oi_data, today_s = {}, today.isoformat()
     if P.oi_min and found:
         import options
-        oi_data = options.refresh(sorted({r["ticker"] for r in found}), budget_s=1500)
-    res = []
+        want = sorted({r["ticker"] for r in found})
+        time.sleep(20)                          # пауза после загрузки истории — Yahoo режет частые запросы
+        oi_data = options.refresh(want, workers=3, budget_s=1500)
+        miss = [t for t in want if oi_data.get(t, {}).get("date") != options_today()]
+        if miss:
+            log.info("опционы: повтор по %d тикерам", len(miss))
+            time.sleep(60)
+            oi_data = options.refresh(miss, workers=2, budget_s=600)
+    res, dropped, unknown = [], [], 0
     for r in found:
-        oi = oi_data.get(r["ticker"], {}).get("oi") if oi_data else None
+        rec = oi_data.get(r["ticker"]) or {}
+        fresh = rec.get("date") == options_today()
+        oi = rec.get("oi") if fresh else None
         r["oi"] = oi
-        if P.oi_min and (oi is None or oi < P.oi_min):
+        if P.oi_min and oi is not None and oi < P.oi_min:
+            dropped.append(f"{r['ticker']}({oi})")
             continue
+        if P.oi_min and oi is None:
+            unknown += 1                         # OI не получен — показываем с пометкой «OI н/д», не теряем
         res.append(r)
-    log.info("после фильтра OI ≥ %d: %d", P.oi_min, len(res))
+    log.info("кандидатов: %d, отсеяно по OI < %d: %d %s, OI не получен: %d",
+             len(found), P.oi_min, len(dropped), " ".join(dropped), unknown)
 
     res.sort(key=lambda r: (r["p"], -r["win"]))
     for r in res:
@@ -459,9 +472,13 @@ def run(P: Params, tickers: Optional[List[str]] = None, today: Optional[date] = 
         updated=pd.Timestamp.now(tz="UTC").isoformat(),
         today=today.isoformat(),
         starts=[starts[0].isoformat(), starts[-1].isoformat()],
-        params=asdict(P), checked=checked,
+        params=asdict(P), checked=checked, candidates=len(found), oi_dropped=dropped,
         rows=[to_json(r) for r in res],
     )
+
+
+def options_today() -> str:
+    return pd.Timestamp.now(tz="America/New_York").strftime("%Y-%m-%d")
 
 
 def to_json(r: dict) -> dict:
@@ -506,7 +523,10 @@ def build_message(res: dict, top: int = 15) -> str:
              + (f", OI опционов ≥ {P['oi_min']}" if P['oi_min'] else "") + ".</i>"]
     rows = res["rows"]
     if not rows:
-        lines += ["", f"На эти даты устойчивых закономерностей не нашлось (проверено акций: {res['checked']})."]
+        extra = ""
+        if res.get("oi_dropped"):
+            extra = f"\nЕщё {len(res['oi_dropped'])} отсеяно по OI опционов: " + ", ".join(res["oi_dropped"][:20])
+        lines += ["", f"На эти даты устойчивых закономерностей не нашлось (проверено акций: {res['checked']})." + extra]
         return "\n".join(lines)
     for side, title in (("bull", "🟢 <b>РОСТ</b>"), ("bear", "🔴 <b>ПАДЕНИЕ</b>")):
         rs = [r for r in rows if r["side"] == side][:top]
