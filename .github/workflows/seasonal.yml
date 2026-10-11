@@ -34,20 +34,18 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Поиск сезонных окон
-        env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        run: python seasonal.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+      - name: Проверка тикера
+        run: python check_ticker.py CBOE
 
       - name: Сохранить результат
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/seasonal.json cache/options.json; do
+          for f in cache/check.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
-          git commit -m "Сезонность $(date -u +'%Y-%m-%d') [skip ci]" || echo "без изменений"
+          git commit -m "check [skip ci]" || echo "без изменений"
           for i in 1 2 3; do
-            git pull --rebase -X theirs && git push && break
+            git push origin HEAD:tmp-check-cboe && break
             sleep 5
           done
