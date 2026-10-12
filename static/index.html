@@ -251,7 +251,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
         <tbody id="seBody"><tr><td colspan="11" class="empty">Загрузка…</td></tr></tbody>
       </table>
     </div>
-    <div class="hint" id="seHint">Сканер считается по пятницам. Год засчитывается, если за окно цена коснулась цели раньше, чем ушла против нас на стоп; путь внутри окна не важен.
+    <div class="hint" id="seHint">Сканер считается по понедельникам и пятницам. Год засчитывается, если за окно цена коснулась цели раньше, чем ушла против нас на стоп; путь внутри окна не важен.
       Конец окна подобран автоматически: самое короткое окно, в котором цель достигалась в нужной доле лет.
       «Обычно» — как часто такой же ход бывает при входе в любой день. Тикер открывает дневной график TradingView.</div>
   </section>
@@ -582,7 +582,7 @@ $$('th[data-sk]').forEach(th => th.onclick = () => {
 const dm = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '—';
 const pp = x => x * 100 < 0.01 ? '<0,01%' : (x * 100).toPrecision(2).replace('.', ',') + '%';
 function renderSeason() {
-  if (!seas || !seas.rows) { $('#seBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер запускается по пятницам</td></tr>'; return; }
+  if (!seas || !seas.rows) { $('#seBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер запускается по понедельникам и пятницам</td></tr>'; return; }
   const P = seas.params, q = $('#seSearch').value.trim().toUpperCase(), sd = seSide();
   let rows = seas.rows.filter(r => (sd === 'all' || r.side === sd) && (!q || r.ticker.startsWith(q)));
   rows.sort((a, b) => ((a[seK] ?? -1) > (b[seK] ?? -1) ? 1 : (a[seK] ?? -1) < (b[seK] ?? -1) ? -1 : 0) * seDir);

@@ -24,7 +24,7 @@
 Отбор акций: все акции США (список Nasdaq), предварительно цена ≥ $5 и оборот ≥ MIN_DVOL,
 затем для найденных — открытый интерес опционов ≥ 5000 (как у ордер-блоков, options.py).
 
-Запуск (по пятницам, .github/workflows/seasonal.yml):
+Запуск (по понедельникам и пятницам, .github/workflows/seasonal.yml):
   python seasonal.py                 — полный прогон, Telegram, cache/seasonal.json
   python seasonal.py --no-tg         — без Telegram
   python seasonal.py --tickers AAPL,MSFT --no-tg   — быстрая проверка на своих тикерах
@@ -75,7 +75,7 @@ class Params:
     p_max: float = 0.01       # максимальный «шанс случайности»
     recent_min: int = 3       # из последних 5 лет удачных не меньше
     ahead_from: int = 1       # искать окна, стартующие через from..to дней после даты прогона
-    ahead_to: int = 17        # пятница + 1..17: будни с ближайшего понедельника до понедельника через 2 недели
+    ahead_to: int = 17        # день прогона + 1..17: будни на ~2 недели вперёд
     min_price: float = 5.0
     min_dvol: float = 5e6     # средний дневной оборот, $ (предфильтр до проверки опционов)
     oi_min: int = 5000        # открытый интерес опционов, контрактов (0 — без фильтра)
