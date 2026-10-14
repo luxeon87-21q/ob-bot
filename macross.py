@@ -54,8 +54,28 @@ def lines(close: pd.Series, P: MParams):
     return red, blue
 
 
-def find_events(df: pd.DataFrame, P: MParams) -> List[dict]:
-    """События: first — первое пересечение после спуска, second — вход, any — любое пересечение вверх."""
+def contexts(df: pd.DataFrame, lookback: int = 40) -> Dict[str, np.ndarray]:
+    """Условия «у корейца», при которых ищем вход. True в день i — условие было в последние lookback дней.
+      drop10 — резкое падение: закрытие за 2 дня упало на 10% и больше;
+      wma200 — цена дошла до 200-недельной скользящей (минимум дня ≤ SMA200w × 1.03)."""
+    c, l = df["close"], df["low"]
+    drop = (c / c.shift(2) - 1 <= -0.10).to_numpy()
+    wk = c.resample("W-FRI").last().dropna()
+    w200 = wk.rolling(200).mean().shift(1)          # только завершённые недели — без заглядывания вперёд
+    w200d = w200.reindex(df.index, method="ffill").to_numpy()
+    touch = np.where(np.isnan(w200d), False, l.to_numpy() <= w200d * 1.03)
+    out = {}
+    for name, flag in (("drop10", drop), ("wma200", touch)):
+        cs = np.concatenate([[0], np.cumsum(flag.astype(int))])
+        n = len(flag)
+        idx = np.arange(n)
+        out[name] = (cs[idx + 1] - cs[np.maximum(0, idx + 1 - lookback)]) > 0
+    return out
+
+
+def find_events(df: pd.DataFrame, P: MParams, ctx: Optional[np.ndarray] = None) -> List[dict]:
+    """События: first — первое пересечение после спуска, second — вход, any — любое пересечение вверх.
+    ctx — если задан, первое пересечение засчитывается, только когда ctx[i] истинно (условие было недавно)."""
     red, blue = lines(df["close"], P)
     r, b = red.to_numpy(), blue.to_numpy()
     n = len(r)
@@ -77,7 +97,7 @@ def find_events(df: pd.DataFrame, P: MParams) -> List[dict]:
             if state == 2 and below_run < P.down_bars and i - t1 <= P.window:
                 ev.append({"i": i, "kind": "second", "below": below_run, "gap": i - t1})
                 state = 0
-            elif below_run >= P.down_bars:
+            elif below_run >= P.down_bars and (ctx is None or ctx[i]):
                 ev.append({"i": i, "kind": "first", "below": below_run})
                 state, t1 = 1, i
             else:
@@ -175,6 +195,63 @@ def baseline(A: Arrays, step: int = 10) -> List[dict]:
     return out
 
 
+VARIANTS = {
+    # имя: (условие, сколько дней красная ниже синей перед первым пересечением)
+    "drop10": ("drop10", 5),
+    "wma200": ("wma200", 5),
+}
+
+
+def backtest_variants(hist: Dict[str, pd.DataFrame], P: MParams) -> dict:
+    """Те же сигналы, но только после резкого падения / касания 200-недельной. База для сравнения —
+    вход в любой день, когда условие было в последние 40 дней (т.е. «просто купить после падения»)."""
+    spy = hist["SPY"]["close"] if "SPY" in hist else None
+    res = {}
+    for name, (cname, db) in VARIANTS.items():
+        Pv = MParams(**{**asdict(P), "down_bars": db})
+        g = {"first": [], "second": [], "base": []}
+        ev_list, recent = [], []
+        for t, df in hist.items():
+            if t == "SPY":
+                continue
+            df = df.dropna(subset=["open", "high", "low", "close"])
+            df = df[(df["open"] > 0) & (df["low"] > 0)]
+            if len(df) < 300:
+                continue
+            try:
+                A = Arrays(df, Pv, spy)
+                ctx = contexts(df)[cname]
+                for e in find_events(df, Pv, ctx):
+                    if e["kind"] == "any":
+                        continue
+                    r = outcomes(A, e["i"])
+                    if not r:
+                        continue
+                    r["ticker"] = t
+                    g[e["kind"]].append(r)
+                    if e["kind"] == "second":
+                        ev_list.append(dict(r, close=float(df["close"].iloc[e["i"]])))
+                        if r["date"] >= str((df.index[-1] - pd.Timedelta(days=30)).date()):
+                            recent.append({"ticker": t, "date": r["date"]})
+                for i in np.nonzero(ctx)[0][::5]:
+                    if i + 61 < len(df):
+                        rb = outcomes(A, int(i), full=False)
+                        if rb:
+                            g["base"].append(rb)
+            except Exception as ex:
+                log.warning("%s %s: %s", name, t, ex)
+        sec = pd.DataFrame(g["second"])
+        periods = {}
+        if len(sec):
+            for pn, lo, hi in (("2006-2013", "2006", "2014"), ("2014-2019", "2014", "2020"), ("2020-2026", "2020", "2027")):
+                part = sec[(sec["date"] >= lo) & (sec["date"] < hi)]
+                periods[pn] = summarize(part.to_dict("records"))
+        res[name] = dict(groups={k: summarize(v) for k, v in g.items()}, periods=periods,
+                         events=ev_list if len(hist) <= 21 else [],
+                         recent=sorted(recent, key=lambda x: x["date"], reverse=True)[:50])
+    return res
+
+
 def backtest(hist: Dict[str, pd.DataFrame], P: MParams) -> dict:
     spy = hist["SPY"]["close"] if "SPY" in hist else None
     groups = {"first": [], "second": [], "any": [], "first_kept": [], "base": []}
@@ -269,10 +346,14 @@ def main():
     hist = {t: df for t, df in hist.items() if t == "SPY" or seasonal.liquid(df, SP)}
     log.info("ликвидных акций с историей: %d", len(hist) - 1)
     res = backtest(hist, P)
+    res["variants"] = backtest_variants(hist, P)
     out = BASE / a.out if a.out else OUT_FILE
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
     print(report(res))
+    for name, v in res["variants"].items():
+        print("\n=== " + name)
+        print(report({"tickers": res["tickers"], "groups": {**v["groups"], "first_kept": {}, "any": {}}}))
 
 
 if __name__ == "__main__":
