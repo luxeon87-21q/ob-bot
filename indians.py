@@ -176,7 +176,7 @@ def main():
                 r["h4"] = dict(last_close=float(df4["close"].iloc[-1]), last_date=str(df4.index[-1])[:16],
                                stats=summarize(pats4), recent=[strip(p) for p in pats4[-6:]])
             res["tickers"][t] = r
-            print(t, json.dumps({k: v.get("stats") for k, v in r.items()}, ensure_ascii=False))
+            print(t, json.dumps({k: v.get("stats") for k, v in r.items() if isinstance(v, dict) and "stats" in v}, ensure_ascii=False))
 
     if a.backtest:
         tickers = seasonal.prefilter(seasonal.all_us_stocks(), seasonal.Params())
