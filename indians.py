@@ -162,12 +162,17 @@ def main():
             if t in daily:
                 df = daily[t]
                 pats = detect(df)
+                piv = {L: [(str(df.index[i].date()), k, round(v, 2)) for i, k, v in
+                           zigzag(df["high"].to_numpy(float), df["low"].to_numpy(float), L)[-10:]] for L in (3, 5)}
+                r["daily_pivots"] = piv
                 r["daily"] = dict(last_close=float(df["close"].iloc[-1]), last_date=str(df.index[-1].date()),
                                   stats=summarize(pats), recent=[strip(p) for p in pats[-6:]],
                                   history=[strip(p) for p in pats if p.get("entry_i") is not None])
             if t in h1:
                 df4 = data.to_4h(h1[t])
                 pats4 = detect(df4, L=4)
+                r["h4_pivots"] = [(str(df4.index[i])[:16], k, round(v, 2)) for i, k, v in
+                                  zigzag(df4["high"].to_numpy(float), df4["low"].to_numpy(float), 4)[-12:]]
                 r["h4"] = dict(last_close=float(df4["close"].iloc[-1]), last_date=str(df4.index[-1])[:16],
                                stats=summarize(pats4), recent=[strip(p) for p in pats4[-6:]])
             res["tickers"][t] = r
