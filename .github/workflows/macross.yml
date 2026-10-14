@@ -1,7 +1,12 @@
 name: Второе пересечение — проверка на истории
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: 'Тикеры через запятую (пусто — все акции США)'
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -22,12 +27,21 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Проверка стратегии
-        run: python macross.py --backtest
+        env:
+          TICKERS: ${{ inputs.tickers }}
+        run: |
+          if [ -n "$TICKERS" ]; then
+            python macross.py --backtest --tickers "$TICKERS" --out cache/macross_tickers.json
+          else
+            python macross.py --backtest
+          fi
       - name: Сохранить результат
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          git add -f cache/macross_backtest.json
+          for f in cache/macross_backtest.json cache/macross_tickers.json; do
+            if [ -e "$f" ]; then git add -f "$f"; fi
+          done
           git commit -m "Второе пересечение: проверка на истории [skip ci]" || echo "без изменений"
           for i in 1 2 3; do
             git pull --rebase -X theirs && git push && break

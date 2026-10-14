@@ -178,6 +178,7 @@ def baseline(A: Arrays, step: int = 10) -> List[dict]:
 def backtest(hist: Dict[str, pd.DataFrame], P: MParams) -> dict:
     spy = hist["SPY"]["close"] if "SPY" in hist else None
     groups = {"first": [], "second": [], "any": [], "first_kept": [], "base": []}
+    events = []
     per_year: Dict[str, Dict[str, int]] = {}
     recent = []
     tickers = 0
@@ -198,6 +199,8 @@ def backtest(hist: Dict[str, pd.DataFrame], P: MParams) -> dict:
                     continue
                 r["ticker"] = t
                 groups[e["kind"]].append(r)
+                if e["kind"] in ("first", "second"):
+                    events.append(dict(r, kind=e["kind"], close=float(df["close"].iloc[e["i"]])))
                 if e["kind"] == "first" and r.get("false") is False:
                     groups["first_kept"].append(r)
                 if e["kind"] in ("first", "second"):
@@ -219,7 +222,8 @@ def backtest(hist: Dict[str, pd.DataFrame], P: MParams) -> dict:
             periods[name] = summarize(part.to_dict("records"))
     return dict(updated=pd.Timestamp.now(tz="UTC").isoformat(), params=asdict(P), tickers=tickers,
                 groups=res, periods=periods, per_year=per_year,
-                recent=sorted(recent, key=lambda x: x["date"], reverse=True)[:50])
+                recent=sorted(recent, key=lambda x: x["date"], reverse=True)[:50],
+                events=events if tickers <= 20 else [])
 
 
 def report(res: dict) -> str:
@@ -250,6 +254,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--backtest", action="store_true")
     ap.add_argument("--tickers")
+    ap.add_argument("--out", help="куда сохранить (по умолчанию cache/macross_backtest.json)")
     a = ap.parse_args()
     P = MParams()
     if not a.backtest:
@@ -264,8 +269,9 @@ def main():
     hist = {t: df for t, df in hist.items() if t == "SPY" or seasonal.liquid(df, SP)}
     log.info("ликвидных акций с историей: %d", len(hist) - 1)
     res = backtest(hist, P)
-    OUT_FILE.parent.mkdir(exist_ok=True)
-    OUT_FILE.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+    out = BASE / a.out if a.out else OUT_FILE
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
     print(report(res))
 
 
