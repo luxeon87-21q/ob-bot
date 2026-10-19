@@ -1,0 +1,1810 @@
+{
+ "tickers": 2650,
+ "opt_tickers": 176,
+ "groups": {
+  "signal": {
+   "w4": {
+    "n": 5835,
+    "hit": 30.2,
+    "hit_day_med": 10.0,
+    "broke_first": 41.7,
+    "exp_ret_mean": 1.29,
+    "exp_ret_med": 1.13,
+    "exp_up": 55.3,
+    "zones": {
+     "below": 44.4,
+     "lower": 39.2,
+     "upper": 12.8,
+     "above": 3.6
+    },
+    "fly_win": 40.1,
+    "fly_mean": 20.8,
+    "fly_med": -84.1,
+    "fly_big": 28.3,
+    "maxR_med": 383.0,
+    "ratio_ok": 57.2,
+    "ok_n": 3335,
+    "ok_win": 39.4,
+    "ok_mean": 25.8,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 5835,
+    "hit": 35.2,
+    "hit_day_med": 11.0,
+    "broke_first": 44.5,
+    "exp_ret_mean": 1.2,
+    "exp_ret_med": 1.08,
+    "exp_up": 54.6,
+    "zones": {
+     "below": 45.5,
+     "lower": 36.0,
+     "upper": 13.7,
+     "above": 4.8
+    },
+    "fly_win": 39.8,
+    "fly_mean": 25.2,
+    "fly_med": -100.0,
+    "fly_big": 29.5,
+    "maxR_med": 396.0,
+    "ratio_ok": 68.9,
+    "ok_n": 4019,
+    "ok_win": 39.0,
+    "ok_mean": 29.6,
+    "ok_med": -100.0
+   }
+  },
+  "no_low": {
+   "w4": {
+    "n": 30964,
+    "hit": 39.1,
+    "hit_day_med": 9.0,
+    "broke_first": 48.2,
+    "exp_ret_mean": 1.39,
+    "exp_ret_med": 1.09,
+    "exp_up": 54.8,
+    "zones": {
+     "below": 45.2,
+     "lower": 33.7,
+     "upper": 14.1,
+     "above": 6.9
+    },
+    "fly_win": 38.4,
+    "fly_mean": 22.9,
+    "fly_med": -100.0,
+    "fly_big": 28.3,
+    "maxR_med": 393.0,
+    "ratio_ok": 71.0,
+    "ok_n": 21995,
+    "ok_win": 37.8,
+    "ok_mean": 28.4,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 30964,
+    "hit": 44.8,
+    "hit_day_med": 10.0,
+    "broke_first": 50.6,
+    "exp_ret_mean": 1.61,
+    "exp_ret_med": 1.12,
+    "exp_up": 54.1,
+    "zones": {
+     "below": 45.8,
+     "lower": 30.5,
+     "upper": 15.0,
+     "above": 8.8
+    },
+    "fly_win": 36.9,
+    "fly_mean": 24.3,
+    "fly_med": -100.0,
+    "fly_big": 28.1,
+    "maxR_med": 417.0,
+    "ratio_ok": 81.2,
+    "ok_n": 25135,
+    "ok_win": 36.1,
+    "ok_mean": 27.1,
+    "ok_med": -100.0
+   }
+  },
+  "base": {
+   "w4": {
+    "n": 164823,
+    "hit": 26.5,
+    "hit_day_med": 10.0,
+    "broke_first": 58.3,
+    "exp_ret_mean": 1.16,
+    "exp_ret_med": 0.9,
+    "exp_up": 54.0,
+    "zones": {
+     "below": 45.9,
+     "lower": 40.2,
+     "upper": 10.5,
+     "above": 3.4
+    },
+    "fly_win": 38.4,
+    "fly_mean": 15.2,
+    "fly_med": -94.6,
+    "fly_big": 26.6,
+    "maxR_med": 378.0,
+    "ratio_ok": 40.7,
+    "ok_n": 67126,
+    "ok_win": 37.4,
+    "ok_mean": 23.7,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 164823,
+    "hit": 31.6,
+    "hit_day_med": 12.0,
+    "broke_first": 60.8,
+    "exp_ret_mean": 1.44,
+    "exp_ret_med": 1.06,
+    "exp_up": 54.3,
+    "zones": {
+     "below": 45.7,
+     "lower": 37.7,
+     "upper": 12.0,
+     "above": 4.6
+    },
+    "fly_win": 38.6,
+    "fly_mean": 19.2,
+    "fly_med": -100.0,
+    "fly_big": 27.6,
+    "maxR_med": 383.0,
+    "ratio_ok": 51.8,
+    "ok_n": 85307,
+    "ok_win": 37.2,
+    "ok_mean": 25.7,
+    "ok_med": -100.0
+   }
+  }
+ },
+ "opt": {
+  "signal": {
+   "w4": {
+    "n": 535,
+    "hit": 31.2,
+    "hit_day_med": 11.0,
+    "broke_first": 44.5,
+    "exp_ret_mean": 2.03,
+    "exp_ret_med": 1.77,
+    "exp_up": 59.3,
+    "zones": {
+     "lower": 41.1,
+     "below": 41.1,
+     "upper": 15.1,
+     "above": 2.6
+    },
+    "fly_win": 43.0,
+    "fly_mean": 30.0,
+    "fly_med": -48.5,
+    "fly_big": 30.5,
+    "maxR_med": 385.0,
+    "ratio_ok": 57.8,
+    "ok_n": 309,
+    "ok_win": 45.3,
+    "ok_mean": 45.9,
+    "ok_med": -32.4
+   },
+   "w5": {
+    "n": 535,
+    "hit": 35.9,
+    "hit_day_med": 11.0,
+    "broke_first": 45.8,
+    "exp_ret_mean": 2.46,
+    "exp_ret_med": 1.85,
+    "exp_up": 59.1,
+    "zones": {
+     "below": 40.7,
+     "lower": 39.4,
+     "upper": 15.7,
+     "above": 4.1
+    },
+    "fly_win": 45.4,
+    "fly_mean": 39.0,
+    "fly_med": -42.1,
+    "fly_big": 33.8,
+    "maxR_med": 403.0,
+    "ratio_ok": 70.8,
+    "ok_n": 379,
+    "ok_win": 45.4,
+    "ok_mean": 49.9,
+    "ok_med": -43.7
+   }
+  },
+  "no_low": {
+   "w4": {
+    "n": 2531,
+    "hit": 41.6,
+    "hit_day_med": 9.0,
+    "broke_first": 47.3,
+    "exp_ret_mean": 2.3,
+    "exp_ret_med": 1.81,
+    "exp_up": 57.3,
+    "zones": {
+     "below": 42.9,
+     "lower": 34.3,
+     "upper": 15.3,
+     "above": 7.5
+    },
+    "fly_win": 40.9,
+    "fly_mean": 30.9,
+    "fly_med": -100.0,
+    "fly_big": 30.7,
+    "maxR_med": 393.0,
+    "ratio_ok": 71.0,
+    "ok_n": 1798,
+    "ok_win": 39.5,
+    "ok_mean": 34.6,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 2531,
+    "hit": 47.4,
+    "hit_day_med": 10.0,
+    "broke_first": 49.0,
+    "exp_ret_mean": 2.73,
+    "exp_ret_med": 1.99,
+    "exp_up": 57.0,
+    "zones": {
+     "below": 43.2,
+     "lower": 29.9,
+     "upper": 16.5,
+     "above": 10.4
+    },
+    "fly_win": 38.4,
+    "fly_mean": 28.2,
+    "fly_med": -100.0,
+    "fly_big": 29.4,
+    "maxR_med": 417.0,
+    "ratio_ok": 81.4,
+    "ok_n": 2059,
+    "ok_win": 37.4,
+    "ok_mean": 29.4,
+    "ok_med": -100.0
+   }
+  },
+  "base": {
+   "w4": {
+    "n": 14519,
+    "hit": 27.2,
+    "hit_day_med": 10.0,
+    "broke_first": 56.0,
+    "exp_ret_mean": 1.96,
+    "exp_ret_med": 1.48,
+    "exp_up": 56.8,
+    "zones": {
+     "below": 43.0,
+     "lower": 41.7,
+     "upper": 11.4,
+     "above": 3.9
+    },
+    "fly_win": 40.8,
+    "fly_mean": 21.7,
+    "fly_med": -73.7,
+    "fly_big": 28.2,
+    "maxR_med": 375.0,
+    "ratio_ok": 40.3,
+    "ok_n": 5847,
+    "ok_win": 39.4,
+    "ok_mean": 30.7,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 14519,
+    "hit": 32.7,
+    "hit_day_med": 12.0,
+    "broke_first": 58.5,
+    "exp_ret_mean": 2.41,
+    "exp_ret_med": 1.72,
+    "exp_up": 57.3,
+    "zones": {
+     "below": 42.9,
+     "lower": 38.6,
+     "upper": 13.2,
+     "above": 5.3
+    },
+    "fly_win": 40.8,
+    "fly_mean": 25.4,
+    "fly_med": -82.8,
+    "fly_big": 29.3,
+    "maxR_med": 381.0,
+    "ratio_ok": 51.4,
+    "ok_n": 7468,
+    "ok_win": 38.4,
+    "ok_mean": 29.0,
+    "ok_med": -100.0
+   }
+  }
+ },
+ "periods": {
+  "2006-2013": {
+   "w4": {
+    "n": 1574,
+    "hit": 26.9,
+    "hit_day_med": 11.0,
+    "broke_first": 39.1,
+    "exp_ret_mean": 0.36,
+    "exp_ret_med": 0.76,
+    "exp_up": 54.1,
+    "zones": {
+     "below": 46.2,
+     "lower": 40.6,
+     "upper": 10.7,
+     "above": 2.5
+    },
+    "fly_win": 39.3,
+    "fly_mean": 15.8,
+    "fly_med": -90.2,
+    "fly_big": 26.6,
+    "maxR_med": 387.0,
+    "ratio_ok": 56.7,
+    "ok_n": 893,
+    "ok_win": 36.8,
+    "ok_mean": 13.6,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 1574,
+    "hit": 32.0,
+    "hit_day_med": 12.0,
+    "broke_first": 41.9,
+    "exp_ret_mean": 0.25,
+    "exp_ret_med": 1.09,
+    "exp_up": 55.1,
+    "zones": {
+     "below": 44.9,
+     "lower": 39.5,
+     "upper": 11.9,
+     "above": 3.8
+    },
+    "fly_win": 40.8,
+    "fly_mean": 25.5,
+    "fly_med": -83.5,
+    "fly_big": 29.2,
+    "maxR_med": 401.0,
+    "ratio_ok": 68.1,
+    "ok_n": 1072,
+    "ok_win": 38.2,
+    "ok_mean": 25.5,
+    "ok_med": -100.0
+   }
+  },
+  "2014-2019": {
+   "w4": {
+    "n": 1545,
+    "hit": 31.8,
+    "hit_day_med": 10.0,
+    "broke_first": 35.5,
+    "exp_ret_mean": 2.1,
+    "exp_ret_med": 2.38,
+    "exp_up": 60.3,
+    "zones": {
+     "lower": 41.3,
+     "below": 39.5,
+     "upper": 15.6,
+     "above": 3.6
+    },
+    "fly_win": 45.1,
+    "fly_mean": 36.2,
+    "fly_med": -38.6,
+    "fly_big": 32.7,
+    "maxR_med": 370.0,
+    "ratio_ok": 47.0,
+    "ok_n": 726,
+    "ok_win": 45.9,
+    "ok_mean": 49.2,
+    "ok_med": -43.0
+   },
+   "w5": {
+    "n": 1545,
+    "hit": 36.6,
+    "hit_day_med": 12.0,
+    "broke_first": 38.2,
+    "exp_ret_mean": 2.38,
+    "exp_ret_med": 2.36,
+    "exp_up": 61.2,
+    "zones": {
+     "below": 39.7,
+     "lower": 38.6,
+     "upper": 16.8,
+     "above": 4.9
+    },
+    "fly_win": 45.1,
+    "fly_mean": 37.2,
+    "fly_med": -47.9,
+    "fly_big": 33.3,
+    "maxR_med": 380.0,
+    "ratio_ok": 58.3,
+    "ok_n": 900,
+    "ok_win": 44.6,
+    "ok_mean": 44.1,
+    "ok_med": -69.5
+   }
+  },
+  "2020-2026": {
+   "w4": {
+    "n": 2716,
+    "hit": 31.1,
+    "hit_day_med": 9.0,
+    "broke_first": 46.8,
+    "exp_ret_mean": 1.37,
+    "exp_ret_med": 0.68,
+    "exp_up": 53.2,
+    "zones": {
+     "below": 46.1,
+     "lower": 37.3,
+     "upper": 12.4,
+     "above": 4.2
+    },
+    "fly_win": 37.6,
+    "fly_mean": 15.0,
+    "fly_med": -100.0,
+    "fly_big": 26.8,
+    "maxR_med": 388.0,
+    "ratio_ok": 63.2,
+    "ok_n": 1716,
+    "ok_win": 38.1,
+    "ok_mean": 22.2,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 2716,
+    "hit": 36.3,
+    "hit_day_med": 11.0,
+    "broke_first": 49.7,
+    "exp_ret_mean": 1.08,
+    "exp_ret_med": 0.15,
+    "exp_up": 50.5,
+    "zones": {
+     "below": 49.2,
+     "lower": 32.5,
+     "upper": 13.0,
+     "above": 5.3
+    },
+    "fly_win": 36.3,
+    "fly_mean": 18.3,
+    "fly_med": -100.0,
+    "fly_big": 27.5,
+    "maxR_med": 405.0,
+    "ratio_ok": 75.4,
+    "ok_n": 2047,
+    "ok_win": 37.0,
+    "ok_mean": 25.3,
+    "ok_med": -100.0
+   }
+  }
+ },
+ "iv_alt": {
+  "1.0": {
+   "w4": {
+    "n": 5835,
+    "hit": 30.2,
+    "hit_day_med": 10.0,
+    "broke_first": 41.7,
+    "exp_ret_mean": 1.29,
+    "exp_ret_med": 1.13,
+    "exp_up": 55.3,
+    "zones": {
+     "below": 44.4,
+     "lower": 39.2,
+     "upper": 12.8,
+     "above": 3.6
+    },
+    "fly_win": 39.8,
+    "fly_mean": 17.9,
+    "fly_med": -84.6,
+    "fly_big": 27.8,
+    "maxR_med": 373.0,
+    "ratio_ok": 46.0,
+    "ok_n": 2687,
+    "ok_win": 38.0,
+    "ok_mean": 20.9,
+    "ok_med": -100.0
+   },
+   "w5": {
+    "n": 5835,
+    "hit": 35.2,
+    "hit_day_med": 11.0,
+    "broke_first": 44.5,
+    "exp_ret_mean": 1.2,
+    "exp_ret_med": 1.08,
+    "exp_up": 54.6,
+    "zones": {
+     "below": 45.5,
+     "lower": 36.0,
+     "upper": 13.7,
+     "above": 4.8
+    },
+    "fly_win": 39.6,
+    "fly_mean": 20.8,
+    "fly_med": -100.0,
+    "fly_big": 28.8,
+    "maxR_med": 383.0,
+    "ratio_ok": 59.3,
+    "ok_n": 3459,
+    "ok_win": 38.0,
+    "ok_mean": 23.2,
+    "ok_med": -100.0
+   }
+  },
+  "1.0_opt": {
+   "w4": {
+    "n": 535,
+    "hit": 31.2,
+    "hit_day_med": 11.0,
+    "broke_first": 44.5,
+    "exp_ret_mean": 2.03,
+    "exp_ret_med": 1.77,
+    "exp_up": 59.3,
+    "zones": {
+     "lower": 41.1,
+     "below": 41.1,
+     "upper": 15.1,
+     "above": 2.6
+    },
+    "fly_win": 43.2,
+    "fly_mean": 26.0,
+    "fly_med": -49.6,
+    "fly_big": 30.1,
+    "maxR_med": 375.0,
+    "ratio_ok": 49.0,
+    "ok_n": 262,
+    "ok_win": 43.9,
+    "ok_mean": 36.0,
+    "ok_med": -51.4
+   },
+   "w5": {
+    "n": 535,
+    "hit": 35.9,
+    "hit_day_med": 11.0,
+    "broke_first": 45.8,
+    "exp_ret_mean": 2.46,
+    "exp_ret_med": 1.85,
+    "exp_up": 59.1,
+    "zones": {
+     "below": 40.7,
+     "lower": 39.4,
+     "upper": 15.7,
+     "above": 4.1
+    },
+    "fly_win": 45.0,
+    "fly_mean": 33.6,
+    "fly_med": -45.3,
+    "fly_big": 33.3,
+    "maxR_med": 385.0,
+    "ratio_ok": 59.8,
+    "ok_n": 320,
+    "ok_win": 44.1,
+    "ok_mean": 39.4,
+    "ok_med": -76.5
+   }
+  },
+  "1.3": {
+   "w4": {
+    "n": 5835,
+    "hit": 30.2,
+    "hit_day_med": 10.0,
+    "broke_first": 41.7,
+    "exp_ret_mean": 1.29,
+    "exp_ret_med": 1.13,
+    "exp_up": 55.3,
+    "zones": {
+     "below": 44.4,
+     "lower": 39.2,
+     "upper": 12.8,
+     "above": 3.6
+    },
+    "fly_win": 40.6,
+    "fly_mean": 29.1,
+    "fly_med": -83.9,
+    "fly_big": 29.4,
+    "maxR_med": 409.0,
+    "ratio_ok": 73.2,
+    "ok_n": 4273,
+    "ok_win": 40.4,
+    "ok_mean": 35.4,
+    "ok_med": -97.5
+   },
+   "w5": {
+    "n": 5835,
+    "hit": 35.2,
+    "hit_day_med": 11.0,
+    "broke_first": 44.5,
+    "exp_ret_mean": 1.2,
+    "exp_ret_med": 1.08,
+    "exp_up": 54.6,
+    "zones": {
+     "below": 45.5,
+     "lower": 36.0,
+     "upper": 13.7,
+     "above": 4.8
+    },
+    "fly_win": 40.4,
+    "fly_mean": 36.1,
+    "fly_med": -100.0,
+    "fly_big": 30.6,
+    "maxR_med": 435.0,
+    "ratio_ok": 81.0,
+    "ok_n": 4725,
+    "ok_win": 40.4,
+    "ok_mean": 41.9,
+    "ok_med": -100.0
+   }
+  },
+  "1.3_opt": {
+   "w4": {
+    "n": 535,
+    "hit": 31.2,
+    "hit_day_med": 11.0,
+    "broke_first": 44.5,
+    "exp_ret_mean": 2.03,
+    "exp_ret_med": 1.77,
+    "exp_up": 59.3,
+    "zones": {
+     "lower": 41.1,
+     "below": 41.1,
+     "upper": 15.1,
+     "above": 2.6
+    },
+    "fly_win": 43.7,
+    "fly_mean": 40.4,
+    "fly_med": -45.6,
+    "fly_big": 32.1,
+    "maxR_med": 417.0,
+    "ratio_ok": 74.2,
+    "ok_n": 397,
+    "ok_win": 47.1,
+    "ok_mean": 56.6,
+    "ok_med": -25.4
+   },
+   "w5": {
+    "n": 535,
+    "hit": 35.9,
+    "hit_day_med": 11.0,
+    "broke_first": 45.8,
+    "exp_ret_mean": 2.46,
+    "exp_ret_med": 1.85,
+    "exp_up": 59.1,
+    "zones": {
+     "below": 40.7,
+     "lower": 39.4,
+     "upper": 15.7,
+     "above": 4.1
+    },
+    "fly_win": 46.0,
+    "fly_mean": 52.0,
+    "fly_med": -37.2,
+    "fly_big": 35.5,
+    "maxR_med": 441.0,
+    "ratio_ok": 81.5,
+    "ok_n": 436,
+    "ok_win": 47.5,
+    "ok_mean": 63.8,
+    "ok_med": -24.1
+   }
+  }
+ },
+ "recent": [
+  {
+   "ticker": "XPRO",
+   "date": "2026-10-16",
+   "close": 16.16,
+   "high": 16.64,
+   "low": 15.06,
+   "opt": false
+  },
+  {
+   "ticker": "VVX",
+   "date": "2026-10-16",
+   "close": 70.17,
+   "high": 71.68,
+   "low": 66.83,
+   "opt": false
+  },
+  {
+   "ticker": "SNDR",
+   "date": "2026-10-16",
+   "close": 31.51,
+   "high": 32.06,
+   "low": 30.13,
+   "opt": false
+  },
+  {
+   "ticker": "SLB",
+   "date": "2026-10-16",
+   "close": 49.5,
+   "high": 49.77,
+   "low": 47.17,
+   "opt": true
+  },
+  {
+   "ticker": "RGLD",
+   "date": "2026-10-16",
+   "close": 238.05,
+   "high": 240.59,
+   "low": 223.02,
+   "opt": false
+  },
+  {
+   "ticker": "PEB",
+   "date": "2026-10-16",
+   "close": 19.49,
+   "high": 19.96,
+   "low": 17.05,
+   "opt": false
+  },
+  {
+   "ticker": "NOV",
+   "date": "2026-10-16",
+   "close": 18.93,
+   "high": 19.22,
+   "low": 18.24,
+   "opt": false
+  },
+  {
+   "ticker": "NEM",
+   "date": "2026-10-16",
+   "close": 118.6,
+   "high": 120.05,
+   "low": 109.84,
+   "opt": true
+  },
+  {
+   "ticker": "INCY",
+   "date": "2026-10-16",
+   "close": 113.07,
+   "high": 116.03,
+   "low": 107.78,
+   "opt": false
+  },
+  {
+   "ticker": "IAG",
+   "date": "2026-10-16",
+   "close": 18.09,
+   "high": 18.85,
+   "low": 16.82,
+   "opt": false
+  },
+  {
+   "ticker": "HWC",
+   "date": "2026-10-16",
+   "close": 73.03,
+   "high": 74.26,
+   "low": 65.47,
+   "opt": false
+  },
+  {
+   "ticker": "GEF",
+   "date": "2026-10-16",
+   "close": 82.12,
+   "high": 83.2,
+   "low": 77.24,
+   "opt": false
+  },
+  {
+   "ticker": "FSM",
+   "date": "2026-10-16",
+   "close": 10.71,
+   "high": 10.91,
+   "low": 9.96,
+   "opt": false
+  },
+  {
+   "ticker": "FHI",
+   "date": "2026-10-16",
+   "close": 55.93,
+   "high": 57.13,
+   "low": 53.82,
+   "opt": false
+  },
+  {
+   "ticker": "FAST",
+   "date": "2026-10-16",
+   "close": 51.02,
+   "high": 52.82,
+   "low": 47.3,
+   "opt": false
+  },
+  {
+   "ticker": "DNOW",
+   "date": "2026-10-16",
+   "close": 15.68,
+   "high": 15.68,
+   "low": 14.72,
+   "opt": false
+  },
+  {
+   "ticker": "CUZ",
+   "date": "2026-10-16",
+   "close": 27.64,
+   "high": 28.1,
+   "low": 26.67,
+   "opt": false
+  },
+  {
+   "ticker": "CNS",
+   "date": "2026-10-16",
+   "close": 69.63,
+   "high": 71.79,
+   "low": 65.08,
+   "opt": false
+  },
+  {
+   "ticker": "CGAU",
+   "date": "2026-10-16",
+   "close": 22.05,
+   "high": 22.71,
+   "low": 20.63,
+   "opt": false
+  },
+  {
+   "ticker": "BNY",
+   "date": "2026-10-16",
+   "close": 143.3,
+   "high": 145.95,
+   "low": 135.13,
+   "opt": false
+  },
+  {
+   "ticker": "AYA",
+   "date": "2026-10-16",
+   "close": 26.67,
+   "high": 27.44,
+   "low": 24.84,
+   "opt": false
+  },
+  {
+   "ticker": "AU",
+   "date": "2026-10-16",
+   "close": 92.82,
+   "high": 95.16,
+   "low": 87.35,
+   "opt": false
+  },
+  {
+   "ticker": "ALKS",
+   "date": "2026-10-16",
+   "close": 41.22,
+   "high": 41.57,
+   "low": 38.98,
+   "opt": false
+  },
+  {
+   "ticker": "AEM",
+   "date": "2026-10-16",
+   "close": 189.53,
+   "high": 192.39,
+   "low": 173.97,
+   "opt": false
+  },
+  {
+   "ticker": "VVX",
+   "date": "2026-10-09",
+   "close": 71.44,
+   "high": 72.1,
+   "low": 67.88,
+   "opt": false
+  },
+  {
+   "ticker": "TTEK",
+   "date": "2026-10-09",
+   "close": 33.34,
+   "high": 33.7,
+   "low": 32.02,
+   "opt": false
+  },
+  {
+   "ticker": "TNGX",
+   "date": "2026-10-09",
+   "close": 23.81,
+   "high": 24.12,
+   "low": 20.98,
+   "opt": false
+  },
+  {
+   "ticker": "RCUS",
+   "date": "2026-10-09",
+   "close": 24.41,
+   "high": 24.96,
+   "low": 22.8,
+   "opt": false
+  },
+  {
+   "ticker": "ORKA",
+   "date": "2026-10-09",
+   "close": 82.11,
+   "high": 85.23,
+   "low": 75.83,
+   "opt": false
+  },
+  {
+   "ticker": "LABU",
+   "date": "2026-10-09",
+   "close": 243.09,
+   "high": 260.26,
+   "low": 208.28,
+   "opt": true
+  },
+  {
+   "ticker": "IMO",
+   "date": "2026-10-09",
+   "close": 123.01,
+   "high": 125.58,
+   "low": 119.1,
+   "opt": false
+  },
+  {
+   "ticker": "HSIC",
+   "date": "2026-10-09",
+   "close": 84.01,
+   "high": 86.4,
+   "low": 79.37,
+   "opt": false
+  },
+  {
+   "ticker": "GKOS",
+   "date": "2026-10-09",
+   "close": 165.69,
+   "high": 174.48,
+   "low": 146.38,
+   "opt": false
+  },
+  {
+   "ticker": "DFTX",
+   "date": "2026-10-09",
+   "close": 36.9,
+   "high": 38.04,
+   "low": 32.84,
+   "opt": false
+  },
+  {
+   "ticker": "CLYM",
+   "date": "2026-10-09",
+   "close": 11.0,
+   "high": 11.3,
+   "low": 10.27,
+   "opt": false
+  },
+  {
+   "ticker": "AKAM",
+   "date": "2026-10-09",
+   "close": 106.95,
+   "high": 111.6,
+   "low": 99.3,
+   "opt": true
+  },
+  {
+   "ticker": "WSFS",
+   "date": "2026-10-02",
+   "close": 78.03,
+   "high": 78.55,
+   "low": 74.29,
+   "opt": false
+  },
+  {
+   "ticker": "WSBC",
+   "date": "2026-10-02",
+   "close": 38.11,
+   "high": 38.76,
+   "low": 36.39,
+   "opt": false
+  },
+  {
+   "ticker": "VOYA",
+   "date": "2026-10-02",
+   "close": 96.65,
+   "high": 97.71,
+   "low": 91.85,
+   "opt": false
+  },
+  {
+   "ticker": "VLY",
+   "date": "2026-10-02",
+   "close": 12.82,
+   "high": 13.07,
+   "low": 12.31,
+   "opt": false
+  },
+  {
+   "ticker": "UCB",
+   "date": "2026-10-02",
+   "close": 34.11,
+   "high": 34.44,
+   "low": 32.64,
+   "opt": false
+  },
+  {
+   "ticker": "TRST",
+   "date": "2026-10-02",
+   "close": 55.69,
+   "high": 56.27,
+   "low": 53.07,
+   "opt": false
+  },
+  {
+   "ticker": "TNA",
+   "date": "2026-10-02",
+   "close": 59.85,
+   "high": 61.15,
+   "low": 56.17,
+   "opt": true
+  },
+  {
+   "ticker": "TMP",
+   "date": "2026-10-02",
+   "close": 98.89,
+   "high": 99.5,
+   "low": 94.27,
+   "opt": false
+  },
+  {
+   "ticker": "SWK",
+   "date": "2026-10-02",
+   "close": 91.34,
+   "high": 92.35,
+   "low": 85.88,
+   "opt": false
+  },
+  {
+   "ticker": "STBA",
+   "date": "2026-10-02",
+   "close": 49.64,
+   "high": 49.92,
+   "low": 47.4,
+   "opt": false
+  },
+  {
+   "ticker": "SRCE",
+   "date": "2026-10-02",
+   "close": 86.85,
+   "high": 87.47,
+   "low": 82.98,
+   "opt": false
+  },
+  {
+   "ticker": "SMBK",
+   "date": "2026-10-02",
+   "close": 50.99,
+   "high": 51.19,
+   "low": 48.5,
+   "opt": false
+  },
+  {
+   "ticker": "SKWD",
+   "date": "2026-10-02",
+   "close": 55.01,
+   "high": 55.5,
+   "low": 52.49,
+   "opt": false
+  },
+  {
+   "ticker": "SBCF",
+   "date": "2026-10-02",
+   "close": 32.68,
+   "high": 33.01,
+   "low": 31.23,
+   "opt": false
+  },
+  {
+   "ticker": "RUSHA",
+   "date": "2026-10-02",
+   "close": 47.18,
+   "high": 47.92,
+   "low": 45.33,
+   "opt": false
+  },
+  {
+   "ticker": "RNST",
+   "date": "2026-10-02",
+   "close": 39.92,
+   "high": 40.38,
+   "low": 38.08,
+   "opt": false
+  },
+  {
+   "ticker": "RBCAA",
+   "date": "2026-10-02",
+   "close": 93.7,
+   "high": 94.79,
+   "low": 89.99,
+   "opt": false
+  },
+  {
+   "ticker": "R",
+   "date": "2026-10-02",
+   "close": 237.24,
+   "high": 238.33,
+   "low": 223.3,
+   "opt": false
+  },
+  {
+   "ticker": "PNFP",
+   "date": "2026-10-02",
+   "close": 96.09,
+   "high": 96.99,
+   "low": 91.4,
+   "opt": false
+  },
+  {
+   "ticker": "PGC",
+   "date": "2026-10-02",
+   "close": 44.58,
+   "high": 45.12,
+   "low": 42.32,
+   "opt": false
+  },
+  {
+   "ticker": "PFS",
+   "date": "2026-10-02",
+   "close": 22.58,
+   "high": 22.83,
+   "low": 21.66,
+   "opt": false
+  },
+  {
+   "ticker": "OVV",
+   "date": "2026-10-02",
+   "close": 60.34,
+   "high": 61.12,
+   "low": 57.46,
+   "opt": false
+  },
+  {
+   "ticker": "ONB",
+   "date": "2026-10-02",
+   "close": 24.96,
+   "high": 25.45,
+   "low": 24.06,
+   "opt": false
+  },
+  {
+   "ticker": "OFG",
+   "date": "2026-10-02",
+   "close": 51.29,
+   "high": 51.81,
+   "low": 48.98,
+   "opt": false
+  },
+  {
+   "ticker": "NWE",
+   "date": "2026-10-02",
+   "close": 69.27,
+   "high": 70.29,
+   "low": 65.84,
+   "opt": false
+  },
+  {
+   "ticker": "NWBI",
+   "date": "2026-10-02",
+   "close": 15.19,
+   "high": 15.33,
+   "low": 14.54,
+   "opt": false
+  },
+  {
+   "ticker": "NUE",
+   "date": "2026-10-02",
+   "close": 240.39,
+   "high": 246.93,
+   "low": 229.2,
+   "opt": false
+  },
+  {
+   "ticker": "NIC",
+   "date": "2026-10-02",
+   "close": 166.47,
+   "high": 169.75,
+   "low": 160.16,
+   "opt": false
+  },
+  {
+   "ticker": "NBN",
+   "date": "2026-10-02",
+   "close": 126.86,
+   "high": 129.44,
+   "low": 120.25,
+   "opt": false
+  },
+  {
+   "ticker": "MOH",
+   "date": "2026-10-02",
+   "close": 189.54,
+   "high": 192.05,
+   "low": 178.0,
+   "opt": false
+  },
+  {
+   "ticker": "MCB",
+   "date": "2026-10-02",
+   "close": 89.25,
+   "high": 89.95,
+   "low": 85.0,
+   "opt": false
+  },
+  {
+   "ticker": "LYB",
+   "date": "2026-10-02",
+   "close": 58.58,
+   "high": 59.68,
+   "low": 55.88,
+   "opt": false
+  },
+  {
+   "ticker": "LKFN",
+   "date": "2026-10-02",
+   "close": 59.07,
+   "high": 59.8,
+   "low": 56.67,
+   "opt": false
+  },
+  {
+   "ticker": "KRE",
+   "date": "2026-10-02",
+   "close": 70.78,
+   "high": 71.56,
+   "low": 67.97,
+   "opt": true
+  },
+  {
+   "ticker": "KMI",
+   "date": "2026-10-02",
+   "close": 31.07,
+   "high": 31.12,
+   "low": 29.43,
+   "opt": true
+  },
+  {
+   "ticker": "KALU",
+   "date": "2026-10-02",
+   "close": 152.03,
+   "high": 154.71,
+   "low": 140.33,
+   "opt": false
+  },
+  {
+   "ticker": "INDB",
+   "date": "2026-10-02",
+   "close": 80.06,
+   "high": 80.73,
+   "low": 76.67,
+   "opt": false
+  },
+  {
+   "ticker": "IBKR",
+   "date": "2026-10-02",
+   "close": 88.3,
+   "high": 88.92,
+   "low": 83.6,
+   "opt": false
+  },
+  {
+   "ticker": "HWC",
+   "date": "2026-10-02",
+   "close": 73.09,
+   "high": 73.85,
+   "low": 70.14,
+   "opt": false
+  },
+  {
+   "ticker": "HTH",
+   "date": "2026-10-02",
+   "close": 38.45,
+   "high": 38.79,
+   "low": 36.82,
+   "opt": false
+  },
+  {
+   "ticker": "HRB",
+   "date": "2026-10-02",
+   "close": 41.68,
+   "high": 42.91,
+   "low": 39.5,
+   "opt": false
+  },
+  {
+   "ticker": "HOPE",
+   "date": "2026-10-02",
+   "close": 13.68,
+   "high": 13.83,
+   "low": 13.0,
+   "opt": false
+  },
+  {
+   "ticker": "HOMB",
+   "date": "2026-10-02",
+   "close": 28.67,
+   "high": 29.17,
+   "low": 27.73,
+   "opt": false
+  },
+  {
+   "ticker": "HIW",
+   "date": "2026-10-02",
+   "close": 29.67,
+   "high": 30.09,
+   "low": 28.38,
+   "opt": false
+  },
+  {
+   "ticker": "HFWA",
+   "date": "2026-10-02",
+   "close": 28.14,
+   "high": 28.53,
+   "low": 26.97,
+   "opt": false
+  },
+  {
+   "ticker": "HAFC",
+   "date": "2026-10-02",
+   "close": 31.67,
+   "high": 32.16,
+   "low": 30.17,
+   "opt": false
+  },
+  {
+   "ticker": "GNW",
+   "date": "2026-10-02",
+   "close": 9.55,
+   "high": 9.62,
+   "low": 8.88,
+   "opt": false
+  },
+  {
+   "ticker": "GLNG",
+   "date": "2026-10-02",
+   "close": 49.21,
+   "high": 49.87,
+   "low": 46.82,
+   "opt": false
+  },
+  {
+   "ticker": "GFR",
+   "date": "2026-10-02",
+   "close": 5.8,
+   "high": 6.01,
+   "low": 5.43,
+   "opt": false
+  },
+  {
+   "ticker": "GEF",
+   "date": "2026-10-02",
+   "close": 82.18,
+   "high": 83.5,
+   "low": 78.36,
+   "opt": false
+  },
+  {
+   "ticker": "FSS",
+   "date": "2026-10-02",
+   "close": 116.34,
+   "high": 117.42,
+   "low": 109.45,
+   "opt": false
+  },
+  {
+   "ticker": "FRME",
+   "date": "2026-10-02",
+   "close": 40.15,
+   "high": 40.7,
+   "low": 38.62,
+   "opt": false
+  },
+  {
+   "ticker": "FMBH",
+   "date": "2026-10-02",
+   "close": 49.98,
+   "high": 50.51,
+   "low": 47.88,
+   "opt": false
+  },
+  {
+   "ticker": "FIBK",
+   "date": "2026-10-02",
+   "close": 36.0,
+   "high": 36.74,
+   "low": 34.87,
+   "opt": false
+  },
+  {
+   "ticker": "FFBC",
+   "date": "2026-10-02",
+   "close": 31.87,
+   "high": 32.41,
+   "low": 30.61,
+   "opt": false
+  },
+  {
+   "ticker": "FCF",
+   "date": "2026-10-02",
+   "close": 20.56,
+   "high": 21.01,
+   "low": 19.79,
+   "opt": false
+  },
+  {
+   "ticker": "FBNC",
+   "date": "2026-10-02",
+   "close": 62.33,
+   "high": 63.46,
+   "low": 59.86,
+   "opt": false
+  },
+  {
+   "ticker": "EWBC",
+   "date": "2026-10-02",
+   "close": 126.21,
+   "high": 127.75,
+   "low": 120.94,
+   "opt": false
+  },
+  {
+   "ticker": "EQBK",
+   "date": "2026-10-02",
+   "close": 47.73,
+   "high": 48.59,
+   "low": 46.02,
+   "opt": false
+  },
+  {
+   "ticker": "ENVA",
+   "date": "2026-10-02",
+   "close": 172.89,
+   "high": 176.15,
+   "low": 164.77,
+   "opt": false
+  },
+  {
+   "ticker": "EFSC",
+   "date": "2026-10-02",
+   "close": 60.08,
+   "high": 60.91,
+   "low": 57.68,
+   "opt": false
+  },
+  {
+   "ticker": "EBC",
+   "date": "2026-10-02",
+   "close": 21.47,
+   "high": 21.53,
+   "low": 20.42,
+   "opt": false
+  },
+  {
+   "ticker": "DCOM",
+   "date": "2026-10-02",
+   "close": 39.62,
+   "high": 40.22,
+   "low": 38.13,
+   "opt": false
+  },
+  {
+   "ticker": "CVBF",
+   "date": "2026-10-02",
+   "close": 22.28,
+   "high": 22.51,
+   "low": 21.33,
+   "opt": false
+  },
+  {
+   "ticker": "CUZ",
+   "date": "2026-10-02",
+   "close": 27.69,
+   "high": 28.26,
+   "low": 26.77,
+   "opt": false
+  },
+  {
+   "ticker": "CUBI",
+   "date": "2026-10-02",
+   "close": 75.47,
+   "high": 77.18,
+   "low": 71.57,
+   "opt": false
+  },
+  {
+   "ticker": "CTBI",
+   "date": "2026-10-02",
+   "close": 76.21,
+   "high": 76.9,
+   "low": 72.83,
+   "opt": false
+  },
+  {
+   "ticker": "CPF",
+   "date": "2026-10-02",
+   "close": 36.42,
+   "high": 37.12,
+   "low": 35.1,
+   "opt": false
+  },
+  {
+   "ticker": "CNOB",
+   "date": "2026-10-02",
+   "close": 30.78,
+   "high": 31.0,
+   "low": 29.35,
+   "opt": false
+  },
+  {
+   "ticker": "CNO",
+   "date": "2026-10-02",
+   "close": 53.86,
+   "high": 54.75,
+   "low": 51.94,
+   "opt": false
+  },
+  {
+   "ticker": "CFG",
+   "date": "2026-10-02",
+   "close": 64.33,
+   "high": 65.39,
+   "low": 61.78,
+   "opt": false
+  },
+  {
+   "ticker": "CATY",
+   "date": "2026-10-02",
+   "close": 60.84,
+   "high": 61.45,
+   "low": 58.29,
+   "opt": false
+  },
+  {
+   "ticker": "CARE",
+   "date": "2026-10-02",
+   "close": 30.75,
+   "high": 30.99,
+   "low": 29.36,
+   "opt": false
+  },
+  {
+   "ticker": "BUSE",
+   "date": "2026-10-02",
+   "close": 29.73,
+   "high": 30.11,
+   "low": 28.55,
+   "opt": false
+  },
+  {
+   "ticker": "BPOP",
+   "date": "2026-10-02",
+   "close": 158.14,
+   "high": 160.48,
+   "low": 152.43,
+   "opt": false
+  },
+  {
+   "ticker": "BKH",
+   "date": "2026-10-02",
+   "close": 70.96,
+   "high": 71.99,
+   "low": 67.54,
+   "opt": false
+  },
+  {
+   "ticker": "BFST",
+   "date": "2026-10-02",
+   "close": 30.9,
+   "high": 31.08,
+   "low": 29.51,
+   "opt": false
+  },
+  {
+   "ticker": "BANR",
+   "date": "2026-10-02",
+   "close": 67.88,
+   "high": 69.01,
+   "low": 65.61,
+   "opt": false
+  },
+  {
+   "ticker": "AUB",
+   "date": "2026-10-02",
+   "close": 38.82,
+   "high": 39.18,
+   "low": 37.22,
+   "opt": false
+  },
+  {
+   "ticker": "ATLC",
+   "date": "2026-10-02",
+   "close": 91.89,
+   "high": 93.0,
+   "low": 85.9,
+   "opt": false
+  },
+  {
+   "ticker": "AGM",
+   "date": "2026-10-02",
+   "close": 214.79,
+   "high": 217.58,
+   "low": 203.38,
+   "opt": false
+  },
+  {
+   "ticker": "UTL",
+   "date": "2026-09-25",
+   "close": 50.98,
+   "high": 52.53,
+   "low": 48.39,
+   "opt": false
+  },
+  {
+   "ticker": "RELY",
+   "date": "2026-09-25",
+   "close": 21.36,
+   "high": 22.25,
+   "low": 19.52,
+   "opt": false
+  },
+  {
+   "ticker": "MGA",
+   "date": "2026-09-25",
+   "close": 65.0,
+   "high": 65.03,
+   "low": 61.72,
+   "opt": false
+  },
+  {
+   "ticker": "LTH",
+   "date": "2026-09-25",
+   "close": 39.97,
+   "high": 41.16,
+   "low": 36.52,
+   "opt": false
+  },
+  {
+   "ticker": "LAD",
+   "date": "2026-09-25",
+   "close": 316.42,
+   "high": 320.55,
+   "low": 302.18,
+   "opt": false
+  },
+  {
+   "ticker": "ENVA",
+   "date": "2026-09-25",
+   "close": 173.48,
+   "high": 176.89,
+   "low": 166.51,
+   "opt": false
+  },
+  {
+   "ticker": "CVS",
+   "date": "2026-09-25",
+   "close": 89.13,
+   "high": 89.35,
+   "low": 84.5,
+   "opt": true
+  },
+  {
+   "ticker": "VECO",
+   "date": "2026-09-18",
+   "close": 42.72,
+   "high": 43.04,
+   "low": 39.77,
+   "opt": false
+  },
+  {
+   "ticker": "SHOO",
+   "date": "2026-09-18",
+   "close": 42.11,
+   "high": 43.17,
+   "low": 40.38,
+   "opt": false
+  },
+  {
+   "ticker": "MKSI",
+   "date": "2026-09-18",
+   "close": 252.08,
+   "high": 252.38,
+   "low": 228.46,
+   "opt": false
+  },
+  {
+   "ticker": "LSCC",
+   "date": "2026-09-18",
+   "close": 110.96,
+   "high": 113.51,
+   "low": 103.82,
+   "opt": false
+  },
+  {
+   "ticker": "LGND",
+   "date": "2026-09-18",
+   "close": 283.49,
+   "high": 287.14,
+   "low": 270.77,
+   "opt": false
+  },
+  {
+   "ticker": "IPAR",
+   "date": "2026-09-18",
+   "close": 112.51,
+   "high": 114.0,
+   "low": 108.2,
+   "opt": false
+  },
+  {
+   "ticker": "IBKR",
+   "date": "2026-09-18",
+   "close": 90.69,
+   "high": 91.06,
+   "low": 84.96,
+   "opt": false
+  },
+  {
+   "ticker": "HLIO",
+   "date": "2026-09-18",
+   "close": 69.17,
+   "high": 69.6,
+   "low": 66.07,
+   "opt": false
+  },
+  {
+   "ticker": "GRC",
+   "date": "2026-09-18",
+   "close": 73.25,
+   "high": 73.77,
+   "low": 70.0,
+   "opt": false
+  },
+  {
+   "ticker": "CNS",
+   "date": "2026-09-18",
+   "close": 73.79,
+   "high": 75.65,
+   "low": 70.28,
+   "opt": false
+  },
+  {
+   "ticker": "BELFB",
+   "date": "2026-09-18",
+   "close": 241.89,
+   "high": 243.79,
+   "low": 227.51,
+   "opt": false
+  },
+  {
+   "ticker": "BELFA",
+   "date": "2026-09-18",
+   "close": 198.76,
+   "high": 201.93,
+   "low": 187.95,
+   "opt": false
+  },
+  {
+   "ticker": "AVBP",
+   "date": "2026-09-18",
+   "close": 28.9,
+   "high": 29.83,
+   "low": 27.28,
+   "opt": false
+  },
+  {
+   "ticker": "AROC",
+   "date": "2026-09-18",
+   "close": 31.56,
+   "high": 32.27,
+   "low": 29.87,
+   "opt": false
+  },
+  {
+   "ticker": "AIP",
+   "date": "2026-09-18",
+   "close": 22.3,
+   "high": 22.75,
+   "low": 20.02,
+   "opt": false
+  },
+  {
+   "ticker": "ACMR",
+   "date": "2026-09-18",
+   "close": 68.51,
+   "high": 69.44,
+   "low": 62.78,
+   "opt": false
+  }
+ ]
+}
