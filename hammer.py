@@ -369,7 +369,7 @@ def _num(x):
         return None
 
 
-def build_fly(calls: pd.DataFrame, close: float, target: float) -> Optional[dict]:
+def build_fly(calls: pd.DataFrame, close: float, target: float, day: Optional[str] = None) -> Optional[dict]:
     """Симметричная бабочка: продаём 2 кола у цели, покупаем кол у цены закрытия и крыло на той же ширине выше."""
     c = calls.copy()
     c["strike"] = pd.to_numeric(c["strike"], errors="coerce")
@@ -399,10 +399,16 @@ def build_fly(calls: pd.DataFrame, close: float, target: float) -> Optional[dict
                     oi=int(_num(r.get("openInterest")) or 0), vol=int(_num(r.get("volume")) or 0),
                     traded=str(pd.Timestamp(lt).date()) if lt is not None and str(lt) != "NaT" else None)
     L1, M, H1 = leg(kl), leg(km), leg(kh)
-    if not all(x["last"] for x in (L1, M, H1)):
+    for x in (L1, M, H1):
+        # по страйку в день сигнала не торговали: последняя цена старая — берём середину бид/аск, если она есть
+        x["stale"] = bool(day and x["traded"] and x["traded"] < day)
+        x["px"], x["src"] = x["last"], "last"
+        if (x["stale"] or not x["last"]) and x["mid"]:
+            x["px"], x["src"] = x["mid"], "mid"
+    if not all(x["px"] for x in (L1, M, H1)):
         return None
-    debit = L1["last"] + H1["last"]
-    credit = 2 * M["last"]
+    debit = L1["px"] + H1["px"]
+    credit = 2 * M["px"]
     cost = debit - credit
     width = km - kl
     r = dict(kl=kl, km=km, kh=kh, legs=[L1, M, H1], debit=round(debit, 3), credit=round(credit, 3),
@@ -436,7 +442,7 @@ def options_for(c: dict) -> dict:
     flies = []
     for e in exps:
         try:
-            f = build_fly(tk.option_chain(e).calls, c["close"], c["target"])
+            f = build_fly(tk.option_chain(e).calls, c["close"], c["target"], c["day"])
         except Exception as ex:
             log.warning("%s %s: %s", t, e, ex)
             continue
@@ -444,13 +450,14 @@ def options_for(c: dict) -> dict:
             f["exp"] = e
             f["dte"] = (pd.Timestamp(e) - d0).days
             f["ok"] = f["ratio"] >= 0.5 and f["cost"] > 0
-            stale = [x["k"] for x in f["legs"] if x["traded"] and x["traded"] < c["day"]]
-            f["stale"] = stale
+            f["stale"] = [x["k"] for x in f["legs"] if x["stale"] and x["src"] == "last"]   # старая цена, замены нет
+            f["by_mid"] = [x["k"] for x in f["legs"] if x["src"] == "mid"]
+            f["suspect"] = f.get("rr", 0) > 15             # бабочка подозрительно дешёвая — цены рассинхронизированы
             flies.append(f)
     c["flies"] = flies
     good = [f for f in flies if f["ok"]]
     if good:
-        c["best"] = max(good, key=lambda f: f.get("rr", 0))["exp"]
+        c["best"] = max(good, key=lambda f: (not f["suspect"], f.get("rr", 0)))["exp"]
     else:
         c["reason"] = "кредит < 50% дебета" if flies else "нет симметричных страйков"
     try:
@@ -483,7 +490,7 @@ def scan(tickers: List[str]) -> dict:
                 time.sleep(5 * (attempt + 1))
         time.sleep(0.5)
     rows = [c for c in cand if c.get("best")]
-    rows.sort(key=lambda c: -max(f.get("rr", 0) for f in c["flies"] if f["ok"]))
+    rows.sort(key=lambda c: -max(min(f.get("rr", 0), 15) for f in c["flies"] if f["ok"]))
     rest = [c for c in cand if not c.get("best")]
     return dict(week=week, made=pd.Timestamp.now(tz="UTC").isoformat(), checked=len(hist),
                 rows=rows, rest=rest)
@@ -512,7 +519,8 @@ def build_message(res: dict) -> str:
                 f"макс. {_f(f.get('max_profit'))} (×{f.get('rr', 0):.1f})"
                 + (f"\n  ещё {alt[0]['exp'][8:10]}.{alt[0]['exp'][5:7]}: {_f(alt[0]['cost'])}, ×{alt[0].get('rr', 0):.1f}" if alt else "")
                 + (f"\n  ⚠️ отчёт {c['earnings'][8:10]}.{c['earnings'][5:7]}" if c.get("earnings") and c["earnings"] <= f["exp"] else "")
-                + (f"\n  ⚠️ старые цены: {', '.join(_f(k, 1) for k in f['stale'])}" if f["stale"] else ""))
+                + (f"\n  ⚠️ старые цены: {', '.join(_f(k, 1) for k in f['stale'])}" if f["stale"] else "")
+                + (f"\n  ⚠️ подозрительно дёшево — проверьте цены в терминале" if f.get("suspect") else ""))
     lines.append(f"\n🌐 {SITE_URL}\n⚠️ Цены — последние сделки пятницы. Не инвестиционная рекомендация.")
     return "\n".join(lines)
 

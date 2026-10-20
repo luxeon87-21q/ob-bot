@@ -683,10 +683,12 @@ $('#hmAll').onclick = () => setHmAll(!hmAll);
 function flyHtml(c, f) {
   const best = f.exp === c.best;
   const [L, M, H] = f.legs;
-  const leg = (x, sign) => `<b>${sign}${ks(x.k)}</b> ${n2(x.last)}${x.bid != null && x.ask ? ` <span title="бид / аск">(${n2(x.bid)}/${n2(x.ask)})</span>` : ''}`;
+  const leg = (x, sign) => `<b>${sign}${ks(x.k)}</b> ${n2(x.px ?? x.last)}${x.src === 'mid' ? '<sup title="середина бид/аск: по страйку не было сделок">m</sup>' : ''}${x.bid != null && x.ask ? ` <span title="бид / аск">(${n2(x.bid)}/${n2(x.ask)})</span>` : ''}`;
   const warn = [];
   if (!f.ok) warn.push(f.cost <= 0 ? 'цены противоречат друг другу — проверьте в терминале' : `кредит ${Math.round(f.ratio * 100)}% < 50% дебета`);
   if (f.stale && f.stale.length) warn.push('в пятницу не торговались: ' + f.stale.map(ks).join(', ') + ' — цена старая');
+  if (f.by_mid && f.by_mid.length) warn.push('по ' + f.by_mid.map(ks).join(', ') + ' сделок не было — взята середина бид/аск');
+  if (f.suspect) warn.push('подозрительно дёшево — цены ног, вероятно, из разного времени');
   if (c.earnings && c.earnings <= f.exp) warn.push('отчёт ' + ddmm(c.earnings) + ' — до экспирации');
   return `<div class="fly ${f.ok ? '' : 'dim'}">
     <div class="h"><span><b>${best ? '★ ' : ''}${ddmm(f.exp)}</b> <span class="time">${f.dte} дн.</span></span>
