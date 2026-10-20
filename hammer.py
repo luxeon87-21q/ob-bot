@@ -477,18 +477,32 @@ def scan(tickers: List[str]) -> dict:
     week, cand = candidates(hist)
     log.info("неделя %s: по свече прошли %d из %d", week, len(cand), len(hist))
     import time
-    for i, c in enumerate(cand):
-        for attempt in range(4):
+    # сразу после массовой загрузки свечей Yahoo временно отдаёт пустые цепочки опционов — даём ему остыть
+    time.sleep(60 if len(cand) and len(hist) > 100 else 0)
+
+    def one(c):
+        for attempt in range(3):
             try:
                 options_for(c)
                 c.pop("error", None)
-                break
+                return True
             except Exception as ex:
                 c["reason"] = "Yahoo не отдал опционы"
                 c["error"] = f"{type(ex).__name__}: {ex}"[:200]
                 log.warning("%s (попытка %d): %s", c["ticker"], attempt + 1, c["error"])
                 time.sleep(5 * (attempt + 1))
+        return False
+
+    for c in cand:
+        one(c)
         time.sleep(0.5)
+    for rnd in range(2):                     # ещё два круга по тем, где Yahoo отказал
+        failed = [c for c in cand if c.get("error")]
+        if not failed:
+            break
+        time.sleep(60)
+        for c in failed:
+            one(c)
     rows = [c for c in cand if c.get("best")]
     rows.sort(key=lambda c: -max(min(f.get("rr", 0), 15) for f in c["flies"] if f["ok"]))
     rest = [c for c in cand if not c.get("best")]
