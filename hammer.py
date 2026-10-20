@@ -230,7 +230,6 @@ def summarize(rows: List[dict], n: int) -> dict:
         ok_trim=trim(pnl_ok),
         ok_net=round(float(net_ok.mean()) * 100, 1) if len(net_ok) else None,
         ok_net_trim=trim(net_ok),
-        ok_pooled=round((sum(x["pay"] for x in ok) / sum(x["cost"] for x in ok) - 1) * 100, 1) if ok else None,
         ok_big=round(float((pnl_ok >= 1.0).mean()) * 100, 1) if len(pnl_ok) else None,
         ok_cost_pct=round(float(np.median([x["cost"] / x["kl"] for x in ok])) * 100, 2) if ok else None,
     )
@@ -324,7 +323,9 @@ def report(res: dict) -> str:
 
 # ================================================================== субботний сканер
 SCAN_FILE = BASE / "cache" / "hammer.json"
-OI_MIN = 50000          # открытый интерес коллов + путов по экспирациям ≤ 30 дней
+OI_MIN = 50000          # открытый интерес коллов + путов по экспирациям в ближайшие OI_DAYS дней
+OI_DAYS = 35            # 35, а не 30: иначе в неделю после месячной экспирации месячная следующего месяца
+                        # выпадает из окна и OI «проседает» вдвое (так было 19.10: 145 → 77 тикеров)
 DTE_MIN, DTE_MAX = 24, 35
 SITE_URL = "https://luxeon87-21q.github.io/ob-bot/#hammer"
 
@@ -423,7 +424,7 @@ def options_for(c: dict) -> dict:
     t = c["ticker"]
     tk = yf.Ticker(t)
     d0 = pd.Timestamp(c["day"])
-    oi = options._yahoo_oi(t, d0, 30)
+    oi = options._yahoo_oi(t, d0, OI_DAYS)
     c["oi30"] = oi["oi"] if oi else None
     if not oi or oi["oi"] < OI_MIN:
         c["reason"] = f"OI {c['oi30'] or 0:,} < {OI_MIN:,}".replace(",", " ")
@@ -468,12 +469,19 @@ def scan(tickers: List[str]) -> dict:
     hist = {t: df for t, df in hist.items() if seasonal.liquid(df, SPp)}
     week, cand = candidates(hist)
     log.info("неделя %s: по свече прошли %d из %d", week, len(cand), len(hist))
+    import time
     for i, c in enumerate(cand):
-        try:
-            options_for(c)
-        except Exception as ex:
-            c["reason"] = "ошибка данных опционов"
-            log.warning("%s: %s", c["ticker"], ex)
+        for attempt in range(4):
+            try:
+                options_for(c)
+                c.pop("error", None)
+                break
+            except Exception as ex:
+                c["reason"] = "Yahoo не отдал опционы"
+                c["error"] = f"{type(ex).__name__}: {ex}"[:200]
+                log.warning("%s (попытка %d): %s", c["ticker"], attempt + 1, c["error"])
+                time.sleep(5 * (attempt + 1))
+        time.sleep(0.5)
     rows = [c for c in cand if c.get("best")]
     rows.sort(key=lambda c: -max(f.get("rr", 0) for f in c["flies"] if f["ok"]))
     rest = [c for c in cand if not c.get("best")]

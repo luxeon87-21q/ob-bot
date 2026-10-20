@@ -12,6 +12,10 @@ on:
         description: 'Разослать результат подписчикам в Telegram'
         type: boolean
         default: false
+      tickers:
+        description: 'Проверить только эти тикеры (через запятую) — без записи на сайт'
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -43,7 +47,17 @@ jobs:
         id: scan
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        run: python hammer.py --scan ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+          TICKERS: ${{ inputs.tickers }}
+        run: |
+          if [ -n "$TICKERS" ]; then
+            python hammer.py --scan --tickers "$TICKERS" --out cache/hammer_test.json
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            git config user.name "ob-bot"; git config user.email "ob-bot@users.noreply.github.com"
+            git add -f cache/hammer_test.json; git commit -m "Хаммер: проверка тикеров [skip ci]" || true
+            for i in 1 2 3; do git pull --rebase -X theirs && git push && break; sleep 5; done
+          else
+            python hammer.py --scan ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+          fi
 
       - name: Сохранить результат
         if: steps.scan.outputs.skip != 'true'
