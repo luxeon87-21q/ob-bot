@@ -119,6 +119,24 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
 .yrs i{width:7px;height:14px;border-radius:2px;background:var(--panel2);border:1px solid var(--line)}
 .yrs i.ok{background:var(--bull);border-color:transparent} .yrs.bear i.ok{background:var(--bear)}
 .warnc{color:var(--warn);font-weight:600}
+/* хаммер */
+.hm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.hm{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px 14px;box-shadow:inset 3px 0 0 var(--bull)}
+.hm .t{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.hm .t b{font-size:17px}
+.hm .t .px{font-size:15px}
+.hm .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.hm .fly{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:13px}
+.hm .fly.dim{opacity:.55}
+.hm .fly .h{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px}
+.hm .legs{font-size:12.5px;color:var(--muted);margin:2px 0 6px}
+.hm .legs b{color:var(--text);font-weight:500}
+.hm dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0}
+.hm dt{color:var(--muted)} .hm dd{margin:0;text-align:right}
+.hm .warn{margin-top:6px;font-size:12.5px;color:var(--warn)}
+.sect{margin:22px 0 8px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.sect span{color:var(--muted);font-weight:400;font-size:12.5px}
+td.best{font-weight:700}
 @media (max-width:900px){
   .chart-layout{grid-template-columns:1fr} #chartBox{height:420px}
   .sig{grid-template-columns:40px 58px minmax(0,1fr);gap:8px;padding:10px 12px} .sig .desc{white-space:normal;line-height:1.7}
@@ -137,6 +155,7 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
       <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
+      <button data-v="hammer">Хаммер</button>
       <button data-v="chart">График</button>
     </nav>
     <div class="spacer"></div>
@@ -256,6 +275,49 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
       «Обычно» — как часто такой же ход бывает при входе в любой день. Тикер открывает дневной график TradingView.</div>
   </section>
 
+  <!-- ХАММЕР + БАБОЧКА -->
+  <section class="view" id="v-hammer">
+    <div class="toolbar">
+      <span class="switch" id="hmAll" role="switch" aria-checked="false" title="Показать и бабочки, где кредит меньше 50% дебета"><i></i>Показывать не прошедшие 50%</span>
+      <span class="count" id="hmCount"></span>
+    </div>
+    <div id="hmCards"><div class="card"><div class="empty">Загрузка…</div></div></div>
+
+    <div class="sect">По свече прошли, по опционам — нет <span id="hmRestN"></span></div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr><th>Тикер</th><th class="r">Закрытие</th><th class="r">Свеча</th><th class="r">Цель</th><th class="r hide-sm">OI 30д</th><th>Почему нет</th></tr></thead>
+        <tbody id="hmRest"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="sect">Проверка на истории <span id="hmBtNote"></span></div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Вход</th><th class="r">Сигналов</th><th class="r" title="Цена дошла до цели (H + размер свечи) до экспирации">Дошла до цели</th>
+          <th class="r" title="Минимум свечи пробит раньше, чем достигнута цель">Сначала пробит лоу</th>
+          <th class="r" title="Доля бабочек в плюсе на экспирации (с фильтром 50%)">Бабочка в плюсе</th>
+          <th class="r" title="Средний результат в % от дебета бабочки, с фильтром 50%">Средний итог</th>
+          <th class="r" title="То же после комиссий и проскальзывания">После издержек</th>
+          <th class="r hide-sm" title="Средний итог без 1% лучших сделок">Без 1% лучших</th>
+          <th class="r hide-sm" title="Половина сделок хуже этого">Медиана</th>
+          <th class="r hide-sm" title="Сделок с итогом +100% и больше">≥ +100%</th>
+        </tr></thead>
+        <tbody id="hmBt"><tr><td colspan="10" class="empty">—</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint">Сигнал считается по закрытию недели: свеча от хая до лоу не меньше 5%, открытие и закрытие в верхних 2/5,
+      лоу ниже лоу 9 предыдущих недель, закрытие выше 52-недельной SMA, OI опционов (коллы + путы, экспирации ≤ 30 дней) ≥ 50 000.
+      Цель — хай + размер свечи. Бабочка симметричная: покупка кола у закрытия, продажа 2 колов у цели, покупка крыла выше на ту же ширину.
+      Обязательный фильтр: кредит за 2 проданных кола ≥ 50% дебета за 2 купленных. Экспирации 24–35 дней, ★ — лучшая по соотношению прибыль/риск.
+      Цены — последние сделки пятницы (lastPrice Yahoo); если по страйку в пятницу не торговали, это отмечено ⚠️.
+      «Наклон» — IV проданного кола минус IV купленного (плюс — нужный наклон).<br>
+      На истории реальных цен опционов нет: бабочка оценена по Блэку–Шоулзу с волатильностью = историческая за 20 дней × 1,1.
+      Надёжнее всего сравнение строк между собой, абсолютные проценты — оценка. Издержки: $0,65 комиссии и $0,01 проскальзывания на контракт-ногу при входе и выходе.
+      Акции, которые уже не торгуются, в проверку не попали.</div>
+  </section>
+
   <!-- ГРАФИК -->
   <section class="view" id="v-chart">
     <div class="toolbar">
@@ -284,6 +346,8 @@ function staticPath(p) {
   if (p.startsWith('/api/snapshot')) return 'data/snapshot.json';
   if (p.startsWith('/api/signals')) return 'data/signals.json';
   if (p.startsWith('/api/seasonal')) return 'data/seasonal.json';
+  if (p.startsWith('/api/hammer_backtest')) return 'data/hammer_backtest.json';
+  if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
 }
@@ -321,7 +385,7 @@ $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'wolfe', 'screener', 'season', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'wolfe', 'screener', 'season', 'hammer', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -607,6 +671,78 @@ function renderSeason() {
   }).join('') || '<tr><td colspan="11" class="empty">' + (seas.rows.length ? 'Под фильтр ничего не попало' : 'На ближайшие две недели устойчивых окон не нашлось') + '</td></tr>';
 }
 
+
+/* ---------- хаммер + бабочка ---------- */
+let ham = null, hamBt = null, hmAll = store.get('hmAll', false);
+const n2 = (x, d = 2) => x == null ? '—' : Number(x).toLocaleString('ru-RU', {minimumFractionDigits: d, maximumFractionDigits: d});
+const ks = x => Number(x).toLocaleString('ru-RU', {maximumFractionDigits: 2});
+const ddmm = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '—';
+const tvW = t => 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(t.replace(/-/g, '.')) + '&interval=W';
+function setHmAll(v) { hmAll = v; store.set('hmAll', v); const el = $('#hmAll'); el.classList.toggle('on', v); el.setAttribute('aria-checked', v); renderHammer(); }
+$('#hmAll').onclick = () => setHmAll(!hmAll);
+function flyHtml(c, f) {
+  const best = f.exp === c.best;
+  const [L, M, H] = f.legs;
+  const leg = (x, sign) => `<b>${sign}${ks(x.k)}</b> ${n2(x.last)}${x.bid != null && x.ask ? ` <span title="бид / аск">(${n2(x.bid)}/${n2(x.ask)})</span>` : ''}`;
+  const warn = [];
+  if (!f.ok) warn.push(f.cost <= 0 ? 'цены противоречат друг другу — проверьте в терминале' : `кредит ${Math.round(f.ratio * 100)}% < 50% дебета`);
+  if (f.stale && f.stale.length) warn.push('в пятницу не торговались: ' + f.stale.map(ks).join(', ') + ' — цена старая');
+  if (c.earnings && c.earnings <= f.exp) warn.push('отчёт ' + ddmm(c.earnings) + ' — до экспирации');
+  return `<div class="fly ${f.ok ? '' : 'dim'}">
+    <div class="h"><span><b>${best ? '★ ' : ''}${ddmm(f.exp)}</b> <span class="time">${f.dte} дн.</span></span>
+      <span class="badge ${f.ok ? 'bull' : 'gray'}">кредит ${Math.round(f.ratio * 100)}% дебета</span></div>
+    <div class="legs mono">${leg(L, '+')} · ${leg(M, '−2×')} · ${leg(H, '+')}</div>
+    <dl class="mono">
+      <dt>Дебет / кредит</dt><dd>${n2(f.debit)} / ${n2(f.credit)}</dd>
+      <dt>Бабочка стоит</dt><dd><b>${n2(f.cost)}</b> <span class="time">($${Math.round(f.cost * 100)} за 1)</span>${f.cost_mid != null ? ` <span class="time" title="по середине бид/аск">mid ${n2(f.cost_mid)}</span>` : ''}</dd>
+      <dt>Макс. прибыль</dt><dd>${f.max_profit != null ? `<span class="up">${n2(f.max_profit)}</span> ×${n2(f.rr, 1)}` : '—'}</dd>
+      <dt>Безубыток</dt><dd>${f.be_low != null ? n2(f.be_low) + ' – ' + n2(f.be_high) : '—'}</dd>
+      <dt>Наклон IV</dt><dd>${f.skew == null ? '—' : `<span class="${f.skew > 0 ? 'up' : ''}">${f.skew > 0 ? '+' : ''}${n2(f.skew, 1)} п.</span> <span class="time">${n2(L.iv, 0)}→${n2(M.iv, 0)}%</span>`}</dd>
+    </dl>${warn.length ? `<div class="warn">⚠️ ${warn.join('<br>⚠️ ')}</div>` : ''}</div>`;
+}
+function renderHammer() {
+  if (!ham || !ham.week) {
+    $('#hmCards').innerHTML = '<div class="card"><div class="empty">Сканер ещё не запускался — он считает по субботам по закрытию пятницы</div></div>';
+    $('#hmRest').innerHTML = '<tr><td colspan="6" class="empty">—</td></tr>';
+  } else {
+    const all = ham.rows.concat(hmAll ? ham.rest.filter(c => (c.flies || []).length) : []);
+    $('#hmCount').textContent = `неделя до ${ddmm(ham.week)} · проверено ${ham.checked} · по свече ${ham.rows.length + ham.rest.length} · подходят ${ham.rows.length}`;
+    $('#hmCards').innerHTML = all.length ? '<div class="hm-grid">' + all.map(c => {
+      const flies = (c.flies || []).filter(f => hmAll || f.ok).sort((a, b) => (b.exp === c.best) - (a.exp === c.best));
+      return `<div class="hm">
+        <div class="t"><a href="${tvW(c.ticker)}" target="_blank" rel="noopener"><b>${esc(c.ticker)}</b></a>
+          <span class="px mono">${n2(c.close)}</span><span class="time">🎯 <b class="mono" style="color:var(--text)">${n2(c.target)}</b> (+${n2((c.target / c.close - 1) * 100, 1)}%)</span></div>
+        <div class="sub mono">свеча ${n2(c.low)} – ${n2(c.high)} (${n2(c.range_pct, 1)}%) · SMA52 ${n2(c.sma52)} · лоу 9 нед. ${n2(c.prev_low)} · OI ${c.oi30 == null ? '—' : Number(c.oi30).toLocaleString('ru-RU')}</div>
+        ${flies.map(f => flyHtml(c, f)).join('')}</div>`;
+    }).join('') + '</div>' : '<div class="card"><div class="empty">На этой неделе бабочек по условиям нет</div></div>';
+    const rest = ham.rest.slice().sort((a, b) => (b.oi30 || 0) - (a.oi30 || 0));
+    $('#hmRestN').textContent = rest.length ? `(${rest.length})` : '';
+    $('#hmRest').innerHTML = rest.map(c => `<tr onclick="window.open('${tvW(c.ticker)}','_blank')">
+      <td><b>${esc(c.ticker)}</b></td><td class="r mono">${n2(c.close)}</td>
+      <td class="r mono">${n2(c.low)}–${n2(c.high)} <span class="time">${n2(c.range_pct, 1)}%</span></td>
+      <td class="r mono">${n2(c.target)}</td><td class="r mono hide-sm">${c.oi30 == null ? '—' : Number(c.oi30).toLocaleString('ru-RU')}</td>
+      <td>${esc(c.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">—</td></tr>';
+  }
+  if (hamBt && hamBt.groups) {
+    const W = 'w5', rows = [
+      ['Хаммер (ликвидные опционы)', hamBt.opt.signal[W], true],
+      ['Хаммер (все акции)', hamBt.groups.signal[W]],
+      ['Хаммер без нового минимума', hamBt.opt.no_low[W]],
+      ['Любая неделя ≥5% выше SMA', hamBt.opt.base[W]],
+      ['Хаммер, экспирация 4 нед.', hamBt.opt.signal.w4],
+    ];
+    const pc = x => x == null ? '—' : (x > 0 ? '+' : '') + n2(x, 0) + '%';
+    const cl = x => x == null ? '' : x > 0 ? 'up' : 'down';
+    $('#hmBt').innerHTML = rows.map(([name, s, best]) => !s || !s.n ? '' : `<tr>
+      <td class="${best ? 'best' : ''}">${name}</td><td class="r mono">${s.ok_n.toLocaleString('ru-RU')} <span class="time">из ${s.n.toLocaleString('ru-RU')}</span></td>
+      <td class="r mono">${n2(s.hit, 0)}%</td><td class="r mono">${n2(s.broke_first, 0)}%</td><td class="r mono">${n2(s.ok_win, 0)}%</td>
+      <td class="r mono ${cl(s.ok_mean)}">${pc(s.ok_mean)}</td><td class="r mono ${cl(s.ok_net)}"><b>${pc(s.ok_net)}</b></td>
+      <td class="r mono hide-sm ${cl(s.ok_trim)}">${pc(s.ok_trim)}</td><td class="r mono hide-sm ${cl(s.ok_med)}">${pc(s.ok_med)}</td>
+      <td class="r mono hide-sm">${n2(s.ok_big, 0)}%</td></tr>`).join('');
+    $('#hmBtNote').textContent = `${hamBt.tickers.toLocaleString('ru-RU')} акций и ETF США, 2005–2026 · экспирация 5 недель · «сигналов» — прошедших фильтр 50% из всех`;
+  }
+}
+
 /* ---------- график (свой canvas, без внешних библиотек) ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const AXW = 70, AXH = 26, RPAD = 8;
@@ -847,7 +983,9 @@ async function loadAll() {
   try { snap = await api('/api/snapshot'); } catch (e) { snap = null; }
   OI = {}; if (snap) for (const r of snap.rows) OI[r.ticker] = r.oi;
   try { seas = await api('/api/seasonal'); } catch (e) { seas = null; }
-  renderSignals(); renderWolfe(); renderScreener(); renderSeason();
+  try { ham = await api('/api/hammer'); } catch (e) { ham = null; }
+  try { hamBt = await api('/api/hammer_backtest'); } catch (e) { hamBt = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll);
 }
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);

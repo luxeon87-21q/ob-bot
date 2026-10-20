@@ -54,7 +54,7 @@ def nothing_new() -> bool:
     return done >= want
 
 
-def build(s: dict, telegram: bool) -> None:
+def build(s: dict, telegram: bool, site_only: bool = False) -> None:
     # подписчиков и их команды ведёт отдельная задача (telegram.yml); здесь только читаем
     tgs = tg.load()
     n_subs = len(tgs["subs"])
@@ -72,8 +72,16 @@ def build(s: dict, telegram: bool) -> None:
             print(msg_all)
             print(msg_wolfe)
 
-    n = bot.run_once(dict(s), dry=True, deliver=deliver)
-    log.info("сигналов: %d", n)
+    prev = {}
+    if site_only:                              # только пересобрать сайт из сохранённых данных (суббота, хаммер)
+        try:
+            prev = json.loads((BASE / "cache" / "site_status.json").read_text(encoding="utf-8"))
+        except Exception:
+            prev = {}
+        n = prev.get("last_signals", 0)
+    else:
+        n = bot.run_once(dict(s), dry=True, deliver=deliver)
+        log.info("сигналов: %d", n)
 
     if SITE.exists():
         shutil.rmtree(SITE)
@@ -84,9 +92,10 @@ def build(s: dict, telegram: bool) -> None:
     (SITE / ".nojekyll").write_text("")
 
     shutil.copy(bot.SNAPSHOT_FILE, SITE / "data" / "snapshot.json")
-    seas = BASE / "cache" / "seasonal.json"
-    if seas.exists():
-        shutil.copy(seas, SITE / "data" / "seasonal.json")
+    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json"):
+        f = BASE / "cache" / name
+        if f.exists():
+            shutil.copy(f, SITE / "data" / name)
     (SITE / "data" / "signals.json").write_text(
         json.dumps(web.read_signals(2000), ensure_ascii=False), encoding="utf-8")
 
@@ -105,9 +114,12 @@ def build(s: dict, telegram: bool) -> None:
 
     now = pd.Timestamp.now(tz=data.ET)
     nxt = bot.next_run(now, 10) + pd.Timedelta(minutes=10)   # GitHub запускает с небольшой задержкой
-    (SITE / "data" / "status.json").write_text(json.dumps(dict(
-        running=False, last_run=now.isoformat(), next_run=nxt.isoformat(), last_error=None,
-        last_signals=n, telegram=live, subscribers=n_subs)), encoding="utf-8")
+    st = dict(running=False, last_run=prev.get("last_run", now.isoformat()) if site_only else now.isoformat(),
+              next_run=nxt.isoformat(), last_error=None, last_signals=n,
+              telegram=prev.get("telegram", live) if site_only else live, subscribers=n_subs)
+    (SITE / "data" / "status.json").write_text(json.dumps(st), encoding="utf-8")
+    if not site_only:
+        (BASE / "cache" / "site_status.json").write_text(json.dumps(st), encoding="utf-8")
     log.info("сайт собран: %d графиков", ok)
 
 
@@ -119,7 +131,11 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--no-tg", action="store_true")
     p.add_argument("--if-new", action="store_true", help="пропустить, если новой свечи ещё нет")
+    p.add_argument("--site-only", action="store_true", help="без проверки акций: только собрать сайт")
     a = p.parse_args()
+    if a.site_only:
+        build(bot.settings(), telegram=False, site_only=True)
+        return
     if a.if_new and nothing_new():
         log.info("новой закрытой свечи нет — пропускаю")
         out = os.environ.get("GITHUB_OUTPUT")

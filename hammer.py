@@ -49,6 +49,7 @@ EXPIRIES = (4, 5)     # недель до экспирации
 IV_MULT = 1.10        # подразумеваемая волатильность ≈ историческая × 1.1
 IV_MULTS_ALT = (1.0, 1.3)
 RATE = 0.03
+FRICTION = 4 * (0.0065 + 0.01)   # на одну бабочку, $ на акцию, за одну сторону сделки
 MIN_PRICE = 5.0
 MIN_DVOL = 5e6
 YEARS = 20
@@ -103,13 +104,31 @@ def payoff(S, kl, km, kh):
 
 
 # ------------------------------------------------------------------ недели и сигналы
-def weekly(df: pd.DataFrame) -> pd.DataFrame:
+def weekly(df: pd.DataFrame, complete_only: bool = True) -> pd.DataFrame:
     d = df.copy()
     d["dv"] = d["close"] * d["volume"]
     d["day"] = d.index
     w = d.resample("W-FRI").agg({"open": "first", "high": "max", "low": "min", "close": "last",
                                  "dv": "mean", "day": "last"}).dropna(subset=["open", "close"])
+    if complete_only and len(w) and not week_closed(w.index[-1], df.index[-1]):
+        w = w.iloc[:-1]                      # текущая неделя ещё не закрылась
     return w
+
+
+def week_closed(fri: pd.Timestamp, last_day: pd.Timestamp) -> bool:
+    """Неделя с пятницей fri закрыта, если в данных есть её пятница (или четверг перед праздничной пятницей)."""
+    last = pd.Timestamp(last_day).tz_localize(None).normalize() if pd.Timestamp(last_day).tzinfo else pd.Timestamp(last_day).normalize()
+    fri = pd.Timestamp(fri).normalize()
+    return last >= fri or (fri - last == pd.Timedelta(days=1) and is_holiday(fri))
+
+
+def is_holiday(d: pd.Timestamp) -> bool:
+    try:
+        from pandas.tseries.holiday import USFederalHolidayCalendar
+        good_friday = {pd.Timestamp(x) for x in ("2026-04-03", "2027-03-26", "2028-04-14")}
+        return d in good_friday or d in set(USFederalHolidayCalendar().holidays(d - pd.Timedelta(days=1), d + pd.Timedelta(days=1)))
+    except Exception:
+        return False
 
 
 def flags(w: pd.DataFrame) -> Dict[str, np.ndarray]:
@@ -166,6 +185,8 @@ def outcome(df: pd.DataFrame, w: pd.DataFrame, j: int, iv_mult: float = IV_MULT)
             exp_ret=round((Se / C - 1) * 100, 2),
             zone=("below" if Se <= f["kl"] else "lower" if Se < f["km"] else "upper" if Se < f["kh"] else "above"),
             pnl=round((pay - f["cost"]) / f["cost"], 3),        # прибыль в долях дебета бабочки
+            net=round((pay - (FRICTION if pay > 0 else 0) - f["cost"] - FRICTION) / (f["cost"] + FRICTION), 3),
+            pay=round(pay, 4),
         )
     return r
 
@@ -178,6 +199,13 @@ def summarize(rows: List[dict], n: int) -> dict:
     pnl = np.array([x["pnl"] for x in xs])
     ok = [x for x in xs if x["ratio"] >= 0.5]
     pnl_ok = np.array([x["pnl"] for x in ok]) if ok else np.array([])
+    net_ok = np.array([x["net"] for x in ok]) if ok else np.array([])
+
+    def trim(a):          # среднее без 1% лучших сделок — не держится ли результат на единичных выбросах
+        if not len(a):
+            return None
+        a = np.sort(a)[: max(1, int(len(a) * 0.99))]
+        return round(float(a.mean()) * 100, 1)
     zones = pd.Series([x["zone"] for x in xs]).value_counts(normalize=True)
     hd = [x["hit_day"] for x in xs if x["hit"]]
     return dict(
@@ -199,6 +227,12 @@ def summarize(rows: List[dict], n: int) -> dict:
         ok_win=round(float((pnl_ok > 0).mean()) * 100, 1) if len(pnl_ok) else None,
         ok_mean=round(float(pnl_ok.mean()) * 100, 1) if len(pnl_ok) else None,
         ok_med=round(float(np.median(pnl_ok)) * 100, 1) if len(pnl_ok) else None,
+        ok_trim=trim(pnl_ok),
+        ok_net=round(float(net_ok.mean()) * 100, 1) if len(net_ok) else None,
+        ok_net_trim=trim(net_ok),
+        ok_pooled=round((sum(x["pay"] for x in ok) / sum(x["cost"] for x in ok) - 1) * 100, 1) if ok else None,
+        ok_big=round(float((pnl_ok >= 1.0).mean()) * 100, 1) if len(pnl_ok) else None,
+        ok_cost_pct=round(float(np.median([x["cost"] / x["kl"] for x in ok])) * 100, 2) if ok else None,
     )
 
 
@@ -288,6 +322,193 @@ def report(res: dict) -> str:
     return "\n".join(lines)
 
 
+# ================================================================== субботний сканер
+SCAN_FILE = BASE / "cache" / "hammer.json"
+OI_MIN = 50000          # открытый интерес коллов + путов по экспирациям ≤ 30 дней
+DTE_MIN, DTE_MAX = 24, 35
+SITE_URL = "https://luxeon87-21q.github.io/ob-bot/#hammer"
+
+
+def candidates(hist: Dict[str, pd.DataFrame]) -> tuple:
+    """Тикеры, у которых последняя закрытая неделя — сигнал. Возвращает (неделя, список)."""
+    weeks = {}
+    for t, df in hist.items():
+        df = df.dropna(subset=["open", "high", "low", "close"])
+        if len(df) < 300:
+            continue
+        w = weekly(df)
+        if len(w) < SMA_WEEKS + 2:
+            continue
+        weeks[t] = w
+    if not weeks:
+        return None, []
+    fri = max(w.index[-1] for w in weeks.values())
+    out = []
+    for t, w in weeks.items():
+        if w.index[-1] != fri:
+            continue
+        F = flags(w)
+        j = len(w) - 1
+        if not F["signal"][j]:
+            continue
+        H_, L_, C_ = (float(w[k].iloc[j]) for k in ("high", "low", "close"))
+        out.append(dict(ticker=t, day=str(w["day"].iloc[j].date()), open=round(float(w["open"].iloc[j]), 2),
+                        high=round(H_, 2), low=round(L_, 2), close=round(C_, 2), target=round(2 * H_ - L_, 2),
+                        range_pct=round((H_ - L_) / C_ * 100, 1),
+                        sma52=round(float(w["close"].rolling(SMA_WEEKS).mean().iloc[j]), 2),
+                        prev_low=round(float(w["low"].iloc[j - LOW_WEEKS:j].min()), 2)))
+    return str(fri.date()), out
+
+
+def _num(x):
+    try:
+        x = float(x)
+        return None if math.isnan(x) else x
+    except Exception:
+        return None
+
+
+def build_fly(calls: pd.DataFrame, close: float, target: float) -> Optional[dict]:
+    """Симметричная бабочка: продаём 2 кола у цели, покупаем кол у цены закрытия и крыло на той же ширине выше."""
+    c = calls.copy()
+    c["strike"] = pd.to_numeric(c["strike"], errors="coerce")
+    c = c.dropna(subset=["strike"]).set_index("strike").sort_index()
+    if c.empty:
+        return None
+    ks = c.index.to_numpy()
+    km = float(ks[np.argmin(np.abs(ks - target))])
+    best = None
+    for kl in sorted((k for k in ks if k < km and k <= close * 1.03), key=lambda k: abs(k - close))[:4]:
+        kh = 2 * km - kl
+        hit = ks[np.isclose(ks, kh, atol=1e-6)]
+        if len(hit):
+            best = (float(kl), float(hit[0]))
+            break
+    if not best:
+        return None
+    kl, kh = best
+
+    def leg(k):
+        r = c.loc[k]
+        last, bid, ask = _num(r.get("lastPrice")), _num(r.get("bid")), _num(r.get("ask"))
+        mid = (bid + ask) / 2 if bid and ask else None
+        lt = r.get("lastTradeDate")
+        return dict(k=k, last=last, bid=bid, ask=ask, mid=round(mid, 3) if mid else None,
+                    iv=round(_num(r.get("impliedVolatility")) * 100, 1) if _num(r.get("impliedVolatility")) else None,
+                    oi=int(_num(r.get("openInterest")) or 0), vol=int(_num(r.get("volume")) or 0),
+                    traded=str(pd.Timestamp(lt).date()) if lt is not None and str(lt) != "NaT" else None)
+    L1, M, H1 = leg(kl), leg(km), leg(kh)
+    if not all(x["last"] for x in (L1, M, H1)):
+        return None
+    debit = L1["last"] + H1["last"]
+    credit = 2 * M["last"]
+    cost = debit - credit
+    width = km - kl
+    r = dict(kl=kl, km=km, kh=kh, legs=[L1, M, H1], debit=round(debit, 3), credit=round(credit, 3),
+             ratio=round(credit / debit, 3), cost=round(cost, 3), width=width)
+    if cost > 0:
+        r.update(max_profit=round(width - cost, 3), rr=round((width - cost) / cost, 2),
+                 be_low=round(kl + cost, 2), be_high=round(kh - cost, 2))
+    if all(x["mid"] for x in (L1, M, H1)):
+        r["cost_mid"] = round(L1["mid"] + H1["mid"] - 2 * M["mid"], 3)
+    if M["iv"] and L1["iv"]:
+        r["skew"] = round(M["iv"] - L1["iv"], 1)        # >0 — проданные дороже по IV (нужный наклон)
+    return r
+
+
+def options_for(c: dict) -> dict:
+    """OI, экспирации 24–35 дней и бабочка по каждой. Поля error/reason — почему не прошло."""
+    import yfinance as yf
+    import options
+    t = c["ticker"]
+    tk = yf.Ticker(t)
+    d0 = pd.Timestamp(c["day"])
+    oi = options._yahoo_oi(t, d0, 30)
+    c["oi30"] = oi["oi"] if oi else None
+    if not oi or oi["oi"] < OI_MIN:
+        c["reason"] = f"OI {c['oi30'] or 0:,} < {OI_MIN:,}".replace(",", " ")
+        return c
+    exps = [e for e in (tk.options or ()) if DTE_MIN <= (pd.Timestamp(e) - d0).days <= DTE_MAX]
+    if not exps:
+        c["reason"] = "нет экспирации 24–35 дней"
+        return c
+    flies = []
+    for e in exps:
+        try:
+            f = build_fly(tk.option_chain(e).calls, c["close"], c["target"])
+        except Exception as ex:
+            log.warning("%s %s: %s", t, e, ex)
+            continue
+        if f:
+            f["exp"] = e
+            f["dte"] = (pd.Timestamp(e) - d0).days
+            f["ok"] = f["ratio"] >= 0.5 and f["cost"] > 0
+            stale = [x["k"] for x in f["legs"] if x["traded"] and x["traded"] < c["day"]]
+            f["stale"] = stale
+            flies.append(f)
+    c["flies"] = flies
+    good = [f for f in flies if f["ok"]]
+    if good:
+        c["best"] = max(good, key=lambda f: f.get("rr", 0))["exp"]
+    else:
+        c["reason"] = "кредит < 50% дебета" if flies else "нет симметричных страйков"
+    try:
+        import seasonal
+        ed = seasonal.next_earnings(t)
+        c["earnings"] = ed.isoformat() if ed else None
+    except Exception:
+        c["earnings"] = None
+    return c
+
+
+def scan(tickers: List[str]) -> dict:
+    import seasonal
+    hist = seasonal.download(sorted(set(tickers)), 2)
+    SPp = seasonal.Params(min_price=MIN_PRICE, min_dvol=MIN_DVOL)
+    hist = {t: df for t, df in hist.items() if seasonal.liquid(df, SPp)}
+    week, cand = candidates(hist)
+    log.info("неделя %s: по свече прошли %d из %d", week, len(cand), len(hist))
+    for i, c in enumerate(cand):
+        try:
+            options_for(c)
+        except Exception as ex:
+            c["reason"] = "ошибка данных опционов"
+            log.warning("%s: %s", c["ticker"], ex)
+    rows = [c for c in cand if c.get("best")]
+    rows.sort(key=lambda c: -max(f.get("rr", 0) for f in c["flies"] if f["ok"]))
+    rest = [c for c in cand if not c.get("best")]
+    return dict(week=week, made=pd.Timestamp.now(tz="UTC").isoformat(), checked=len(hist),
+                rows=rows, rest=rest)
+
+
+def _f(x, d=2):
+    return "—" if x is None else f"{x:,.{d}f}".replace(",", " ")
+
+
+def build_message(res: dict) -> str:
+    wk = res["week"]
+    head = (f"🔨 <b>Хаммер + бабочка</b> — неделя до {wk[8:10]}.{wk[5:7]}\n"
+            f"Проверено {res['checked']} акций и ETF: по свече прошли {len(res['rows']) + len(res['rest'])}, "
+            f"с бабочкой по условиям — {len(res['rows'])}.\n")
+    if not res["rows"]:
+        lines = [head, "Подходящих бабочек нет."]
+    else:
+        lines = [head]
+        for c in res["rows"]:
+            f = next(x for x in c["flies"] if x["exp"] == c["best"])
+            alt = [x for x in c["flies"] if x["exp"] != c["best"] and x["ok"]]
+            lines.append(
+                f"\n<b>{c['ticker']}</b>  закр. {_f(c['close'])}  свеча {_f(c['low'])}–{_f(c['high'])} ({c['range_pct']}%)  🎯 {_f(c['target'])}\n"
+                f"  {f['exp'][8:10]}.{f['exp'][5:7]} ({f['dte']} дн.): +{_f(f['kl'], 1 if f['kl'] % 1 else 0)} −2×{_f(f['km'], 1 if f['km'] % 1 else 0)} +{_f(f['kh'], 1 if f['kh'] % 1 else 0)} C\n"
+                f"  дебет {_f(f['debit'])}, кредит {_f(f['credit'])} ({f['ratio'] * 100:.0f}%) → бабочка {_f(f['cost'])}, "
+                f"макс. {_f(f.get('max_profit'))} (×{f.get('rr', 0):.1f})"
+                + (f"\n  ещё {alt[0]['exp'][8:10]}.{alt[0]['exp'][5:7]}: {_f(alt[0]['cost'])}, ×{alt[0].get('rr', 0):.1f}" if alt else "")
+                + (f"\n  ⚠️ отчёт {c['earnings'][8:10]}.{c['earnings'][5:7]}" if c.get("earnings") and c["earnings"] <= f["exp"] else "")
+                + (f"\n  ⚠️ старые цены: {', '.join(_f(k, 1) for k in f['stale'])}" if f["stale"] else ""))
+    lines.append(f"\n🌐 {SITE_URL}\n⚠️ Цены — последние сделки пятницы. Не инвестиционная рекомендация.")
+    return "\n".join(lines)
+
+
 def main():
     import seasonal
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
@@ -296,7 +517,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tickers")
     ap.add_argument("--out")
+    ap.add_argument("--scan", action="store_true", help="сканер последней закрытой недели (по субботам)")
+    ap.add_argument("--no-tg", action="store_true")
+    ap.add_argument("--if-new", action="store_true", help="пропустить, если эта неделя уже посчитана")
     a = ap.parse_args()
+    if a.scan:
+        return main_scan(a)
     if a.tickers:
         tickers = [x.strip().upper() for x in a.tickers.split(",")]
     else:
@@ -316,6 +542,43 @@ def main():
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(res, ensure_ascii=False, indent=1, default=float), encoding="utf-8")
     print(report(res))
+
+
+def main_scan(a):
+    import os
+    import seasonal
+    import bot
+    import tg
+    bot.load_env(BASE / ".env")
+    if a.if_new:
+        try:
+            done = json.loads(SCAN_FILE.read_text(encoding="utf-8")).get("week")
+        except Exception:
+            done = None
+        now = pd.Timestamp.now(tz="America/New_York").tz_localize(None).normalize()
+        fri = now - pd.Timedelta(days=(now.weekday() - 4) % 7)
+        if done and done >= str(fri.date()):
+            log.info("неделя %s уже посчитана — пропускаю", done)
+            out = os.environ.get("GITHUB_OUTPUT")
+            if out:
+                with open(out, "a") as fh:
+                    fh.write("skip=true\n")
+            return
+    if a.tickers:
+        tickers = [x.strip().upper() for x in a.tickers.split(",")]
+    else:
+        tickers = seasonal.prefilter(seasonal.all_us_stocks(), seasonal.Params()) + ETFS
+    res = scan(tickers)
+    out = BASE / a.out if a.out else SCAN_FILE
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")
+    msg = build_message(res)
+    token = os.environ.get("TELEGRAM_TOKEN", "")
+    if a.no_tg or not token or a.tickers:
+        print(msg)
+        return
+    k = tg.broadcast_one(token, tg.load(), msg, key="hammer")
+    log.info("хаммер разослан подписчикам: %d", k)
 
 
 if __name__ == "__main__":

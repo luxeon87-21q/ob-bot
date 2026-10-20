@@ -10,6 +10,7 @@ Telegram-бот: подписчики, их команды и рассылка �
   /wolfe     — включить/выключить волны Вульфа (отдельная функция)
   /ob        — включить/выключить ордер-блоки
   /season    — включить/выключить пятничный отчёт по сезонности (seasonal.py)
+  /hammer    — включить/выключить субботний отчёт «хаммер + бабочка» (hammer.py)
 
 Подписчики хранятся в cache/tg_settings.json:
   {"offset": 123, "owner": "<chat_id владельца>",
@@ -40,6 +41,7 @@ COMMANDS = [
     {"command": "wolfe", "description": "Волны Вульфа: вкл / выкл"},
     {"command": "ob", "description": "Ордер-блоки: вкл / выкл"},
     {"command": "season", "description": "Сезонность (пн и пт): вкл / выкл"},
+    {"command": "hammer", "description": "Хаммер + бабочка (сб): вкл / выкл"},
     {"command": "settings", "description": "Текущие настройки"},
     {"command": "stop", "description": "Отписаться от сигналов"},
 ]
@@ -91,12 +93,14 @@ def mode_text(sub: dict) -> str:
           else "🌊 Волны Вульфа: <b>выключены</b> (включить — /wolfe)")
     se = ("📅 Сезонность (пн и пт): <b>включена</b>" if sub.get("season", True)
           else "📅 Сезонность: <b>выключена</b> (включить — /season)")
-    return ob + "\n" + wv + "\n" + se
+    hm = ("🔨 Хаммер + бабочка (сб): <b>включён</b>" if sub.get("hammer", True)
+          else "🔨 Хаммер + бабочка: <b>выключен</b> (включить — /hammer)")
+    return ob + "\n" + wv + "\n" + se + "\n" + hm
 
 
 HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
         "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n"
-        "/season — сезонность вкл/выкл\n"
+        "/season — сезонность вкл/выкл\n/hammer — хаммер + бабочка вкл/выкл\n"
         "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
@@ -154,7 +158,7 @@ def process_updates(token: str) -> dict:
             else:
                 reply = "Вы и так не подписаны. Подписаться — /start"
         elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
-                     "/wolfe", "/вульф", "/ob", "/season", "/сезон"):
+                     "/wolfe", "/вульф", "/ob", "/season", "/сезон", "/hammer", "/хаммер"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
             elif cmd in ("/settings", "/status"):
@@ -164,6 +168,9 @@ def process_updates(token: str) -> dict:
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd in ("/season", "/сезон"):
                 sub["season"] = not sub.get("season", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
+            elif cmd in ("/hammer", "/хаммер"):
+                sub["hammer"] = not sub.get("hammer", True)
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd == "/ob":
                 sub["ob"] = not sub.get("ob", True)
