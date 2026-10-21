@@ -146,7 +146,7 @@ tbody tr.row{cursor:pointer} tbody tr.row:hover{background:var(--panel2)}
     </div>
     <div class="pager" id="pager"></div>
     <div class="hint">Данные Yahoo, обновляются по будням дважды: ≈10:30 и ≈15:00 по Нью-Йорку. В выгрузке — акции и ETF с объёмом опционов ≥ 2500 по ближайшим экспирациям,
-      путы до 70 дней с удалением страйка от −40% до +15%. <b>Доход</b> = бид / (страйк − бид), <b>годовых</b> = доход × 365 / дней (по биду, консервативно).
+      путы до 70 дней с удалением страйка от −40% до +15%. <b>Доход</b> = (бид − внутренняя стоимость) / (страйк − бид), как в Option Samurai, <b>годовых</b> = доход × 365 / дней (по биду, консервативно).
       <b>Вероятность</b> — что пут истечёт без стоимости, по IV контракта. <b>IV Rank</b>: «≈» — временная замена, пока копится своя история IV (место текущей IV
       в годовом диапазоне исторической волатильности). <b>Оценка</b> F / G / T — наша, 1–10 среди акций выгрузки: фундамент (маржа, ROE, ликвидность, долг, FCF),
       рост (выручка, прибыль), техника (к EMA 50 и 200, ход за 3 мес.). Сканы сохраняются в этом браузере. Клик по строке — подробности. Не инвестиционная рекомендация.</div>
@@ -307,7 +307,7 @@ function prepare(ds) {
   const c = {}; ds.cols.forEach((k, i) => c[k] = i);
   ROWS = ds.puts.map(r => {
     const t = ds.tickers[r[c.ti]], k = r[c.k], bid = r[c.bid], ask = r[c.ask], d = dte[r[c.ei]];
-    const mid = (bid + ask) / 2, ret = bid > 0 && k > bid ? bid / (k - bid) * 100 : 0;
+    const mid = (bid + ask) / 2, intr = Math.max(0, k - t.p), ret = bid > 0 && k > bid ? Math.max(0, bid - intr) / (k - bid) * 100 : 0;   // для пута «в деньгах» — только временная стоимость, как в Option Samurai
     return {t, exp: ds.exps[r[c.ei]], dte: d, k, bid, ask, last: r[c.last], cvol: r[c.vol], oi: r[c.oi], civ: r[c.iv], delta: r[c.delta],
       prob: r[c.prob] == null ? null : r[c.prob] * 100, mny: (k / t.p - 1) * 100, spread: ask - bid, spreadp: mid > 0 ? (ask - bid) / mid * 100 : null,
       ret, ann: ret * 365 / Math.max(d, 1)};
