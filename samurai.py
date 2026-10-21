@@ -189,24 +189,46 @@ def analyst_and_earnings(tickers: List[str], today: str) -> Dict[str, dict]:
     import yfinance as yf
     import seasonal
     cache = _load(INFO_FILE)
-    todo = [t for t in tickers if cache.get(t, {}).get("date") != today]
-    log.info("аналитики/отчёты: запрашиваю %d из %d", len(todo), len(tickers))
-    for t in todo:
-        rec = {"date": today}
-        for attempt in range(2):
-            try:
-                info = yf.Ticker(t).info or {}
-                rec.update(rec_mean=_num(info.get("recommendationMean")), rec_key=info.get("recommendationKey"),
-                           analysts=info.get("numberOfAnalystOpinions"), mcap=_num(info.get("marketCap")),
-                           name=info.get("shortName"))
-                break
-            except Exception as e:
-                rec["error"] = str(e)[:120]
-                time.sleep(3)
+    def fetch(t) -> bool:
+        try:
+            info = yf.Ticker(t).info or {}
+        except Exception as e:
+            log.debug("info %s: %s", t, e)
+            return False
+        # Yahoo при лимите запросов молча отдаёт пустой ответ — это не «нет аналитиков», повторим позже
+        if not info.get("marketCap") and not info.get("shortName") and not info.get("quoteType"):
+            return False
+        rec = dict(date=today, rec_mean=_num(info.get("recommendationMean")), rec_key=info.get("recommendationKey"),
+                   analysts=info.get("numberOfAnalystOpinions"), mcap=_num(info.get("marketCap")),
+                   name=info.get("shortName"))
         ed = seasonal.next_earnings(t)
         rec["earnings"] = ed.isoformat() if ed else None
         cache[t] = rec
-        time.sleep(0.3)
+        return True
+
+    todo = [t for t in tickers if cache.get(t, {}).get("date") != today]
+    log.info("аналитики/отчёты: запрашиваю %d из %d", len(todo), len(tickers))
+    for rnd in range(4):
+        miss = [t for t in todo if cache.get(t, {}).get("date") != today]
+        if not miss:
+            break
+        if rnd:
+            log.info("аналитики: повтор %d по %d тикерам", rnd, len(miss))
+            time.sleep(90)
+        fails = 0
+        for t in miss:
+            if fetch(t):
+                fails = 0
+            else:
+                fails += 1
+                if fails >= 15:                  # пошли сплошные отказы — пауза, остальное на следующем круге
+                    log.info("аналитики: Yahoo режет запросы, пауза")
+                    time.sleep(60)
+                    fails = 0
+            time.sleep(0.6)
+    bad = [t for t in todo if cache.get(t, {}).get("date") != today]
+    if bad:
+        log.warning("аналитики: не получены по %d тикерам: %s", len(bad), " ".join(bad[:40]))
     _save(INFO_FILE, cache)
     return cache
 
@@ -288,6 +310,7 @@ def run(P: SParams, tickers: Optional[List[str]] = None) -> dict:
     tstr = str(today.date())
     funnel = {}
     names = {}
+    explicit = tickers is not None
     if tickers is None:
         u = seasonal.all_us_stocks()
         funnel["all"] = len(u)
@@ -298,6 +321,11 @@ def run(P: SParams, tickers: Optional[List[str]] = None) -> dict:
         funnel["mcap"] = len(tickers)
     hist = seasonal.download(sorted(set(tickers)), 5)        # 5 лет — чтобы EMA 500 сошлась, как в TradingView
     funnel["history"] = len(hist)
+    if not explicit:
+        # список Nasdaq не всегда отдаёт капитализацию — грубый отсев по цене и обороту, точная капитализация ниже по Yahoo
+        LP = seasonal.Params(min_price=5.0, min_dvol=10e6)
+        hist = {t: df for t, df in hist.items() if seasonal.liquid(df, LP)}
+        funnel["liquid"] = len(hist)
 
     tech = {}
     for t, df in hist.items():
@@ -311,21 +339,26 @@ def run(P: SParams, tickers: Optional[List[str]] = None) -> dict:
     funnel["technicals"] = len(tech)
     log.info("EMA/MACD прошли %d из %d", len(tech), len(hist))
 
+    time.sleep(90 if len(hist) > 100 else 0)       # после массовой загрузки свечей Yahoo временно режет запросы
     info = analyst_and_earnings(sorted(tech), tstr)
     good = []
+    no_info = 0
     for t in sorted(tech):
         i = info.get(t, {})
-        if i.get("mcap") is not None and i["mcap"] < P.mcap_min:
+        if i.get("date") != tstr:
+            no_info += 1
+            continue
+        if i.get("mcap") is None or i["mcap"] < P.mcap_min:
             continue
         if i.get("rec_mean") is None or i["rec_mean"] > P.analyst_max:
             continue
         good.append(t)
     funnel["analysts"] = len(good)
+    funnel["no_info"] = no_info
     log.info("аналитики Buy и выше: %d", len(good))
 
     vols = _load(VOL_FILE)
     ivh = _load(IV_FILE)
-    time.sleep(30 if len(hist) > 100 else 0)       # после массовой загрузки Yahoo временно режет опционы
     cands: Dict[str, dict] = {}
 
     def one(t):
@@ -427,8 +460,9 @@ def build_message(res: dict, top: int = 20) -> str:
             f"<i>Кап. ≥ $2 млрд · EMA30 &gt; EMA50 и EMA500 · MACD &gt; сигнальной · аналитики Buy+ · "
             f"объём опц. ≥ {P['opt_vol_min']} · IVR ≥ {P['ivr_min']:.0f} · вероятность ≥ {P['prob_min']:.0%} · "
             f"{P['dte_min']}–{P['dte_max']} дн. до отчёта · спред &lt; ${P['spread_max']}</i>",
-            f"Воронка: {fn.get('mcap', fn.get('history'))} → EMA/MACD {fn['technicals']} → аналитики {fn['analysts']} "
-            f"→ итог <b>{fn['final']}</b>. IV Rank: {src}."]
+            f"Воронка: {fn.get('liquid', fn.get('history'))} ликвидных → EMA/MACD {fn['technicals']} → кап. и аналитики {fn['analysts']} "
+            f"→ итог <b>{fn['final']}</b>. IV Rank: {src}."
+            + (f"\n⚠️ Yahoo не отдал данные аналитиков по {fn['no_info']} акциям — они не проверены." if fn.get("no_info") else "")]
     if not res["rows"]:
         return "\n".join(head + ["", "Подходящих путов нет."])
     lines = head + [""]

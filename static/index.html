@@ -802,7 +802,7 @@ function renderSamurai() {
   rows.sort((a, b) => { const x = val(a, smK), y = val(b, smK); return (x > y ? 1 : x < y ? -1 : 0) * smDir; });
   $$('th[data-mk]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.mk === smK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${smDir > 0 ? '↑' : '↓'}</span>`); });
   const f = sam.funnel, src = sam.eulerpool ? 'IV Rank — Eulerpool' : (sam.iv_days >= sam.params.ivr_min_days ? `IV Rank — своя история (${sam.iv_days} дн.)` : `IV Rank ≈ — по исторической волатильности, своя история IV: ${sam.iv_days} дн. из ${sam.params.ivr_min_days}`);
-  $('#smCount').textContent = `${rows.length} путов · воронка ${f.mcap ?? f.history} → EMA/MACD ${f.technicals} → аналитики ${f.analysts} → ${f.final} · ${src} · посчитано ${sam.et.slice(8, 10)}.${sam.et.slice(5, 7)} ${sam.et.slice(11)} NY`;
+  $('#smCount').textContent = `${rows.length} путов · воронка ${f.liquid ?? f.history} ликвидных → EMA/MACD ${f.technicals} → кап. и аналитики ${f.analysts} → ${f.final}${f.no_info ? ` (без данных Yahoo: ${f.no_info})` : ''} · ${src} · посчитано ${sam.et.slice(8, 10)}.${sam.et.slice(5, 7)} ${sam.et.slice(11)} NY`;
   const tv = t => 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(t.replace('-', '.')) + '&interval=D';
   $('#smBody').innerHTML = rows.map(c => { const b = c.best;
     const alt = (c.puts || []).filter(p => !(p.exp === b.exp && p.strike === b.strike)).slice(0, 4)
