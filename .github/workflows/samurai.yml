@@ -55,7 +55,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             git config user.name "ob-bot"; git config user.email "ob-bot@users.noreply.github.com"
             git add -f cache/optscreen_test.json; git commit -m "Опционы: проверка тикеров [skip ci]" || true
-            for i in 1 2 3; do git pull --rebase -X theirs && git push && break; sleep 5; done
+            for i in 1 2 3; do git pull --rebase --autostash -X theirs && git push && break; sleep 5; done
           else
             python optscreen.py ${{ github.event_name == 'schedule' && '--slot' || '' }}
           fi
