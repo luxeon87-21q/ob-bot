@@ -1,5 +1,5 @@
 {
- "offset": 656947643,
+ "offset": 656947646,
  "subs": {
   "339788939": {
    "only_new": true,
@@ -11,6 +11,12 @@
    "only_new": true,
    "name": "",
    "since": "2026-09-25"
+  },
+  "267210656": {
+   "only_new": true,
+   "name": "Андрей",
+   "since": "2026-10-21",
+   "ob": true
   }
  },
  "owner": "339788939"
