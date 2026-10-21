@@ -526,6 +526,10 @@ def main():
                     fh.write("skip=true\n")
             return
 
+    if not a.slot and not a.tickers:
+        now = pd.Timestamp.now(tz=ET)
+        s = slot_now(now)
+        slot_id = f"{now.date()}-{s}" if s else None   # ручной запуск в окне засчитывает окно — без повторной рассылки
     tickers = [x.strip().upper() for x in a.tickers.split(",")] if a.tickers else None
     res = run(P, tickers)
     res["slot"] = slot_id
