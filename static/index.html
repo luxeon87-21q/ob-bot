@@ -156,6 +156,7 @@ td.best{font-weight:700}
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
       <button data-v="hammer">Хаммер</button>
+      <button data-v="samurai">Самурай</button>
       <button data-v="chart">График</button>
     </nav>
     <div class="spacer"></div>
@@ -318,6 +319,45 @@ td.best{font-weight:700}
       Акции, которые уже не торгуются, в проверку не попали. «Ликвидные опционы» — акции S&amp;P 500 и Nasdaq-100 с OI ≥ 50 000 сейчас и ETF: выборка небольшая, цифры по ней менее надёжны.</div>
   </section>
 
+  <!-- САМУРАЙ — ПРОДАЖА ПУТОВ -->
+  <section class="view" id="v-samurai">
+    <div class="toolbar">
+      <input type="search" id="smSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="smCount"></span>
+    </div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-mk="ticker">Тикер</th>
+          <th data-mk="close" class="r">Цена</th>
+          <th data-mk="ivr" class="r" title="IV Rank: где текущая подразумеваемая волатильность в диапазоне за год. ≈ — временная замена по исторической волатильности">IV Rank</th>
+          <th data-mk="strike" class="r">Страйк</th>
+          <th data-mk="exp">Экспирация</th>
+          <th data-mk="prob" class="r" title="Вероятность, что пут истечёт без стоимости (цена выше страйка)">Вероятность</th>
+          <th data-mk="bid" class="r">Бид / аск</th>
+          <th data-mk="ret" class="r" title="Бид / (страйк − бид)">Доход</th>
+          <th data-mk="ann" class="r">Годовых</th>
+          <th data-mk="vol" class="r hide-sm" title="Объём опционов за день, коллы + путы, экспирации до 60 дней">Объём опц.</th>
+          <th data-mk="earnings" class="hide-sm">Отчёт</th>
+          <th data-mk="rec" class="r hide-sm" title="Средняя оценка аналитиков Yahoo: 1 — Strong Buy, 2 — Buy, 3 — Hold">Аналитики</th>
+        </tr></thead>
+        <tbody id="smBody"><tr><td colspan="12" class="empty">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="sect">Прошли EMA, MACD и аналитиков, но не опционы <span id="smRestN"></span></div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr><th>Тикер</th><th class="r">Цена</th><th class="r">IV Rank</th><th class="r hide-sm">Объём опц.</th><th class="hide-sm">Отчёт</th><th>Почему нет</th></tr></thead>
+        <tbody id="smRest"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint" id="smHint">Продажа пута (naked put). Фильтры: капитализация ≥ $2 млрд; EMA 30 выше EMA 50 и EMA 500 (дневки); MACD (12/26/9) выше сигнальной;
+      аналитики Buy или Strong Buy; объём опционов за день ≥ 5000; IV Rank ≥ 60; вероятность истечь без стоимости ≥ 70%; 28–45 дней до экспирации,
+      и экспирация раньше отчёта; спред бид/аск &lt; $0,50. По каждой акции — пут с лучшей годовой доходностью. Доход = бид / (страйк − бид), как в Option Samurai.
+      Сканер запускается по будням дважды: ≈10:30 и ≈15:00 по Нью-Йорку. Отчёт «н/д» — Yahoo не знает дату, проверьте сами.</div>
+  </section>
+
   <!-- ГРАФИК -->
   <section class="view" id="v-chart">
     <div class="toolbar">
@@ -347,6 +387,7 @@ function staticPath(p) {
   if (p.startsWith('/api/signals')) return 'data/signals.json';
   if (p.startsWith('/api/seasonal')) return 'data/seasonal.json';
   if (p.startsWith('/api/hammer_backtest')) return 'data/hammer_backtest.json';
+  if (p.startsWith('/api/samurai')) return 'data/samurai.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -385,7 +426,7 @@ $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'wolfe', 'screener', 'season', 'hammer', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -745,6 +786,48 @@ function renderHammer() {
   }
 }
 
+/* ---------- самурай ---------- */
+let sam = null, smK = 'ann', smDir = -1;
+$('#smSearch').oninput = renderSamurai;
+$$('th[data-mk]').forEach(th => th.onclick = () => {
+  const k = th.dataset.mk; smDir = smK === k ? -smDir : (k === 'ticker' || k === 'exp' || k === 'earnings' || k === 'rec' ? 1 : -1); smK = k; renderSamurai();
+});
+const ivrTxt = c => c.ivr == null ? '—' : (c.ivr_src === 'hv' ? '≈' : '') + Math.round(c.ivr);
+function renderSamurai() {
+  if (!sam || !sam.rows) { $('#smBody').innerHTML = '<tr><td colspan="12" class="empty">Данных ещё нет — сканер запускается по будням в ≈10:30 и ≈15:00 по Нью-Йорку</td></tr>'; return; }
+  const q = $('#smSearch').value.trim().toUpperCase();
+  const val = (c, k) => { const b = c.best; return {ticker: c.ticker, close: c.close, ivr: c.ivr, strike: b.otm, exp: b.exp, prob: b.prob, bid: b.bid,
+    ret: b.ret, ann: b.ann, vol: c.vol_use, earnings: c.earnings || '9999', rec: c.rec_mean}[k]; };
+  let rows = sam.rows.filter(c => !q || c.ticker.startsWith(q));
+  rows.sort((a, b) => { const x = val(a, smK), y = val(b, smK); return (x > y ? 1 : x < y ? -1 : 0) * smDir; });
+  $$('th[data-mk]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.mk === smK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${smDir > 0 ? '↑' : '↓'}</span>`); });
+  const f = sam.funnel, src = sam.eulerpool ? 'IV Rank — Eulerpool' : (sam.iv_days >= sam.params.ivr_min_days ? `IV Rank — своя история (${sam.iv_days} дн.)` : `IV Rank ≈ — по исторической волатильности, своя история IV: ${sam.iv_days} дн. из ${sam.params.ivr_min_days}`);
+  $('#smCount').textContent = `${rows.length} путов · воронка ${f.mcap ?? f.history} → EMA/MACD ${f.technicals} → аналитики ${f.analysts} → ${f.final} · ${src} · посчитано ${sam.et.slice(8, 10)}.${sam.et.slice(5, 7)} ${sam.et.slice(11)} NY`;
+  const tv = t => 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(t.replace('-', '.')) + '&interval=D';
+  $('#smBody').innerHTML = rows.map(c => { const b = c.best;
+    const alt = (c.puts || []).filter(p => !(p.exp === b.exp && p.strike === b.strike)).slice(0, 4)
+      .map(p => `${p.strike} до ${dm(p.exp)}: бид ${fmt(p.bid)}, ${Math.round(p.prob * 100)}%, ${p.ann.toFixed(1)}% год.`).join('\n');
+    return `<tr title="${esc(c.name || '')}${alt ? '\nДругие страйки:\n' + esc(alt) : ''}">
+      <td><a href="${tv(c.ticker)}" target="_blank" rel="noopener"><b>${esc(c.ticker)}</b></a></td>
+      <td class="r mono">${fmt(c.close)}</td>
+      <td class="r mono">${ivrTxt(c)}</td>
+      <td class="r mono"><b>${b.strike}</b> <span style="color:var(--muted)">${b.otm.toFixed(0)}%</span></td>
+      <td class="mono">${dm(b.exp)} <span style="color:var(--muted)">${b.dte} дн.</span></td>
+      <td class="r mono">${Math.round(b.prob * 100)}%</td>
+      <td class="r mono">${fmt(b.bid)} / ${fmt(b.ask)}</td>
+      <td class="r mono">${b.ret.toFixed(2).replace('.', ',')}%</td>
+      <td class="r mono up"><b>${b.ann.toFixed(1).replace('.', ',')}%</b></td>
+      <td class="r mono hide-sm">${Number(c.vol_use).toLocaleString('ru-RU')}</td>
+      <td class="mono hide-sm">${c.earnings ? dm(c.earnings) : '<span class="warnc">н/д</span>'}</td>
+      <td class="r mono hide-sm">${c.rec_mean == null ? '—' : c.rec_mean.toFixed(1).replace('.', ',')}</td></tr>`; }).join('') ||
+    `<tr><td colspan="12" class="empty">${sam.rows.length ? 'Под фильтр ничего не попало' : 'Подходящих путов сейчас нет'}</td></tr>`;
+  const rest = sam.rest || [];
+  $('#smRestN').textContent = rest.length ? `— ${rest.length}` : '';
+  $('#smRest').innerHTML = rest.map(c => `<tr><td><b>${esc(c.ticker)}</b></td><td class="r mono">${fmt(c.close)}</td><td class="r mono">${ivrTxt(c)}</td>
+      <td class="r mono hide-sm">${Number(c.vol_use).toLocaleString('ru-RU')}</td><td class="mono hide-sm">${c.earnings ? dm(c.earnings) : 'н/д'}</td>
+      <td>${esc(c.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">—</td></tr>';
+}
+
 /* ---------- график (свой canvas, без внешних библиотек) ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const AXW = 70, AXH = 26, RPAD = 8;
@@ -987,7 +1070,8 @@ async function loadAll() {
   try { seas = await api('/api/seasonal'); } catch (e) { seas = null; }
   try { ham = await api('/api/hammer'); } catch (e) { ham = null; }
   try { hamBt = await api('/api/hammer_backtest'); } catch (e) { hamBt = null; }
-  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll);
+  try { sam = await api('/api/samurai'); } catch (e) { sam = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai();
 }
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);

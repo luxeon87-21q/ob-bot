@@ -92,7 +92,7 @@ def build(s: dict, telegram: bool, site_only: bool = False) -> None:
     (SITE / ".nojekyll").write_text("")
 
     shutil.copy(bot.SNAPSHOT_FILE, SITE / "data" / "snapshot.json")
-    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json"):
+    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json", "samurai.json"):
         f = BASE / "cache" / name
         if f.exists():
             shutil.copy(f, SITE / "data" / name)

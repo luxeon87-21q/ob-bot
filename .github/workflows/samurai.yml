@@ -1,0 +1,99 @@
+name: Самурай — продажа путов (2 раза в день)
+
+on:
+  schedule:
+    # Окна по Нью-Йорку: утро 10:20–11:50, вечер 14:40–15:50 (пн–пт). Запусков несколько с запасом —
+    # GitHub часто пропускает расписание; samurai.py --slot считает каждое окно один раз, остальные выходят сразу.
+    # UTC-часы покрывают и летнее, и зимнее время США.
+    - cron: '25,55 14,15,16 * * 1-5'
+    - cron: '45 18,19,20 * * 1-5'
+    - cron: '15 19,20 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      telegram:
+        description: 'Разослать результат подписчикам в Telegram'
+        type: boolean
+        default: false
+      tickers:
+        description: 'Проверить только эти тикеры (через запятую) — без записи на сайт'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: scan
+  cancel-in-progress: false
+
+jobs:
+  samurai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Сканер
+        id: scan
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          EULERPOOL_KEY: ${{ secrets.EULERPOOL_KEY }}
+          TICKERS: ${{ inputs.tickers }}
+        run: |
+          if [ -n "$TICKERS" ]; then
+            python samurai.py --tickers "$TICKERS" --out cache/samurai_test.json
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            git config user.name "ob-bot"; git config user.email "ob-bot@users.noreply.github.com"
+            git add -f cache/samurai_test.json; git commit -m "Самурай: проверка тикеров [skip ci]" || true
+            for i in 1 2 3; do git pull --rebase -X theirs && git push && break; sleep 5; done
+          else
+            python samurai.py ${{ github.event_name == 'schedule' && '--slot' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+          fi
+
+      - name: Сохранить результат
+        if: steps.scan.outputs.skip != 'true'
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          for f in cache/samurai.json cache/iv_history.json cache/samurai_vol.json cache/samurai_info.json; do
+            if [ -e "$f" ]; then git add -f "$f"; fi
+          done
+          git commit -m "Самурай $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs && git push && break
+            sleep 5
+          done
+
+      - name: Кэш свечей
+        if: steps.scan.outputs.skip != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/bars
+          key: bars-${{ github.run_id }}
+          restore-keys: bars-
+
+      - name: Сборка сайта
+        if: steps.scan.outputs.skip != 'true'
+        run: python build_site.py --site-only
+
+      - uses: actions/configure-pages@v5
+        if: steps.scan.outputs.skip != 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.scan.outputs.skip != 'true'
+        with:
+          path: site
+      - id: deployment
+        if: steps.scan.outputs.skip != 'true'
+        uses: actions/deploy-pages@v4
