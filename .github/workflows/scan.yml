@@ -41,6 +41,13 @@ jobs:
           key: bars-${{ github.run_id }}
           restore-keys: bars-
 
+      - name: Выгрузка опционов (из кэша)
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/optscreen.json
+          key: optscreen-${{ github.run_id }}
+          restore-keys: optscreen-
+
       - name: Проверка + сборка сайта
         id: scan
         env:

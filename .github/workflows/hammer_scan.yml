@@ -79,6 +79,13 @@ jobs:
           key: bars-${{ github.run_id }}
           restore-keys: bars-
 
+      - name: Выгрузка опционов (из кэша)
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/optscreen.json
+          key: optscreen-${{ github.run_id }}
+          restore-keys: optscreen-
+
       - name: Сборка сайта
         if: steps.scan.outputs.skip != 'true'
         run: python build_site.py --site-only

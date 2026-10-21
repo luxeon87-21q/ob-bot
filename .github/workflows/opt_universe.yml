@@ -1,0 +1,37 @@
+name: Опционы — список акций (воскресенье)
+
+on:
+  schedule:
+    - cron: '10 8 * * 0'      # воскресенье, ≈11:10 по Кишинёву летом / 10:10 зимой
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scan
+  cancel-in-progress: false
+
+jobs:
+  universe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Какие акции и ETF грузить в скринер
+        run: python optscreen.py --universe
+      - name: Сохранить
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          git add -f cache/opt_universe.json
+          git commit -m "Опционы: список акций $(date -u +'%Y-%m-%d') [skip ci]" || echo "без изменений"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs && git push && break
+            sleep 5
+          done

@@ -200,6 +200,14 @@ def make_handler(scanner: Scanner, password: str):
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
                     self.wfile.write(body)
+                elif u.path in ("/options.html", "/data/optscreen.json"):
+                    f = bot.BASE / ("static/options.html" if u.path.endswith(".html") else "cache/optscreen.json")
+                    body = f.read_bytes() if f.exists() else b"{}"
+                    self.send_response(200 if f.exists() else 404)
+                    self.send_header("Content-Type", "text/html; charset=utf-8" if u.path.endswith(".html") else "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
                 elif u.path == "/api/status":
                     self._json(scanner.status())
                 elif u.path == "/api/snapshot":

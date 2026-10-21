@@ -444,6 +444,58 @@ def run(P: SParams, tickers: Optional[List[str]] = None) -> dict:
                 iv_days=max((len(v) for v in ivh.values()), default=0), eulerpool=bool(ep))
 
 
+# ======================================================================== из общей выгрузки (optscreen.py)
+def from_dataset(ds: dict, P: SParams) -> dict:
+    """Те же фильтры ТЗ, но по готовой выгрузке скринера сайта — без повторной загрузки с Yahoo."""
+    today = pd.Timestamp(ds["today"])
+    exps = ds["exps"]
+    cols = {c: i for i, c in enumerate(ds["cols"])}
+    by_t: Dict[int, list] = {}
+    for r in ds["puts"]:
+        by_t.setdefault(r[0], []).append(r)
+    fn = dict(loaded=len(ds["tickers"]))
+    rows, rest = [], []
+    st = [x for x in ds["tickers"] if not x["etf"] and (x.get("mcap") or 0) >= P.mcap_min]
+    fn["mcap"] = len(st)
+    st = [x for x in st if x["e3050"] and x["e30500"] and x["macd"]]
+    fn["technicals"] = len(st)
+    st = [x for x in st if x.get("rec") is not None and x["rec"] <= P.analyst_max]
+    fn["analysts"] = len(st)
+    idx = {x["t"]: i for i, x in enumerate(ds["tickers"])}
+    for x in st:
+        c = dict(ticker=x["t"], name=x.get("n"), close=x["p"], ivr=x.get("ivr"), ivr_src=x.get("ivs"), iv30=x.get("iv"),
+                 vol_use=x.get("vol") or 0, earnings=x.get("earn"), rec_mean=x.get("rec"), mcap=x.get("mcap"))
+        puts = []
+        for r in by_t.get(idx[x["t"]], []):
+            e = exps[r[cols["ei"]]]
+            dte = (pd.Timestamp(e) - today).days
+            K, bid, ask, prob = r[cols["k"]], r[cols["bid"]], r[cols["ask"]], r[cols["prob"]]
+            if not (P.dte_min <= dte <= P.dte_max) or K >= x["p"] or bid < P.bid_min or ask < bid:
+                continue
+            ret = bid / (K - bid) * 100
+            puts.append(dict(exp=e, dte=dte, strike=K, bid=bid, ask=ask, spread=round(ask - bid, 2), iv=r[cols["iv"]],
+                             prob=prob, ret=ret, ann=ret * 365 / dte, otm=(K / x["p"] - 1) * 100, oi=r[cols["oi"]],
+                             volume=r[cols["vol"]], before_earn=bool(x.get("earn") and e < x["earn"])))
+        c["puts"] = puts
+        if c["vol_use"] < P.opt_vol_min:
+            c["reason"] = f"объём опционов {c['vol_use']:,} < {P.opt_vol_min:,}".replace(",", " ")
+        elif c["ivr"] is None or c["ivr"] < P.ivr_min:
+            c["reason"] = "IV Rank н/д" if c["ivr"] is None else f"IV Rank {c['ivr']:.0f} < {P.ivr_min:.0f}"
+        else:
+            b = pick(c, P)
+            if b:
+                c["best"] = b
+            else:
+                c["reason"] = why_not(c, P)
+        c["puts"] = sorted([p for p in puts if p["prob"] and p["prob"] >= P.prob_min - 0.1], key=lambda p: -p["ann"])[:8]
+        (rows if c.get("best") else rest).append(c)
+    fn["final"] = len(rows)
+    rows.sort(key=lambda c: -c["best"]["ann"])
+    rest.sort(key=lambda c: c["ticker"])
+    return dict(made=ds["made"], et=ds["et"], params=asdict(P), funnel=fn, rows=rows, rest=rest,
+                iv_days=ds.get("iv_days", 0), eulerpool=False, slot=ds.get("slot"))
+
+
 # ======================================================================== сообщение
 def _f(x, d=2):
     return "—" if x is None else f"{x:,.{d}f}".replace(",", " ")
@@ -463,7 +515,7 @@ def build_message(res: dict, top: int = 20) -> str:
             f"<i>Кап. ≥ $2 млрд · EMA30 &gt; EMA50 и EMA500 · MACD &gt; сигнальной · аналитики Buy+ · "
             f"объём опц. ≥ {P['opt_vol_min']} · IVR ≥ {P['ivr_min']:.0f} · вероятность ≥ {P['prob_min']:.0%} · "
             f"{P['dte_min']}–{P['dte_max']} дн. до отчёта · спред &lt; ${P['spread_max']}</i>",
-            f"Воронка: {fn.get('liquid', fn.get('history'))} ликвидных → EMA/MACD {fn['technicals']} → кап. и аналитики {fn['analysts']} "
+            f"Воронка: {fn.get('mcap', fn.get('liquid', fn.get('history')))} акций → EMA/MACD {fn['technicals']} → аналитики {fn['analysts']} "
             f"→ итог <b>{fn['final']}</b>. IV Rank: {src}."
             + (f"\n⚠️ Yahoo не отдал данные аналитиков по {fn['no_info']} акциям — они не проверены." if fn.get("no_info") else "")]
     if not res["rows"]:
@@ -509,9 +561,28 @@ def main():
     ap.add_argument("--tickers")
     ap.add_argument("--out")
     ap.add_argument("--slot", action="store_true", help="запуск по расписанию: только в окна утра/вечера, один раз")
+    ap.add_argument("--from-dataset", action="store_true", help="взять готовую выгрузку cache/optscreen.json")
     a = ap.parse_args()
     P = SParams.from_env()
     gh_out = os.environ.get("GITHUB_OUTPUT")
+    if a.from_dataset:
+        ds = _load(BASE / "cache" / "optscreen.json")
+        if not ds.get("tickers"):
+            log.warning("выгрузки нет")
+            return
+        if _load(OUT_FILE).get("slot") == ds.get("slot") and ds.get("slot") and not a.no_tg:
+            log.info("по этой выгрузке уже разослано")
+            return
+        res = from_dataset(ds, P)
+        _save(OUT_FILE, res)
+        msg = build_message(res, P.top)
+        token = os.environ.get("TELEGRAM_TOKEN", "")
+        if a.no_tg or not token:
+            print(msg)
+            return
+        k = tg.broadcast_one(token, tg.load(), msg, key="samurai")
+        log.info("самурай разослан подписчикам: %d", k)
+        return
 
     slot_id = None
     if a.slot:

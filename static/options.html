@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Скринер опционов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel2:#f0f2f5; --line:#e3e6eb; --text:#141820; --muted:#6b7280;
+  --up:#169400; --up-bg:rgba(22,148,0,.12); --down:#e5250f; --down-bg:rgba(229,37,15,.11);
+  --accent:#2f6fed; --warn:#b7791f; --mid:#d98a00; --mid-bg:rgba(217,138,0,.14);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1116; --panel:#151a21; --panel2:#1b212a; --line:#262d38; --text:#e6e9ee; --muted:#8b95a5;
+    --up:#3fbf2a; --up-bg:rgba(63,191,42,.14); --down:#ff5a45; --down-bg:rgba(255,90,69,.13);
+    --accent:#5b8cff; --warn:#e0a84a; --mid:#f0a830; --mid-bg:rgba(240,168,48,.15);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --panel:#151a21; --panel2:#1b212a; --line:#262d38; --text:#e6e9ee; --muted:#8b95a5;
+  --up:#3fbf2a; --up-bg:rgba(63,191,42,.14); --down:#ff5a45; --down-bg:rgba(255,90,69,.13);
+  --accent:#5b8cff; --warn:#e0a84a; --mid:#f0a830; --mid-bg:rgba(240,168,48,.15);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif}
+a{color:inherit}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar{padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:700;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.brand i{display:inline-block;width:14px;height:14px;border-radius:3px;background:linear-gradient(135deg,var(--up) 50%,var(--down) 50%)}
+.back{color:var(--muted);text-decoration:none;font-size:13px} .back:hover{color:var(--accent)}
+.spacer{flex:1}
+.meta{color:var(--muted);font-size:12.5px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-weight:500;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.sm{padding:4px 9px;font-size:12.5px}
+.icon-btn{border:0;background:none;color:var(--muted);cursor:pointer;padding:4px;display:flex}
+.layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;padding:16px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+/* фильтры */
+.side{position:sticky;top:64px;max-height:calc(100vh - 80px);overflow:auto}
+.side .top{padding:14px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.side label.l{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+select,input[type=text],input[type=number],input[type=date]{border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;min-width:0;width:100%}
+input[type=number]{-moz-appearance:textfield} input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.row2{display:flex;gap:6px}
+.grp{padding:12px 14px;border-bottom:1px solid var(--line)}
+.grp h4{margin:0 0 8px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.f{display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px;align-items:center;margin:6px 0}
+.f > span{font-size:13px}
+.f.on > span{color:var(--accent);font-weight:600}
+.rng{display:flex;gap:4px;align-items:center} .rng i{color:var(--muted);font-style:normal;font-size:12px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;margin:7px 0;cursor:pointer}
+.chk input{accent-color:var(--accent);width:15px;height:15px}
+.chk.on{color:var(--accent);font-weight:600}
+.run{position:sticky;bottom:0;background:var(--panel);padding:12px 14px;border-top:1px solid var(--line);display:flex;gap:8px}
+.run .btn.primary{flex:1}
+/* таблица */
+.res-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.res-head .count{font-size:13px;color:var(--muted)}
+.tbl-wrap{overflow:auto;max-height:calc(100vh - 190px)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);font-weight:600;font-size:12px;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;user-select:none}
+th.r,td.r{text-align:right}
+th .arr{color:var(--accent)}
+td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+tbody tr.row{cursor:pointer} tbody tr.row:hover{background:var(--panel2)}
+.sub{display:block;color:var(--muted);font-size:11.5px;font-family:Inter,system-ui,sans-serif}
+.tk{font-weight:700}
+.up{color:var(--up)} .down{color:var(--down)}
+.ivr{display:inline-block;padding:0 5px;border-radius:4px;font-weight:600}
+.ivr.hi{background:var(--up-bg);color:var(--up)} .ivr.md{border:1px solid var(--line)} .ivr.lo{background:var(--down-bg);color:var(--down)}
+.sc{display:inline-flex;gap:2px}
+.sc b{display:inline-block;min-width:18px;text-align:center;font-size:11.5px;font-weight:700;padding:1px 3px;border-radius:3px;color:#fff}
+.sc b.s1{background:var(--down)} .sc b.s2{background:var(--mid)} .sc b.s3{background:var(--up)} .sc b.na{background:var(--line);color:var(--muted)}
+.warnc{color:var(--warn);font-weight:600}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.detail td{background:var(--panel2);white-space:normal}
+.detail .d{display:flex;gap:22px;flex-wrap:wrap;font-size:12.5px;padding:4px 0}
+.detail .d b{font-weight:600}
+.pager{display:flex;gap:4px;justify-content:center;align-items:center;padding:10px;flex-wrap:wrap}
+.pager button{min-width:32px}
+.pager button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.hint{color:var(--muted);font-size:12px;padding:10px 14px;line-height:1.55}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none}
+.toast.on{opacity:.95}
+.mob-toggle{display:none}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);padding:12px}
+  .row2{flex-wrap:wrap} .row2 select{flex:1 1 100%}
+  .f{grid-template-columns:110px minmax(0,1fr)}
+  .side{position:static;max-height:none}
+  .side.closed .grp,.side.closed .run{display:none}
+  .mob-toggle{display:inline-flex}
+  .tbl-wrap{max-height:none}
+  .hide-sm{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="back" href="./">← Ордер-блоки</a>
+    <div class="brand"><i></i>Скринер опционов</div>
+    <span class="meta" id="meta">Загрузка данных…</span>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Тема"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="card side" id="side">
+    <div class="top">
+      <div><label class="l">Стратегия</label>
+        <select id="strategy"><option value="nput">Naked PUT — продажа пута</option></select></div>
+      <div><label class="l">Скан</label>
+        <div class="row2"><select id="scanSel"></select>
+          <button class="btn sm" id="saveBtn" title="Сохранить текущие фильтры">Сохранить</button>
+          <button class="btn sm" id="delBtn" title="Удалить сохранённый скан">✕</button></div></div>
+      <button class="btn mob-toggle" id="mobToggle">Показать фильтры</button>
+    </div>
+    <div id="filters"></div>
+    <div class="run">
+      <button class="btn" id="resetBtn">Сбросить</button>
+      <button class="btn primary" id="runBtn">▶ RUN SCAN</button>
+    </div>
+  </aside>
+
+  <section class="card">
+    <div class="res-head">
+      <span class="count" id="count"></span>
+      <div class="spacer"></div>
+      <label class="meta">На странице
+        <select id="perPage" style="width:auto;margin-left:4px"><option>25</option><option selected>50</option><option>100</option></select></label>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"><tr><td class="empty">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pager" id="pager"></div>
+    <div class="hint">Данные Yahoo, обновляются по будням дважды: ≈10:30 и ≈15:00 по Нью-Йорку. В выгрузке — акции и ETF с объёмом опционов ≥ 2500 по ближайшим экспирациям,
+      путы до 70 дней с удалением страйка от −40% до +15%. <b>Доход</b> = бид / (страйк − бид), <b>годовых</b> = доход × 365 / дней (по биду, консервативно).
+      <b>Вероятность</b> — что пут истечёт без стоимости, по IV контракта. <b>IV Rank</b>: «≈» — временная замена, пока копится своя история IV (место текущей IV
+      в годовом диапазоне исторической волатильности). <b>Оценка</b> F / G / T — наша, 1–10 среди акций выгрузки: фундамент (маржа, ROE, ликвидность, долг, FCF),
+      рост (выручка, прибыль), техника (к EMA 50 и 200, ход за 3 мес.). Сканы сохраняются в этом браузере. Клик по строке — подробности. Не инвестиционная рекомендация.</div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = (x, d = 2) => x == null || isNaN(x) ? '—' : Number(x).toLocaleString('ru-RU', {minimumFractionDigits: d, maximumFractionDigits: d});
+const dm = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '—';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('opt.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('opt.' + k, JSON.stringify(v)); } catch (e) {} },
+};
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1800); }
+
+/* ---------- тема ---------- */
+(() => { const t = store.get('theme', null); if (t) document.documentElement.dataset.theme = t; })();
+$('#themeBtn').onclick = () => {
+  const dark = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() === '#0e1116';
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark'; store.set('theme', dark ? 'light' : 'dark');
+};
+
+/* ---------- фильтры ---------- */
+// type: range (от–до), min, max, bool, text, sel, dates
+const F = [
+  {g: 'Описание'},
+  {id: 'inc', l: 'Только тикеры', t: 'text', ph: 'AAPL, NVDA'},
+  {id: 'exc', l: 'Исключить', t: 'text', ph: 'TSLA'},
+  {id: 'kind', l: 'Тип', t: 'sel', opts: [['', 'Акции и ETF'], ['stock', 'Только акции'], ['etf', 'Только ETF']]},
+  {id: 'mcap', l: 'Капитализация', t: 'min', u: '$ млрд'},
+  {id: 'earn', l: 'Отчёт', t: 'sel', opts: [['', 'Любой'], ['before', 'Экспирация до отчёта'], ['known', 'До отчёта, дата известна']]},
+  {g: 'Фундамент и аналитики'},
+  {id: 'sf', l: 'Оценка F', t: 'range', u: '1–10'},
+  {id: 'sg', l: 'Оценка G', t: 'range', u: '1–10'},
+  {id: 'st', l: 'Оценка T', t: 'range', u: '1–10'},
+  {id: 'rec', l: 'Аналитики до', t: 'max', u: '1 — Strong Buy … 3 — Hold'},
+  {g: 'Техника (дневки)'},
+  {id: 'price', l: 'Цена', t: 'range', u: '$'},
+  {id: 'chg', l: 'За день', t: 'range', u: '%'},
+  {id: 'rsi', l: 'RSI (14)', t: 'range'},
+  {id: 'e3050', l: 'EMA 30 выше EMA 50', t: 'bool'},
+  {id: 'e30500', l: 'EMA 30 выше EMA 500', t: 'bool'},
+  {id: 'macd', l: 'MACD выше сигнальной', t: 'bool'},
+  {g: 'Опционы акции'},
+  {id: 'tvol', l: 'Объём опционов', t: 'min', u: 'за день'},
+  {id: 'ivr', l: 'IV Rank', t: 'range'},
+  {id: 'iv', l: 'IV', t: 'range', u: '%'},
+  {g: 'Контракт'},
+  {id: 'mny', l: 'Удаление страйка', t: 'range', u: '%'},
+  {id: 'prob', l: 'Вероятность', t: 'range', u: '% истечь без стоимости'},
+  {id: 'exp', l: 'Экспирация', t: 'dates'},
+  {id: 'dte', l: 'Дней до эксп.', t: 'range'},
+  {id: 'spread', l: 'Спред бид/аск', t: 'max', u: '$'},
+  {id: 'spreadp', l: 'Спред бид/аск', t: 'max', u: '% от середины'},
+  {id: 'delta', l: 'Дельта', t: 'range', u: '−1…0'},
+  {id: 'oi', l: 'Открытый интерес', t: 'min'},
+  {id: 'cvol', l: 'Объём контракта', t: 'min'},
+  {g: 'Доходность'},
+  {id: 'bid', l: 'Бид', t: 'min', u: '$'},
+  {id: 'ret', l: 'Доход', t: 'min', u: '%'},
+  {id: 'ann', l: 'Годовых', t: 'min', u: '%'},
+];
+function buildFilters() {
+  let html = '', open = false;
+  for (const f of F) {
+    if (f.g) { if (open) html += '</div>'; html += `<div class="grp"><h4>${f.g}</h4>`; open = true; continue; }
+    const ph = f.u ? ` title="${esc(f.u)}"` : '';
+    if (f.t === 'bool') html += `<label class="chk" data-f="${f.id}"><input type="checkbox" id="f_${f.id}">${f.l}</label>`;
+    else if (f.t === 'text') html += `<div class="f" data-f="${f.id}"><span>${f.l}</span><input type="text" id="f_${f.id}" placeholder="${f.ph || ''}"></div>`;
+    else if (f.t === 'sel') html += `<div class="f" data-f="${f.id}"><span>${f.l}</span><select id="f_${f.id}">${f.opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select></div>`;
+    else if (f.t === 'dates') html += `<div class="f" data-f="${f.id}"><span>${f.l}</span><div class="rng"><input type="date" id="f_${f.id}_a"><i>—</i><input type="date" id="f_${f.id}_b"></div></div>`;
+    else if (f.t === 'range') html += `<div class="f" data-f="${f.id}"${ph}><span>${f.l}</span><div class="rng"><input type="number" step="any" id="f_${f.id}_a" placeholder="от"><i>—</i><input type="number" step="any" id="f_${f.id}_b" placeholder="до"></div></div>`;
+    else html += `<div class="f" data-f="${f.id}"${ph}><span>${f.l}</span><input type="number" step="any" id="f_${f.id}" placeholder="${f.t === 'min' ? 'от' : 'до'}${f.u ? ', ' + esc(f.u) : ''}"></div>`;
+  }
+  $('#filters').innerHTML = html + '</div>';
+  $('#filters').addEventListener('input', paintActive);
+  $('#filters').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+}
+function readFilters() {
+  const v = {};
+  for (const f of F) {
+    if (f.g) continue;
+    if (f.t === 'bool') { if ($('#f_' + f.id).checked) v[f.id] = true; }
+    else if (f.t === 'range' || f.t === 'dates') {
+      const a = $(`#f_${f.id}_a`).value, b = $(`#f_${f.id}_b`).value;
+      if (a !== '' || b !== '') v[f.id] = [a === '' ? null : (f.t === 'dates' ? a : +a), b === '' ? null : (f.t === 'dates' ? b : +b)];
+    } else { const x = $('#f_' + f.id).value; if (x !== '') v[f.id] = f.t === 'text' || f.t === 'sel' ? x : +x; }
+  }
+  return v;
+}
+function writeFilters(v) {
+  for (const f of F) {
+    if (f.g) continue;
+    const x = v[f.id];
+    if (f.t === 'bool') $('#f_' + f.id).checked = !!x;
+    else if (f.t === 'range' || f.t === 'dates') { $(`#f_${f.id}_a`).value = x && x[0] != null ? x[0] : ''; $(`#f_${f.id}_b`).value = x && x[1] != null ? x[1] : ''; }
+    else $('#f_' + f.id).value = x ?? '';
+  }
+  paintActive();
+}
+function paintActive() {
+  const v = readFilters();
+  document.querySelectorAll('[data-f]').forEach(el => el.classList.toggle('on', el.dataset.f in v));
+}
+
+/* ---------- сканы ---------- */
+function nextMonth() {
+  const d = new Date(); const a = new Date(d.getFullYear(), d.getMonth() + 1, 1), b = new Date(d.getFullYear(), d.getMonth() + 2, 0);
+  const iso = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  return [iso(a), iso(b)];
+}
+const PRESETS = {
+  'Самурай (ТЗ)': () => ({kind: 'stock', mcap: 2, earn: 'before', rec: 2.5, e3050: true, e30500: true, macd: true, tvol: 5000,
+    ivr: [60, null], prob: [70, null], dte: [28, 45], spread: 0.49, mny: [null, 0], bid: 0.1}),
+  'Как на видео': () => ({tvol: 5000, mny: [-15, 15], exp: nextMonth(), spread: 1, ret: 1, ann: 5, sf: [null, 8]}),
+  'Все путы ниже цены': () => ({tvol: 5000, mny: [null, 0]}),
+};
+function scans() { return store.get('scans', {}); }
+function fillScanSel(sel) {
+  const mine = scans();
+  $('#scanSel').innerHTML = '<optgroup label="Готовые">' + Object.keys(PRESETS).map(n => `<option value="p:${esc(n)}">${esc(n)}</option>`).join('') + '</optgroup>' +
+    (Object.keys(mine).length ? '<optgroup label="Мои">' + Object.keys(mine).map(n => `<option value="m:${esc(n)}">${esc(n)}</option>`).join('') + '</optgroup>' : '');
+  if (sel) $('#scanSel').value = sel;
+}
+function loadScan(key) {
+  const [k, name] = [key.slice(0, 1), key.slice(2)];
+  const v = k === 'p' ? PRESETS[name]() : scans()[name];
+  if (!v) return;
+  writeFilters(v.filters || v); if (v.sort) { sortK = v.sort[0]; sortDir = v.sort[1]; }
+  store.set('last', key); run();
+}
+$('#scanSel').onchange = e => loadScan(e.target.value);
+$('#saveBtn').onclick = () => {
+  const cur = $('#scanSel').value.startsWith('m:') ? $('#scanSel').value.slice(2) : '';
+  const name = (prompt('Название скана', cur) || '').trim();
+  if (!name) return;
+  const s = scans(); s[name] = {filters: readFilters(), sort: [sortK, sortDir]}; store.set('scans', s);
+  fillScanSel('m:' + name); store.set('last', 'm:' + name); toast('Скан сохранён');
+};
+$('#delBtn').onclick = () => {
+  const v = $('#scanSel').value;
+  if (!v.startsWith('m:')) { toast('Готовые сканы удалить нельзя'); return; }
+  const s = scans(); delete s[v.slice(2)]; store.set('scans', s); fillScanSel(); toast('Скан удалён');
+};
+$('#resetBtn').onclick = () => { writeFilters({}); run(); };
+$('#runBtn').onclick = () => run();
+$('#mobToggle').onclick = () => { const s = $('#side'); s.classList.toggle('closed'); $('#mobToggle').textContent = s.classList.contains('closed') ? 'Показать фильтры' : 'Скрыть фильтры'; };
+if (matchMedia('(max-width:900px)').matches) $('#side').classList.add('closed');
+
+/* ---------- данные ---------- */
+let DS = null, ROWS = [], RES = [], page = 0, sortK = 'ann', sortDir = -1, openRow = null;
+function prepare(ds) {
+  const today = new Date(ds.today + 'T00:00:00Z');
+  const dte = ds.exps.map(e => Math.round((new Date(e + 'T00:00:00Z') - today) / 864e5));
+  const c = {}; ds.cols.forEach((k, i) => c[k] = i);
+  ROWS = ds.puts.map(r => {
+    const t = ds.tickers[r[c.ti]], k = r[c.k], bid = r[c.bid], ask = r[c.ask], d = dte[r[c.ei]];
+    const mid = (bid + ask) / 2, ret = bid > 0 && k > bid ? bid / (k - bid) * 100 : 0;
+    return {t, exp: ds.exps[r[c.ei]], dte: d, k, bid, ask, last: r[c.last], cvol: r[c.vol], oi: r[c.oi], civ: r[c.iv], delta: r[c.delta],
+      prob: r[c.prob] == null ? null : r[c.prob] * 100, mny: (k / t.p - 1) * 100, spread: ask - bid, spreadp: mid > 0 ? (ask - bid) / mid * 100 : null,
+      ret, ann: ret * 365 / Math.max(d, 1)};
+  });
+}
+const inR = (x, r) => r == null || (x != null && (r[0] == null || x >= r[0]) && (r[1] == null || x <= r[1]));
+const list = s => s ? s.toUpperCase().split(/[\s,;]+/).filter(Boolean) : null;
+function run() {
+  if (!DS) return;
+  const v = readFilters(), inc = list(v.inc), exc = list(v.exc);
+  store.set('filters', v);
+  RES = ROWS.filter(r => {
+    const t = r.t;
+    if (inc && !inc.includes(t.t)) return false;
+    if (exc && exc.includes(t.t)) return false;
+    if (v.kind === 'stock' && t.etf) return false;
+    if (v.kind === 'etf' && !t.etf) return false;
+    if (v.mcap != null && !(t.mcap >= v.mcap * 1e9)) return false;
+    if (v.earn === 'before' && t.earn && !(r.exp < t.earn)) return false;
+    if (v.earn === 'known' && !(t.earn && r.exp < t.earn)) return false;
+    if (!inR(t.sf, v.sf) || !inR(t.sg, v.sg) || !inR(t.st, v.st)) return false;
+    if (v.rec != null && !(t.rec != null && t.rec <= v.rec)) return false;
+    if (!inR(t.p, v.price) || !inR(t.chg, v.chg) || !inR(t.rsi, v.rsi)) return false;
+    if ((v.e3050 && !t.e3050) || (v.e30500 && !t.e30500) || (v.macd && !t.macd)) return false;
+    if (v.tvol != null && !(t.vol >= v.tvol)) return false;
+    if (!inR(t.ivr, v.ivr) || !inR(t.iv == null ? null : t.iv * 100, v.iv)) return false;
+    if (!inR(r.mny, v.mny) || !inR(r.prob, v.prob) || !inR(r.dte, v.dte) || !inR(r.delta, v.delta)) return false;
+    if (v.exp && ((v.exp[0] && r.exp < v.exp[0]) || (v.exp[1] && r.exp > v.exp[1]))) return false;
+    if (v.spread != null && !(r.spread <= v.spread)) return false;
+    if (v.spreadp != null && !(r.spreadp != null && r.spreadp <= v.spreadp)) return false;
+    if (v.oi != null && !(r.oi >= v.oi)) return false;
+    if (v.cvol != null && !(r.cvol >= v.cvol)) return false;
+    if (v.bid != null && !(r.bid >= v.bid)) return false;
+    if (v.ret != null && !(r.ret >= v.ret)) return false;
+    if (v.ann != null && !(r.ann >= v.ann)) return false;
+    return true;
+  });
+  page = 0; openRow = null; sortRes(); render();
+}
+
+/* ---------- таблица ---------- */
+const COLS = [
+  {k: 'tk', l: 'Тикер', v: r => r.t.t},
+  {k: 'p', l: 'Цена', r: 1, v: r => r.t.p},
+  {k: 'ivr', l: 'IV Rank', r: 1, v: r => r.t.ivr, tip: 'IV Rank (ниже — IV30). ≈ — временная замена по исторической волатильности'},
+  {k: 'k', l: 'Страйк', r: 1, v: r => r.k, tip: 'Ниже — удаление от цены'},
+  {k: 'exp', l: 'Экспирация', v: r => r.exp},
+  {k: 'tvol', l: 'Объём опц.', r: 1, v: r => r.t.vol, tip: 'Объём опционов акции за день, коллы + путы'},
+  {k: 'prob', l: 'Вероятность', r: 1, v: r => r.prob, tip: 'Вероятность истечь без стоимости'},
+  {k: 'sc', l: 'Оценка', v: r => (r.t.sf || 0) + (r.t.sg || 0) + (r.t.st || 0), tip: 'F фундамент · G рост · T техника, 1–10'},
+  {k: 'spread', l: 'Спред', r: 1, v: r => r.spread, tip: 'Аск − бид; ниже — % от середины'},
+  {k: 'ret', l: 'Доход', r: 1, v: r => r.ret},
+  {k: 'ann', l: 'Годовых', r: 1, v: r => r.ann},
+  {k: 'bid', l: 'Бид / аск', r: 1, v: r => r.bid},
+  {k: 'delta', l: 'Дельта', r: 1, v: r => r.delta, hs: 1},
+  {k: 'oi', l: 'OI / объём', r: 1, v: r => r.oi, hs: 1, tip: 'Открытый интерес и объём этого контракта'},
+  {k: 'earn', l: 'Отчёт', v: r => r.t.earn || '9999', hs: 1},
+];
+function sortRes() {
+  const c = COLS.find(c => c.k === sortK) || COLS[10];
+  RES.sort((a, b) => { const x = c.v(a), y = c.v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
+}
+function head() {
+  $('#thead').innerHTML = COLS.map(c => `<th data-k="${c.k}" class="${c.r ? 'r' : ''} ${c.hs ? 'hide-sm' : ''}"${c.tip ? ` title="${esc(c.tip)}"` : ''}>${c.l}${c.k === sortK ? ` <span class="arr">${sortDir > 0 ? '↑' : '↓'}</span>` : ''}</th>`).join('');
+  document.querySelectorAll('#thead th').forEach(th => th.onclick = () => {
+    const k = th.dataset.k; sortDir = sortK === k ? -sortDir : (['tk', 'exp', 'earn', 'spread'].includes(k) ? 1 : -1); sortK = k;
+    sortRes(); page = 0; render();
+  });
+}
+const scB = x => x == null ? '<b class="na">–</b>' : `<b class="${x <= 3 ? 's1' : x <= 6 ? 's2' : 's3'}">${x}</b>`;
+const ivrB = t => t.ivr == null ? '<span class="sub">н/д</span>' :
+  `<span class="ivr ${t.ivr >= 60 ? 'hi' : t.ivr >= 30 ? 'md' : 'lo'}">${t.ivs === 'hv' ? '≈' : ''}${Math.round(t.ivr)}</span>`;
+const tv = t => 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(t.replace('-', '.')) + '&interval=D';
+function render() {
+  head();
+  const per = +$('#perPage').value, n = RES.length, pages = Math.max(1, Math.ceil(n / per));
+  page = Math.min(page, pages - 1);
+  const nt = new Set(RES.map(r => r.t.t)).size;
+  $('#count').textContent = `${n.toLocaleString('ru-RU')} путов по ${nt} тикерам · всего в выгрузке ${ROWS.length.toLocaleString('ru-RU')}`;
+  const part = RES.slice(page * per, page * per + per);
+  $('#tbody').innerHTML = part.map((r, i) => {
+    const t = r.t, idx = page * per + i, earnWarn = t.earn && r.exp >= t.earn;
+    let h = `<tr class="row" data-i="${idx}">
+      <td><span class="tk">${esc(t.t)}</span>${t.etf ? ' <span class="sub" style="display:inline">ETF</span>' : ''}<span class="sub">${esc((t.n || '').slice(0, 22))}</span></td>
+      <td class="r mono">${num(t.p)} $<span class="sub ${t.chg >= 0 ? 'up' : 'down'}">${t.chg >= 0 ? '+' : ''}${num(t.chg)} %</span></td>
+      <td class="r mono">${ivrB(t)}<span class="sub">${t.iv == null ? '—' : num(t.iv * 100)}</span></td>
+      <td class="r mono"><b>${num(r.k, r.k % 1 ? 1 : 1)}</b><span class="sub">${num(r.mny)} %</span></td>
+      <td class="mono">${r.exp}<span class="sub">через ${r.dte} дн.</span></td>
+      <td class="r mono">${Number(t.vol || 0).toLocaleString('ru-RU')}</td>
+      <td class="r mono">${r.prob == null ? '—' : num(r.prob) + ' %'}</td>
+      <td><span class="sc">${t.etf ? '<span class="sub">ETF</span>' : scB(t.sf) + scB(t.sg) + scB(t.st)}</span></td>
+      <td class="r mono">${num(r.spread)} $<span class="sub">${r.spreadp == null ? '—' : num(r.spreadp) + ' %'}</span></td>
+      <td class="r mono">${num(r.ret)} %</td>
+      <td class="r mono up"><b>${num(r.ann)} %</b></td>
+      <td class="r mono">${num(r.bid)}<span class="sub">${num(r.ask)}</span></td>
+      <td class="r mono hide-sm">${r.delta == null ? '—' : num(r.delta)}</td>
+      <td class="r mono hide-sm">${r.oi.toLocaleString('ru-RU')}<span class="sub">${r.cvol.toLocaleString('ru-RU')}</span></td>
+      <td class="mono hide-sm ${earnWarn ? 'warnc' : ''}" title="${earnWarn ? 'Отчёт раньше экспирации' : ''}">${t.earn ? dm(t.earn) : (t.etf ? '' : '<span class="sub">н/д</span>')}</td></tr>`;
+    if (openRow === idx) {
+      const coll = (r.k - r.bid) * 100;
+      h += `<tr class="detail"><td colspan="${COLS.length}"><div class="d">
+        <span><b>${esc(t.t)}</b> ${esc(t.n || '')}${t.sec ? ' · ' + esc(t.sec) : ''}</span>
+        <span>Продать 1 пут <b>${num(r.k)}</b> до <b>${r.exp}</b> по биду <b>${num(r.bid)}</b> → премия <b>${num(r.bid * 100)} $</b></span>
+        <span>Залог (страйк − премия) <b>${num(coll)} $</b> · безубыток <b>${num(r.k - r.bid)}</b> (${num((r.k - r.bid) / t.p * 100 - 100)} %)</span>
+        <span>IV контракта ${r.civ == null ? '—' : num(r.civ * 100) + ' %'} · последняя цена ${num(r.last)}</span>
+        <span>RSI ${num(t.rsi, 0)} · EMA30>EMA50 ${t.e3050 ? '✓' : '✗'} · EMA30>EMA500 ${t.e30500 ? '✓' : '✗'} · MACD ${t.macd ? '✓' : '✗'}</span>
+        <span>Аналитики ${t.rec == null ? '—' : num(t.rec, 1)} · кап. ${t.mcap ? num(t.mcap / 1e9, 1) + ' млрд $' : '—'} · отчёт ${t.earn || 'н/д'}</span>
+        <span><a href="${tv(t.t)}" target="_blank" rel="noopener">График в TradingView ↗</a></span></div></td></tr>`;
+    }
+    return h;
+  }).join('') || `<tr><td colspan="${COLS.length}" class="empty">Под фильтры ничего не попало</td></tr>`;
+  document.querySelectorAll('#tbody tr.row').forEach(tr => tr.onclick = () => { const i = +tr.dataset.i; openRow = openRow === i ? null : i; render(); });
+  // страницы
+  let p = '';
+  const btn = (i, l) => `<button class="btn sm ${i === page ? 'on' : ''}" data-p="${i}">${l ?? i + 1}</button>`;
+  if (pages > 1) {
+    p += page > 0 ? btn(page - 1, '‹') : '';
+    const show = new Set([0, pages - 1, page - 1, page, page + 1, page - 2, page + 2].filter(i => i >= 0 && i < pages));
+    let last = -1;
+    for (const i of [...show].sort((a, b) => a - b)) { if (i - last > 1) p += '<span class="meta">…</span>'; p += btn(i); last = i; }
+    p += page < pages - 1 ? btn(page + 1, '›') : '';
+  }
+  $('#pager').innerHTML = p;
+  document.querySelectorAll('#pager button').forEach(b => b.onclick = () => { page = +b.dataset.p; openRow = null; render(); document.querySelector('.tbl-wrap').scrollTop = 0; });
+}
+$('#perPage').onchange = () => { page = 0; render(); };
+
+/* ---------- запуск ---------- */
+buildFilters();
+fillScanSel();
+(async () => {
+  try {
+    const r = await fetch('data/optscreen.json?v=' + Math.floor(Date.now() / 60000));
+    if (!r.ok) throw new Error(r.status);
+    DS = await r.json();
+  } catch (e) {
+    $('#meta').textContent = 'Данных пока нет — выгрузка появится после ближайшего обновления';
+    $('#tbody').innerHTML = `<tr><td class="empty">Данных пока нет</td></tr>`; return;
+  }
+  prepare(DS);
+  const src = DS.iv_days >= 60 ? 'своя история IV' : `IV Rank ≈ (история IV: ${DS.iv_days} дн. из 60)`;
+  $('#meta').textContent = `Данные на ${DS.et.slice(8, 10)}.${DS.et.slice(5, 7)} ${DS.et.slice(11)} NY · ${DS.tickers.length} акций и ETF · ${src}`;
+  const last = store.get('last', 'p:Самурай (ТЗ)');
+  const saved = store.get('filters', null);
+  fillScanSel(last);
+  if (saved) { writeFilters(saved); run(); } else loadScan(last);
+})();
+</script>
+</body>
+</html>

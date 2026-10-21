@@ -1,4 +1,4 @@
-name: Самурай — продажа путов (2 раза в день)
+name: Опционы — скринер и Самурай (2 раза в день)
 
 on:
   schedule:
@@ -15,7 +15,7 @@ on:
         type: boolean
         default: false
       tickers:
-        description: 'Проверить только эти тикеры (через запятую) — без записи на сайт'
+        description: 'Проверить выгрузку только по этим тикерам (через запятую) — без записи на сайт'
         type: string
         default: ''
 
@@ -31,7 +31,7 @@ concurrency:
 jobs:
   samurai:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -45,29 +45,37 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Сканер
+      - name: Выгрузка опционов для сайта
         id: scan
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          EULERPOOL_KEY: ${{ secrets.EULERPOOL_KEY }}
           TICKERS: ${{ inputs.tickers }}
         run: |
           if [ -n "$TICKERS" ]; then
-            python samurai.py --tickers "$TICKERS" --out cache/samurai_test.json
+            python optscreen.py --tickers "$TICKERS" --out cache/optscreen_test.json
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            git config user.name "ob-bot"; git config user.email "ob-bot@users.noreply.github.com"
-            git add -f cache/samurai_test.json; git commit -m "Самурай: проверка тикеров [skip ci]" || true
-            for i in 1 2 3; do git pull --rebase -X theirs && git push && break; sleep 5; done
           else
-            python samurai.py ${{ github.event_name == 'schedule' && '--slot' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+            python optscreen.py ${{ github.event_name == 'schedule' && '--slot' || '' }}
           fi
+
+      - name: Самурай (ТЗ) — из выгрузки, Telegram
+        if: steps.scan.outputs.skip != 'true'
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        run: python samurai.py --from-dataset ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+
+      - name: Сохранить выгрузку в кэш
+        if: steps.scan.outputs.skip != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: cache/optscreen.json
+          key: optscreen-${{ github.run_id }}
 
       - name: Сохранить результат
         if: steps.scan.outputs.skip != 'true'
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/samurai.json cache/iv_history.json cache/samurai_vol.json cache/samurai_info.json; do
+          for f in cache/samurai.json cache/iv_history.json cache/samurai_vol.json cache/optscreen_info.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
           git commit -m "Самурай $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"
