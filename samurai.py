@@ -261,7 +261,9 @@ def options_for(t: str, tech: dict, info: dict, P: SParams, today: pd.Timestamp,
                 if side is not None and len(side):
                     row = side.iloc[(side["strike"] - S).abs().argsort()[:1]]
                     v = _num(row["impliedVolatility"].iloc[0])
-                    if v and 0.02 < v < 5:
+                    bid0, ask0 = _num(row["bid"].iloc[0]) or 0, _num(row["ask"].iloc[0]) or 0
+                    # без живых бид/аск (до открытия, выходные) Yahoo ставит заглушку IV ≈ 0.03/0.06 — не берём
+                    if v and 0.05 < v < 5 and bid0 > 0 and ask0 > 0:
                         ivs.append(v)
             if ivs:
                 iv30, iv30_gap = float(np.mean(ivs)), abs(dte - 30)
@@ -271,6 +273,7 @@ def options_for(t: str, tech: dict, info: dict, P: SParams, today: pd.Timestamp,
         for _, r in ch.puts.iterrows():
             K, bid, ask = _num(r.get("strike")), _num(r.get("bid")), _num(r.get("ask"))
             iv = _num(r.get("impliedVolatility"))
+            iv = iv if iv and iv > 0.05 else None
             if not K or K >= S or not bid or not ask or bid < P.bid_min or ask < bid:
                 continue
             prob = prob_otm_put(S, K, dte / 365, iv or 0, P.rate)
