@@ -1,5 +1,5 @@
 {
- "offset": 656947646,
+ "offset": 656947651,
  "subs": {
   "339788939": {
    "only_new": true,
@@ -16,6 +16,12 @@
    "only_new": true,
    "name": "Андрей",
    "since": "2026-10-21",
+   "ob": true
+  },
+  "504069072": {
+   "only_new": true,
+   "name": "Goga",
+   "since": "2026-10-23",
    "ob": true
   }
  },
