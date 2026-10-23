@@ -216,7 +216,7 @@ def make_handler(scanner: Scanner, password: str):
                 elif u.path == "/api/seasonal":
                     f = bot.BASE / "cache" / "seasonal.json"
                     self._json(json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)
-                elif u.path in ("/api/hammer", "/api/hammer_backtest", "/api/samurai"):
+                elif u.path in ("/api/hammer", "/api/hammer_backtest", "/api/samurai", "/api/ma200"):
                     f = bot.BASE / "cache" / (u.path.rsplit("/", 1)[1] + ".json")
                     self._json(json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)
                 elif u.path == "/api/signals":

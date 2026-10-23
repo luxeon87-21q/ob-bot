@@ -161,6 +161,7 @@ td.best{font-weight:700}
       <button data-v="season">Сезонность</button>
       <button data-v="hammer">Хаммер</button>
       <button data-v="samurai">Самурай</button>
+      <button data-v="ma200" title="Ложный пробой 200-й скользящей и отскок: день, неделя, месяц">MA200</button>
       <button data-v="chart">График</button>
       <a href="options.html" class="navlink" title="Скринер опционов: продажа путов с фильтрами и сохранёнными сканами">Опционы ↗</a>
     </nav>
@@ -324,6 +325,51 @@ td.best{font-weight:700}
       Акции, которые уже не торгуются, в проверку не попали. «Ликвидные опционы» — акции S&amp;P 500 и Nasdaq-100 с OI ≥ 50 000 сейчас и ETF: выборка небольшая, цифры по ней менее надёжны.</div>
   </section>
 
+  <!-- MA200: ЛОЖНЫЙ ПРОБОЙ И ОТСКОК -->
+  <section class="view" id="v-ma200">
+    <div class="toolbar">
+      <div class="chips" id="maTf">
+        <button class="chip on" data-f="all">Все ТФ</button>
+        <button class="chip" data-f="D">День</button>
+        <button class="chip" data-f="W">Неделя</button>
+        <button class="chip" data-f="M">Месяц</button>
+      </div>
+      <div class="chips" id="maKind">
+        <button class="chip on" data-f="all">EMA и SMA</button>
+        <button class="chip" data-f="EMA">EMA 200</button>
+        <button class="chip" data-f="SMA">SMA 200</button>
+      </div>
+      <div class="chips" id="maTrig">
+        <button class="chip on" data-f="all">Любой триггер</button>
+        <button class="chip" data-f="main">Выше хая прокола</button>
+        <button class="chip" data-f="alt">Выше MA на объёме</button>
+      </div>
+      <input type="search" id="maSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="maCount"></span>
+    </div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-ak="ticker">Тикер</th>
+          <th data-ak="tf">ТФ</th>
+          <th data-ak="ma">MA</th>
+          <th data-ak="price" class="r">Цена</th>
+          <th data-ak="dist" class="r" title="Насколько цена сейчас выше 200-й средней — не упущен ли вход">До MA</th>
+          <th data-ak="vol_ratio" class="r" title="Объём сигнальной свечи к среднему за 20 свечей">Объём</th>
+          <th data-ak="pierce" class="hide-sm" title="Свеча прокола и глубина прокола в ATR (не глубже 1)">Прокол</th>
+          <th class="hide-sm">Триггер</th>
+          <th data-ak="oi" class="r hide-sm">OI 30д</th>
+        </tr></thead>
+        <tbody id="maBody"><tr><td colspan="9" class="empty">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint">Сигнал — по последней закрытой свече таймфрейма (день, неделя, месяц). Условия: 200-я средняя растёт или горизонтальна (MA ≥ MA 5 свечей назад);
+      на одной из 3 предыдущих свечей минимум ушёл под MA, но не глубже 1 ATR(14), а закрытие осталось выше MA − 0,3 ATR (ложный пробой);
+      сигнальная свеча — бычья и закрылась выше максимума свечи прокола <b>или</b> закрылась выше MA на объёме выше среднего за 20 свечей.
+      Все акции США с ценой от $5, оборотом от $5 млн в день и OI опционов ≥ 5000. Считается по будням после закрытия; на месяцах — только акции с историей больше 200 месяцев.
+      NEW — сигнал появился в последнем прогоне. Тикер открывает график TradingView нужного таймфрейма.</div>
+  </section>
+
   <!-- САМУРАЙ — ПРОДАЖА ПУТОВ -->
   <section class="view" id="v-samurai">
     <div class="toolbar">
@@ -393,6 +439,7 @@ function staticPath(p) {
   if (p.startsWith('/api/seasonal')) return 'data/seasonal.json';
   if (p.startsWith('/api/hammer_backtest')) return 'data/hammer_backtest.json';
   if (p.startsWith('/api/samurai')) return 'data/samurai.json';
+  if (p.startsWith('/api/ma200')) return 'data/ma200.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -432,7 +479,7 @@ $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -718,6 +765,53 @@ function renderSeason() {
   }).join('') || '<tr><td colspan="11" class="empty">' + (seas.rows.length ? 'Под фильтр ничего не попало' : 'На ближайшие две недели устойчивых окон не нашлось') + '</td></tr>';
 }
 
+
+/* ---------- MA200: ложный пробой и отскок ---------- */
+let ma2 = null, maK = 'vol_ratio', maDir = -1;
+const maTf = chipGroup('#maTf', renderMa200), maKind = chipGroup('#maKind', renderMa200), maTrig = chipGroup('#maTrig', renderMa200);
+$('#maSearch').oninput = renderMa200;
+$$('th[data-ak]').forEach(th => th.onclick = () => {
+  const k = th.dataset.ak; maDir = maK === k ? -maDir : (['ticker', 'tf', 'ma'].includes(k) ? 1 : -1); maK = k; renderMa200();
+});
+const MA_TF = {D: 'День', W: 'Неделя', M: 'Месяц'};
+const MA_MON = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+const maBar = (tf, iso) => !iso ? '—' : tf === 'M' ? MA_MON[+iso.slice(5, 7) - 1] + ' ' + iso.slice(0, 4) : (tf === 'W' ? 'нед. до ' : '') + dm(iso);
+function renderMa200() {
+  if (!ma2 || !ma2.rows) { $('#maBody').innerHTML = '<tr><td colspan="9" class="empty">Данных ещё нет — сканер считает по будням после закрытия рынка</td></tr>'; return; }
+  const tf = maTf(), kind = maKind(), tr = maTrig(), q = $('#maSearch').value.trim().toUpperCase();
+  let rows = ma2.rows.filter(r => (tf === 'all' || r.tf === tf) && (kind === 'all' || r.ma === kind)
+    && (tr === 'all' || r.trig.includes(tr)) && (!q || r.ticker.startsWith(q)));
+  if (kind === 'all') {                       // EMA и SMA по одной акции и ТФ — в одну строку
+    const m = new Map();
+    for (const r of rows) {
+      const k = r.ticker + '|' + r.tf, x = m.get(k);
+      if (!x) m.set(k, {...r, mas: [r], trig: [...r.trig]});
+      else { x.mas.push(r); r.trig.forEach(t => x.trig.includes(t) || x.trig.push(t)); x.new = x.new || r.new;
+        x.dist = Math.min(x.dist, r.dist); x.vol_ratio = Math.max(x.vol_ratio || 0, r.vol_ratio || 0); }
+    }
+    rows = [...m.values()];
+  } else rows = rows.map(r => ({...r, mas: [r]}));
+  const val = (r, k) => k === 'ma' ? r.mas.map(x => x.ma).join() : k === 'tf' ? 'DWM'.indexOf(r.tf) : (r[k] ?? -1e9);
+  rows.sort((a, b) => { const x = val(a, maK), y = val(b, maK); return (x > y ? 1 : x < y ? -1 : 0) * maDir; });
+  $$('th[data-ak]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.ak === maK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${maDir > 0 ? '↑' : '↓'}</span>`); });
+  const B = ma2.bars || {}, C = ma2.checked || {};
+  $('#maCount').textContent = `сигналов: ${rows.length} · день ${maBar('D', B.D)} · ${maBar('W', B.W)} · ${maBar('M', B.M)} · проверено ${C.D || 0}/${C.W || 0}/${C.M || 0}`;
+  $('#maBody').innerHTML = rows.map(r => {
+    const tv = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(r.ticker.replace(/-/g, '.')) + '&interval=' + r.tf;
+    const trig = r.trig.map(t => t === 'main' ? '<span class="badge bull" title="Бычья свеча закрылась выше максимума свечи прокола">выше хая прокола</span>'
+      : '<span class="badge gray" title="Закрытие выше MA при объёме выше среднего за 20 свечей">выше MA на объёме</span>').join(' ');
+    return `<tr>
+      <td><a href="${tv}" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
+      <td title="${maBar(r.tf, r.bar)}">${MA_TF[r.tf]}</td>
+      <td class="mono">${r.mas.map(x => x.ma).join(' · ')}</td>
+      <td class="r mono">${fmt(r.price)}</td>
+      <td class="r mono">${r.mas.map(x => `<span class="${x.dist >= 0 ? 'up' : 'down'}" title="${x.ma} 200 = ${fmt(x.ma_val)}">${pct(x.dist)}</span>`).join('<br>')}</td>
+      <td class="r mono">${r.vol_ratio == null ? '—' : r.vol_ratio + '%'}</td>
+      <td class="mono hide-sm">${maBar(r.tf, r.pierce)} <span style="color:var(--muted)">${r.mas.map(x => x.depth == null ? '—' : x.depth.toFixed(2).replace('.', ',')).join(' / ')} ATR</span></td>
+      <td class="hide-sm">${trig}</td>
+      <td class="r mono hide-sm">${r.oi == null ? '—' : Number(r.oi).toLocaleString('ru-RU')}</td></tr>`;
+  }).join('') || '<tr><td colspan="9" class="empty">' + (ma2.rows.length ? 'Под фильтр ничего не попало' : 'Сейчас сигналов нет') + '</td></tr>';
+}
 
 /* ---------- хаммер + бабочка ---------- */
 let ham = null, hamBt = null, hmAll = store.get('hmAll', false);
@@ -1077,7 +1171,8 @@ async function loadAll() {
   try { ham = await api('/api/hammer'); } catch (e) { ham = null; }
   try { hamBt = await api('/api/hammer_backtest'); } catch (e) { hamBt = null; }
   try { sam = await api('/api/samurai'); } catch (e) { sam = null; }
-  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai();
+  try { ma2 = await api('/api/ma200'); } catch (e) { ma2 = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200();
 }
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);
