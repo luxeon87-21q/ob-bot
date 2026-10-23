@@ -22,17 +22,18 @@ permissions:
   pages: write
   id-token: write
 
+# Расчёт идёт в своей очереди «hammer_scan» и не мешает проверке ордер-блоков.
+# В общую очередь «scan» встаёт только короткая публикация сайта (job deploy).
 concurrency:
-  group: scan
+  group: hammer_scan
   cancel-in-progress: false
 
 jobs:
   hammer:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      skip: ${{ steps.scan.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,8 +72,30 @@ jobs:
             sleep 5
           done
 
+  deploy:
+    needs: hammer
+    if: needs.hammer.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: scan
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main          # свежее состояние репозитория, вместе с только что сохранённым результатом
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
       - name: Кэш свечей
-        if: steps.scan.outputs.skip != 'true'
         uses: actions/cache/restore@v4
         with:
           path: cache/bars
@@ -87,15 +110,11 @@ jobs:
           restore-keys: optscreen-
 
       - name: Сборка сайта
-        if: steps.scan.outputs.skip != 'true'
         run: python build_site.py --site-only
 
       - uses: actions/configure-pages@v5
-        if: steps.scan.outputs.skip != 'true'
       - uses: actions/upload-pages-artifact@v3
-        if: steps.scan.outputs.skip != 'true'
         with:
           path: site
       - id: deployment
-        if: steps.scan.outputs.skip != 'true'
         uses: actions/deploy-pages@v4

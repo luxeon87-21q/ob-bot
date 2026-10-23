@@ -8,8 +8,9 @@ on:
 permissions:
   contents: write
 
+# своя очередь «options»: не мешает проверке ордер-блоков
 concurrency:
-  group: scan
+  group: options
   cancel-in-progress: false
 
 jobs:
