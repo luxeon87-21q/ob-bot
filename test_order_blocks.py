@@ -19,73 +19,125 @@ def rand_df(n=600, seed=0):
     return pd.DataFrame(dict(open=o, high=h, low=l, close=c, volume=v), index=idx)
 
 
-def pine_reference(df, length=5, mitigation="Wick"):
-    """Построчный перенос Pine (series-семантика через индексы) — независимая проверка."""
-    h, l, c, v = (df[k].to_numpy() for k in ("high", "low", "close", "volume"))
-    os_ = 0
-    bull_top, bull_btm, bear_top, bear_btm = [], [], [], []
+def rand_df_smc(n=600, seed=0):
+    rng = np.random.default_rng(seed)
+    c = 100 + np.cumsum(rng.normal(0, 1, n))
+    o = c + rng.normal(0, .3, n)
+    h = np.maximum(o, c) + rng.random(n)
+    l = np.minimum(o, c) - rng.random(n)
+    if seed % 3 == 0:                     # редкие «волатильные» свечи (high-low ≥ 2·ATR)
+        k = rng.choice(n, n // 40, replace=False)
+        h[k] += rng.random(len(k)) * 8
+        l[k] -= rng.random(len(k)) * 8
+    v = rng.integers(1_000, 100_000, n).astype(float)
+    idx = pd.date_range("2025-01-01", periods=n, freq="4h", tz="America/New_York")
+    return pd.DataFrame(dict(open=o, high=h, low=l, close=c, volume=v), index=idx)
+
+
+def smc_reference(df, size_in=5, size_sw=50, mitigation="High/Low"):
+    """Независимый перенос Pine: серии через pandas (rolling/ewm/diff), цикл только для состояния."""
+    H, L, C = df["high"], df["low"], df["close"]
+    tr = pd.concat([H - L, (H - C.shift()).abs(), (L - C.shift()).abs()], axis=1).max(axis=1)
+    tr.iloc[0] = H.iloc[0] - L.iloc[0]
+    seed = tr.copy() * np.nan
+    if len(tr) >= 200:
+        seed.iloc[199] = tr.iloc[:200].mean()
+        seed.iloc[200:] = tr.iloc[200:]
+    atr = seed.ewm(alpha=1 / 200, adjust=False, ignore_na=False).mean()
+    atr[seed.isna() & (np.arange(len(seed)) < 199)] = np.nan
+    hv = ((H - L) >= 2 * atr).fillna(False).to_numpy()
+    ph = np.where(hv, L, H); pl = np.where(hv, H, L)
+
+    def legs(size):
+        nh = H.shift(size) > H.rolling(size).max()
+        nl = L.shift(size) < L.rolling(size).min()
+        leg = pd.Series(np.where(nh, 0.0, np.where(nl, 1.0, np.nan)), index=H.index).ffill().fillna(0)
+        return leg.diff().fillna(0).to_numpy()
+
+    d_sw, d_in = legs(size_sw), legs(size_in)
+    h, l, c = H.to_numpy(), L.to_numpy(), C.to_numpy()
+    piv = {k: dict(cur=np.nan, crossed=False, bi=-1) for k in ("sh", "sl", "ih", "il")}
+    prev = dict(ih=np.nan, il=np.nan, sh=np.nan, sl=np.nan)
+    arrs = {"internal": [], "swing": []}
     formed = []
     for i in range(len(df)):
-        if i < length:
-            continue
-        upper = max(h[i - length + 1:i + 1]); lower = min(l[i - length + 1:i + 1])
-        tb, tr = (min(c[i - length + 1:i + 1]), max(c[i - length + 1:i + 1])) if mitigation == "Close" else (lower, upper)
-        os_ = 0 if h[i - length] > upper else 1 if l[i - length] < lower else os_
-        k = i - length
-        phv = k - length >= 0 and all(v[k] > v[j] for j in range(k - length, k + length + 1) if j != k)
-        if phv and os_ == 1:
-            bull_top.insert(0, (h[k] + l[k]) / 2); bull_btm.insert(0, l[k]); formed.append(("bull", i))
-        if phv and os_ == 0:
-            bear_top.insert(0, h[k]); bear_btm.insert(0, (h[k] + l[k]) / 2); formed.append(("bear", i))
-        keep = [j for j, b in enumerate(bull_btm) if not tb < b]
-        bull_top = [bull_top[j] for j in keep]; bull_btm = [bull_btm[j] for j in keep]
-        keep = [j for j, t in enumerate(bear_top) if not tr > t]
-        bear_top = [bear_top[j] for j in keep]; bear_btm = [bear_btm[j] for j in keep]
-    return formed, list(zip(bull_top, bull_btm)), list(zip(bear_top, bear_btm))
+        for d, size, hk, lk in ((d_sw, size_sw, "sh", "sl"), (d_in, size_in, "ih", "il")):
+            if d[i] == 1:
+                piv[lk].update(cur=l[i - size], crossed=False, bi=i - size)
+            elif d[i] == -1:
+                piv[hk].update(cur=h[i - size], crossed=False, bi=i - size)
+        new = []
+        for kind, hk, lk in (("internal", "ih", "il"), ("swing", "sh", "sl")):
+            for side, k in (("bull", hk), ("bear", lk)):
+                p = piv[k]
+                lv, pv = p["cur"], prev[k]
+                prev[k] = lv
+                if i == 0 or np.isnan(lv) or np.isnan(pv):
+                    continue
+                if side == "bull":
+                    cross = c[i] > lv and c[i - 1] <= pv
+                    extra = kind == "swing" or piv["ih"]["cur"] != piv["sh"]["cur"]
+                else:
+                    cross = c[i] < lv and c[i - 1] >= pv
+                    extra = kind == "swing" or piv["il"]["cur"] != piv["sl"]["cur"]
+                if cross and not p["crossed"] and extra:
+                    p["crossed"] = True
+                    seg = range(p["bi"], i)
+                    j = min(seg, key=lambda x: (pl[x], x)) if side == "bull" else min(seg, key=lambda x: (-ph[x], x))
+                    ob = dict(side=side, bh=ph[j], bl=pl[j], kind=kind, i=i)
+                    if len(arrs[kind]) >= 100:
+                        arrs[kind].pop()
+                    arrs[kind].insert(0, ob); new.append(ob)
+        sb = c[i] if mitigation == "Close" else h[i]
+        sl = c[i] if mitigation == "Close" else l[i]
+        gone = []
+        for kind in ("internal", "swing"):
+            a = arrs[kind]; j = 0
+            while j < len(a):
+                o = a[j]
+                if (o["side"] == "bear" and sb > o["bh"]) or (o["side"] == "bull" and sl < o["bl"]):
+                    gone.append(o); del a[j]
+                j += 1
+        formed += [(o["kind"], o["side"], i) for o in new if not any(o is g for g in gone)]
+    return formed, arrs
 
 
-def test_matches_pine_reference():
-    for seed in range(30):
-        for mit in ("Wick", "Close"):
-            df = rand_df(seed=seed)
+def test_smc_matches_reference():
+    total = 0
+    for seed in range(60):
+        df = rand_df_smc(n=700, seed=seed)
+        for mit, rmit in (("Wick", "High/Low"), ("Close", "Close")):
             events, bulls, bears = detect(df, 5, mit, track_last=0)
-            ref_formed, ref_bull, ref_bear = pine_reference(df, 5, mit)
-            # OB, пробитые на том же баре, в Pine появляются и сразу удаляются — сигнал "formed" им не шлём
-            got = [(e.ob.side, e.bar_idx) for e in events if e.type == "formed"]
-            assert set(got) <= set(ref_formed)
-            assert [(o.top, o.btm) for o in bulls] == ref_bull
-            assert [(o.top, o.btm) for o in bears] == ref_bear
+            ref_formed, ref = smc_reference(df, mitigation=rmit)
+            got = [(e.ob.kind, e.ob.side, e.bar_idx) for e in events if e.type == "formed"]
+            assert sorted(got) == sorted(ref_formed), (seed, mit)
+            total += len(got)
+            for kind in ("internal", "swing"):
+                mine = sorted([(o.side, o.bar_high, o.bar_low, o.detected_idx) for o in bulls + bears if o.kind == kind])
+                theirs = sorted([(o["side"], o["bh"], o["bl"], o["i"]) for o in ref[kind]])
+                assert mine == theirs, (seed, mit, kind)
+    assert total > 1000
+    print("сверено OB:", total)
 
 
-def test_scenario_formed_touched_mitigated():
-    # падение -> свеча с пиком объёма на дне -> рост -> откат в зону -> пробой вниз
-    closes = [110, 108, 106, 104, 102, 100, 98, 96, 94, 92,     # падение
-              90,                                                # свеча OB (индекс 10), объём-пик
-              93, 96, 99, 102, 105, 108, 110, 112, 111,          # рост
-              104, 97, 90, 92, 95, 99,                           # откат: касание зоны (индекс 22)
-              88, 85]                                            # пробой (индекс 27)
-    n = len(closes)
-    c = np.array(closes, float)
-    o = np.r_[c[0], c[:-1]]
-    h = np.maximum(o, c) + 0.5
-    l = np.minimum(o, c) - 0.5
-    v = np.full(n, 1000.0); v[10] = 50_000
-    l[10] -= 2          # длинная нижняя тень у свечи OB
-    idx = pd.date_range("2025-01-01", periods=n, freq="4h", tz="America/New_York")
-    df = pd.DataFrame(dict(open=o, high=h, low=l, close=c, volume=v), index=idx)
-
-    events, bulls, _ = detect(df, 5, "Wick", 3)
-    kinds = [(e.type, e.ob.side, e.bar_idx) for e in events]
-    print(kinds)
-    formed = [e for e in events if e.type == "formed" and e.ob.side == "bull"]
-    assert formed and formed[0].bar_idx == 15 and formed[0].ob.ob_time == idx[10]
-    ob = formed[0].ob
-    assert ob.btm == l[10] and ob.top == (h[10] + l[10]) / 2
-    touched = [e for e in events if e.type == "touched" and e.ob is ob]
-    mitig = [e for e in events if e.type == "mitigated" and e.ob is ob]
-    assert touched and touched[0].bar_idx == 22
-    assert mitig and mitig[0].bar_idx == 27
-    assert ob not in bulls
+def test_smc_events_consistency():
+    df = rand_df_smc(n=900, seed=7)
+    events, bulls, bears = detect(df, 5, "Wick", 5)
+    assert len([o for o in bulls + bears if o.kind == "internal"]) <= 5
+    assert len([o for o in bulls + bears if o.kind == "swing"]) <= 5
+    kinds = {e.ob.kind for e in events}
+    assert kinds == {"internal", "swing"}
+    h, l = df["high"].to_numpy(), df["low"].to_numpy()
+    for e in events:
+        ob = e.ob
+        assert ob.top >= ob.btm
+        if e.type == "mitigated":
+            assert (ob.side == "bull" and l[e.bar_idx] < ob.bar_low) or (ob.side == "bear" and h[e.bar_idx] > ob.bar_high)
+        if e.type == "touched":
+            i = e.bar_idx
+            assert (ob.side == "bull" and l[i] <= ob.top < l[i - 1]) or (ob.side == "bear" and h[i] >= ob.btm > h[i - 1])
+        if e.type == "formed":
+            assert ob.ob_time < e.bar_time and ob.detected_idx == e.bar_idx
 
 
 def test_to_4h_sessions():
@@ -203,7 +255,7 @@ def test_options_oi(tmp_path):
 
 if __name__ == "__main__":
     import tempfile
-    test_matches_pine_reference(); test_scenario_formed_touched_mitigated(); test_to_4h_sessions()
+    test_smc_matches_reference(); test_smc_events_consistency(); test_to_4h_sessions()
     test_to_4h_incomplete_last_bar(); test_wolfe()
     test_telegram_subscribers(Path(tempfile.mkdtemp())); test_options_oi(Path(tempfile.mkdtemp()))
     print("OK")

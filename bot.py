@@ -1,6 +1,6 @@
 """
 Бот: следит за акциями США на 4H и пишет в Telegram, когда
-  • сформировался новый ордер-блок (LuxAlgo Order Block Detector)
+  • сформировался новый ордер-блок (LuxAlgo Smart Money Concepts: internal и swing)
   • цена коснулась (зашла в зону) действующего ордер-блока
   • ордер-блок пробит (mitigated) — по желанию
 
@@ -66,7 +66,7 @@ def settings():
         universe=cfg("UNIVERSE", "sp500,nasdaq100"),
         length=cfg("OB_LENGTH", 5, int),
         mitigation=cfg("OB_MITIGATION", "Wick"),
-        track_last=cfg("OB_TRACK_LAST", 3, int),
+        track_last=cfg("OB_TRACK_LAST", 5, int),
         notify_formed=cfg("NOTIFY_FORMED", True, bool),
         notify_touched=cfg("NOTIFY_TOUCHED", True, bool),
         notify_mitigated=cfg("NOTIFY_MITIGATED", False, bool),
@@ -175,7 +175,8 @@ def build_message(found: Dict[str, List[Event]], oi_min: int = 0) -> str:
                 else:
                     extra = f"закрытие {fmt(e.close)}"
                 oi_lbl = f"  · {options.fmt_oi(options.oi_of(LAST_OI, t))}" if LAST_OI else ""
-                rows.append(f"• {link(t)}  {zone}  <i>{extra}</i>{oi_lbl}")
+                kind = "swing" if getattr(ob, "kind", "") == "swing" else "internal"
+                rows.append(f"• {link(t)}  {zone}  <code>{kind}</code>  <i>{extra}</i>{oi_lbl}")
         if rows:
             lines += ["", f"<b>{title}</b>"] + rows
     return "\n".join(lines)
@@ -235,6 +236,7 @@ HISTORY_FILE = BASE / "cache" / "signals.jsonl"
 HISTORY_MAX = 30000         # сколько последних событий хранить в ленте
 HISTORY_SEED_BARS = 30      # при первом запуске кладём в ленту сигналы за последние ~15 дней (без отправки)
 WOLFE_SEEDED_FILE = BASE / "cache" / "wolfe_seeded.json"   # лента Вульфа уже заполнена историей
+SMC_SEEDED_FILE = BASE / "cache" / "smc_seeded.json"       # лента OB пересобрана под Smart Money Concepts
 
 
 def ob_dict(ob, close: float, fresh: bool = False) -> dict:
@@ -244,13 +246,14 @@ def ob_dict(ob, close: float, fresh: bool = False) -> dict:
         dist = 0.0 if close >= ob.btm else (ob.btm - close) / close * 100
     return dict(side=ob.side, top=round(ob.top, 4), btm=round(ob.btm, 4),
                 ob_time=ob.ob_time.isoformat(), detected=ob.detected_time.isoformat(),
-                dist=round(dist, 3), fresh=fresh)
+                dist=round(dist, 3), fresh=fresh, kind=getattr(ob, "kind", "internal"))
 
 
 def event_dict(t: str, e: Event) -> dict:
     return dict(ticker=t, type=e.type, side=e.ob.side, bar_time=e.bar_time.isoformat(),
                 top=round(e.ob.top, 4), btm=round(e.ob.btm, 4), ob_time=e.ob.ob_time.isoformat(),
-                close=round(e.close, 4), high=round(e.high, 4), low=round(e.low, 4))
+                close=round(e.close, 4), high=round(e.high, 4), low=round(e.low, 4),
+                kind=getattr(e.ob, "kind", "internal"))
 
 
 def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
@@ -283,6 +286,15 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
     found: Dict[str, List[Event]] = {}
     found_w: Dict[str, list] = {}          # волны Вульфа
     wolfe_seed = bool(s.get("wolfe")) and not WOLFE_SEEDED_FILE.exists()
+    smc_seed = not SMC_SEEDED_FILE.exists()
+    if smc_seed and HISTORY_FILE.exists():    # сигналы старого индикатора убираем из ленты
+        def _not_ob(ln):
+            try:
+                return json.loads(ln).get("type") not in ("formed", "touched", "mitigated")
+            except Exception:
+                return True
+        keep = [ln for ln in HISTORY_FILE.read_text(encoding="utf-8").splitlines() if ln.strip() and _not_ob(ln)]
+        HISTORY_FILE.write_text("\n".join(keep) + ("\n" if keep else ""), encoding="utf-8")
     history: List[dict] = []
     snap_rows = []
     for n, (t, df) in enumerate(bars.items()):
@@ -295,7 +307,11 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         if last_seen:
             cut = pd.Timestamp(last_seen)
             new = [e for e in events if e.bar_time > cut]
-            history += [event_dict(t, e) for e in new]
+            if smc_seed:                         # первый запуск SMC: история в ленту без отправки
+                seed_from = df.index[max(0, len(df) - HISTORY_SEED_BARS)]
+                history += [event_dict(t, e) for e in events if e.bar_time >= seed_from]
+            else:
+                history += [event_dict(t, e) for e in new]
         else:
             new = [e for e in events if e.bar_time == df.index[-1]]
             seed_from = df.index[max(0, len(df) - HISTORY_SEED_BARS)]
@@ -323,7 +339,7 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         prev = float(df["close"].iloc[-3]) if len(df) > 2 else close   # ~1 торговый день назад
         k = s["track_last"] or None
         fresh_from = len(df) - 2          # «новый» = сформировался за последние 2 свечи (≈ торговый день)
-        obs = [ob_dict(o, close, o.detected_idx >= fresh_from) for o in bulls[:k] + bears[:k]]
+        obs = [ob_dict(o, close, o.detected_idx >= fresh_from) for o in bulls + bears]
         snap_rows.append(dict(ticker=t, close=round(close, 4), chg=round((close / prev - 1) * 100, 2),
                               bar_time=df.index[-1].isoformat(), obs=obs, oi=options.oi_of(LAST_OI, t)))
 
@@ -343,6 +359,8 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
     save_state(state)
     if wolfe_seed:
         WOLFE_SEEDED_FILE.write_text(json.dumps({"seeded": pd.Timestamp.now(tz=data.ET).isoformat()}))
+    if smc_seed:
+        SMC_SEEDED_FILE.write_text(json.dumps({"seeded": pd.Timestamp.now(tz=data.ET).isoformat()}))
 
     STATE_FILE.parent.mkdir(exist_ok=True)
     SNAPSHOT_FILE.write_text(json.dumps(dict(

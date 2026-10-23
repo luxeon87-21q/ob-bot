@@ -146,6 +146,8 @@ td.best{font-weight:700}
   .timer{order:4}
   .hide-sm{display:none}
 }
+.kind{display:inline-block;margin-left:6px;font:600 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 5px;border-radius:4px;color:var(--muted);background:var(--panel2);text-transform:uppercase;letter-spacing:.03em;vertical-align:middle}
+.kind.sw{color:var(--text);box-shadow:inset 0 0 0 1px var(--muted)}
 </style>
 </head>
 <body>
@@ -242,7 +244,7 @@ td.best{font-weight:700}
         <tbody id="scrBody"><tr><td colspan="6" class="empty">Загрузка…</td></tr></tbody>
       </table>
     </div>
-    <div class="hint">«До зоны» — сколько процентов цене пройти до края ордер-блока. 0% значит, что цена уже в зоне. Учитываются последние непробитые OB каждой стороны, сколько задано в OB_TRACK_LAST.</div>
+    <div class="hint">«До зоны» — сколько процентов цене пройти до края ордер-блока. 0% значит, что цена уже в зоне. Учитываются видимые непробитые OB индикатора Smart Money Concepts: по 5 последних internal и swing (метка у зоны).</div>
   </section>
 
   <!-- СЕЗОННОСТЬ -->
@@ -408,6 +410,7 @@ const dtf = iso => { const d = iso.slice(0, 16); return d.slice(8, 10) + '.' + d
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TYPE = {formed: 'Новый OB', touched: 'Касание', mitigated: 'Пробит', wolfe: 'Вульф'};
 const SIDE = {bull: 'бычий', bear: 'медвежий'};
+const kindTag = o => !o || !o.kind ? '' : `<span class="kind${o.kind === 'swing' ? ' sw' : ''}" title="${o.kind === 'swing' ? 'Swing OB (структура 50)' : 'Internal OB (структура 5)'}">${o.kind}</span>`;
 
 /* ---------- тема ---------- */
 (() => { try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
@@ -566,7 +569,7 @@ function renderHero() {
   const fresh = formed.filter(r => r.bar_time.slice(0, 10) === day).sort((a, b) => b.bar_time.localeCompare(a.bar_time));
   $('#hero').innerHTML = `<h3>🆕 Новые ордер-блоки <span class="sub">${day.slice(8, 10)}.${day.slice(5, 7)} · ${fresh.length} шт.</span></h3>
     <div class="hero-grid">${fresh.slice(0, heroAll ? 999 : 12).map(r => `<div class="hcard ${r.side}" data-t="${esc(r.ticker)}">
-      <div class="t"><span>${esc(r.ticker)}${oiTag(r.ticker)}</span><span class="badge ${r.side}">${r.side === 'bull' ? '▲ бычий' : '▼ медвежий'}</span></div>
+      <div class="t"><span>${esc(r.ticker)}${oiTag(r.ticker)}</span><span class="badge ${r.side}">${r.side === 'bull' ? '▲ бычий' : '▼ медвежий'}${r.kind ? ' · ' + r.kind : ''}</span></div>
       <div class="z mono">${fmt(r.btm)} – ${fmt(r.top)} · закр. ${fmt(r.close)}</div>
       <div class="z">свеча ${r.bar_time.slice(11, 16)} ET</div></div>`).join('')}</div>` +
     (fresh.length > 12 ? `<button class="btn" id="heroMore" style="margin-top:8px">${heroAll ? 'Свернуть' : 'Показать все ' + fresh.length}</button>` : '');
@@ -594,7 +597,7 @@ function renderSignals() {
     html += `<div class="sig${isNew ? ' new ' + r.side : ''}" data-t="${esc(r.ticker)}">
       <span class="time mono">${r.bar_time.slice(11, 16)}</span>
       <span class="tk">${esc(r.ticker)}${isNew ? '<span class="newtag">NEW</span>' : ''}</span>
-      <span class="desc"><span class="badge ${cls}">${icon} ${TYPE[r.type]} ${SIDE[r.side]}</span>&nbsp; ${desc}</span>
+      <span class="desc"><span class="badge ${cls}">${icon} ${TYPE[r.type]} ${SIDE[r.side]}</span>${kindTag(r)}&nbsp; ${desc}</span>
       </div>`;
   }
   $('#sigList').innerHTML = html;
@@ -643,7 +646,7 @@ function nearest(obs, side) {
 function zoneCell(o) {
   if (!o) return '<span style="color:var(--muted)">—</span>';
   const w = Math.max(4, 100 - Math.min(o.dist, 10) * 10);
-  const nw = o.fresh ? '<span class="newtag">NEW</span>' : '';
+  const nw = kindTag(o) + (o.fresh ? '<span class="newtag">NEW</span>' : '');
   const label = o.dist === 0 ? `<span class="badge ${o.side}">в зоне</span>` : `<span class="mono">${o.dist.toFixed(2).replace('.', ',')}%</span>`;
   return `<div class="zone"><span class="meter"><i style="width:${w}%;background:var(--${o.side})"></i></span>${label}
     <span class="mono" style="color:var(--muted)">${fmt(o.btm)}–${fmt(o.top)}</span>${nw}</div>`;
@@ -912,8 +915,8 @@ function chartDraw() {
     ctx.fillStyle = o.side === 'bull' ? col.bullBg : col.bearBg;
     ctx.fillRect(x, y1, pw - x, y2 - y1);
     if (o.fresh) { ctx.fillRect(x, y1, pw - x, y2 - y1); }          // новый OB — заливка ярче
-    ctx.strokeStyle = o.side === 'bull' ? col.bull : col.bear; ctx.globalAlpha = o.fresh ? 1 : .45;
-    ctx.lineWidth = o.fresh ? 1.5 : 1;
+    ctx.strokeStyle = o.side === 'bull' ? col.bull : col.bear; ctx.globalAlpha = (o.fresh || o.kind === 'swing') ? 1 : .45;
+    ctx.lineWidth = o.kind === 'swing' ? 2 : (o.fresh ? 1.5 : 1);
     ctx.beginPath(); ctx.moveTo(x, Math.round(y1) + .5); ctx.lineTo(pw, Math.round(y1) + .5);
     ctx.moveTo(x, Math.round(y2) + .5); ctx.lineTo(pw, Math.round(y2) + .5); ctx.stroke();
     ctx.globalAlpha = .7; ctx.strokeStyle = 'rgb(149,152,161)'; ctx.setLineDash([4, 3]);
@@ -1051,7 +1054,7 @@ async function loadChart(t) {
   const obs = [...d.obs].sort((a, b) => a.dist - b.dist);
   const evs = d.events.slice(-8).reverse();
   $('#chartSide').innerHTML = `<h3>Действующие ордер-блоки</h3>` + (obs.length ? obs.map(o => `
-    <div class="obrow"><div><span class="badge ${o.side}">${o.side === 'bull' ? 'Бычий' : 'Медвежий'}</span>
+    <div class="obrow"><div><span class="badge ${o.side}">${o.side === 'bull' ? 'Бычий' : 'Медвежий'}</span>${kindTag(o)}
       <span class="z mono">&nbsp;${fmt(o.btm)} – ${fmt(o.top)}</span>${o.fresh ? '<span class="newtag">NEW</span>' : ''}</div>
       <div class="m">${o.dist === 0 ? 'цена в зоне' : 'до зоны ' + o.dist.toFixed(2).replace('.', ',') + '%'} · свеча ${dtf(o.ob_time)}</div></div>`).join('')
     : '<div class="empty">Нет непробитых OB</div>') +
@@ -1060,7 +1063,7 @@ async function loadChart(t) {
       <span class="z mono">&nbsp;🎯 ${fmt(w.target)}</span></div>
       <div class="m mono">точка 5: ${dtf(w.bar_time)} · линия 1–3 ${fmt(w.line13)}</div></div>`).join('') : '') +
     `<h3>Последние события</h3>` + (evs.length ? evs.map(e => `
-    <div class="obrow"><div><span class="badge ${e.type === 'mitigated' ? 'gray' : e.side}">${TYPE[e.type]} ${SIDE[e.side]}</span></div>
+    <div class="obrow"><div><span class="badge ${e.type === 'mitigated' ? 'gray' : e.side}">${TYPE[e.type]} ${SIDE[e.side]}</span>${kindTag(e)}</div>
       <div class="m mono">${dtf(e.bar_time)} · ${fmt(e.btm)}–${fmt(e.top)}</div></div>`).join('') : '<div class="empty">—</div>');
 }
 $('#tkForm').onsubmit = e => { e.preventDefault(); const t = $('#tkInput').value.trim(); if (t) openChart(t.toUpperCase()); };

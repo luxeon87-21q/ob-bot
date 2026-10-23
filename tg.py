@@ -109,7 +109,7 @@ HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только 
         "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
-           "Акции S&amp;P 500 и Nasdaq-100: ордер-блоки (LuxAlgo Order Block Detector) "
+           "Акции S&amp;P 500 и Nasdaq-100: ордер-блоки (LuxAlgo Smart Money Concepts) "
            "и волны Вульфа — приходят отдельными сообщениями. "
            "Сигналы приходят после закрытия 4H свечей: ≈20:40 и 23:10 по Кишинёву, пн–пт.\n"
            "По понедельникам и пятницам — отчёт по сезонности: акции, которые в ближайшие недели "
@@ -273,7 +273,7 @@ def set_commands(token: str) -> None:
         api(token, "setMyCommands", commands=COMMANDS)
         api(token, "setMyDescription", description=(
             "Сигналы ордер-блоков 4H по акциям США (S&P 500 и Nasdaq-100) по индикатору "
-            "LuxAlgo Order Block Detector. Нажмите «Запустить», чтобы подписаться."))
+            "LuxAlgo Smart Money Concepts. Нажмите «Запустить», чтобы подписаться."))
         api(token, "setMyShortDescription",
             short_description="Сигналы ордер-блоков 4H по акциям США")
     except Exception as e:
