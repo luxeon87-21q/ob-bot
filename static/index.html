@@ -1207,7 +1207,7 @@ async function loadAll() {
     loadTv().then(() => {
       if (cur !== a) return;
       el.innerHTML = '';
-      new TradingView.widget({container_id: 'tvPopChart', symbol: sym, interval: iv, autosize: true, theme: dark() ? 'dark' : 'light',
+      new TradingView.widget({container_id: 'tvPopChart', symbol: sym, interval: iv, autosize: true, range: {D: '12M', W: '120M', M: 'ALL'}[iv] || '12M', theme: dark() ? 'dark' : 'light',
         style: '1', locale: 'ru', timezone: 'America/New_York', hide_top_toolbar: true, hide_side_toolbar: true,
         allow_symbol_change: false, save_image: false, studies});
     }).catch(() => { el.innerHTML = '<div class="empty">TradingView не загрузился</div>'; });
