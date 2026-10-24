@@ -52,6 +52,7 @@ MIN_BARS = {"W": 260, "D": 260, "M": 100}
 ETFS = ["SPY", "QQQ", "IWM", "DIA", "RSP", "SMH", "SOXX", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP",
         "XLU", "XLB", "XLRE", "XLC", "XBI", "IBB", "KRE", "XHB", "ITB", "GLD", "SLV", "GDX", "TLT", "EEM",
         "EFA", "FXI", "KWEB", "ARKK", "IGV", "XOP", "XME", "TAN", "URA", "IYR", "VNQ", "MDY"]
+FUND_RE = r"\bFunds?\b|Municipal|\bMuni\b|Closed[- ]End|Income Trust|Opportunit(?:y|ies) Trust|Investment Trust"
 log = logging.getLogger("ob_bot.ma200")
 
 
@@ -309,6 +310,8 @@ def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timesta
     SP = seasonal.Params(min_price=P.min_price, min_dvol=P.min_dvol)
     if tickers is None:
         u = seasonal.all_us_stocks()
+        # закрытые фонды (муниципальные, облигационные и т.п.) — не акции, их выплаты искажают картину
+        u = u[~u["name"].astype(str).str.contains(FUND_RE, case=False, regex=True)]
         tickers = sorted(set(seasonal.prefilter(u, SP)) | set(ETFS))
         log.info("акций США: %d, после отсева по цене/обороту (+ETF): %d", len(u), len(tickers))
     rows: List[dict] = []

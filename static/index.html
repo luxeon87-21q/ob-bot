@@ -150,7 +150,7 @@ td.best{font-weight:700}
 .kind.sw{color:var(--text);box-shadow:inset 0 0 0 1px var(--muted)}
 #tvPop{position:fixed;z-index:1000;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.28);overflow:hidden}
 #tvPop.on{display:flex}
-#tvPop .tvh{padding:6px 10px;font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line)}
+#tvPop .tvh{padding:6px 10px;font-size:12px;line-height:1.35;color:var(--muted);display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line)}
 #tvPop .tvh b{color:var(--text);font-size:13.5px}
 #tvPopChart{flex:1;min-height:0}
 #tvPop .tvob{display:flex;flex-wrap:wrap;gap:4px 6px;padding:5px 10px;border-bottom:1px solid var(--line);font-size:12px}
@@ -804,7 +804,7 @@ function renderMa200() {
     const d = r.dist_atr, w = Math.max(4, 100 - Math.min(Math.abs(d), 3) / 3 * 96);
     const col = d < 0 ? 'var(--bear)' : d <= 1 ? 'var(--bull)' : d <= 1.5 ? 'var(--warn)' : 'var(--muted)';
     const dots = (r.last || []).map(([dt, ok, rise]) => `<i class="${ok ? 'ok' : ''}" title="${dmy(dt)}: ${ok == null ? 'ещё не ясно' : ok ? 'отскок' : 'пробой'}, рост до ${String(rise).replace('.', ',')}%"></i>`).join('');
-    return `<tr title="Другие средние (отскоков/касаний): ${(r.others || []).join(', ')}">
+    return `<tr>
       <td><a href="${tv}" target="_blank" rel="noopener" data-tv-ma="${r.ma}" data-tv-key="${esc(r.ticker + '|' + r.tf + '|' + r.ma)}"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
       <td>${MA_TF[r.tf]}</td>
       <td class="mono">${r.best ? '<span title="Самая надёжная средняя этой акции на этом таймфрейме">★</span> ' : ''}<b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span>${(r.obs || []).some(o => o.side === 'bull' && o.top >= r.ma_val - r.atr && o.btm <= r.ma_val + 1.5 * r.atr) ? '<span class="obtag" title="Бычий ордер-блок этого таймфрейма совпадает с зоной средней">OB</span>' : ''}</td>
@@ -1212,6 +1212,7 @@ async function loadAll() {
       const hit = o.side === 'bull' && o.top >= row.ma_val - row.atr && o.btm <= row.ma_val + 1.5 * row.atr;
       return '<span class="o ' + o.side + (hit ? ' hit' : '') + '" title="' + (o.side === 'bull' ? 'Бычий' : 'Медвежий') + ' ' + o.kind + ' OB, свеча ' + dm(o.t) + '.' + o.t.slice(2, 4) + (hit ? ' — совпадает с зоной своей средней' : '') + '">' + (o.side === 'bull' ? '▲ ' : '▼ ') + o.kind + ' ' + fmt(o.btm) + '–' + fmt(o.top) + ' ' + (o.dist === 0 ? 'в зоне' : pct(o.dist)) + '</span>';
     }).join('') : (row ? '<span class="lbl">Действующих OB на этом таймфрейме нет</span>' : '');
+    if (row) box.querySelector('.tvh span').textContent += ' · в таблице цены с поправкой на дивиденды, в окне — без · другие средние: ' + (row.others || []).join(', ');
     box.classList.add('on');
     const studies = [], over = {};
     if (ma) { const [k, n] = ma.split(' '); if (STUDY[k]) { studies.push({id: STUDY[k], inputs: {length: +n}});
