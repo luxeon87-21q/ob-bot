@@ -68,9 +68,8 @@ def test_evaluate_random_and_speed():
     rw = evaluate(w, P, "W", closed)
     dt = time.time() - t0
     assert dt < 2, dt
-    for x in (r, rw):
-        if x:
-            assert x["ma"] in [f"{k} {n}" for k, n in ma200.MAS] and 0 <= x["win"] <= 1
+    for x in r + rw:
+        assert x["ma"] in [f"{k} {n}" for k, n in ma200.MAS] and 0 <= x["win"] <= 1
 
 
 def test_closed_bars():

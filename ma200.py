@@ -70,11 +70,11 @@ class Params:
     zone_atr: float = 1.5      # сигнал: цена не дальше 1,5 ATR над средней
     below_atr: float = 1.0     # … или под ней не глубже 1 ATR
     rearm_sent: float = 3.0    # повторный сигнал в Telegram — после ухода дальше 3 ATR
-    min_touch_w: int = 3
+    min_touch_w: int = 4
     min_touch_d: int = 5
-    min_touch_m: int = 3
+    min_touch_m: int = 4
     debug: int = 0            # 1 — вернуть и отвергнутые (для проверки тикеров)
-    min_win: float = 0.7
+    min_win: float = 0.6
     min_above: float = 0.7    # сейчас: доля закрытий над средней за последние 26 недель / 60 дней
     years: int = 21
     min_price: float = 5.0
@@ -181,54 +181,65 @@ def touches(df: pd.DataFrame, ma: np.ndarray, at: np.ndarray, P: Params, tf: str
     return out
 
 
-def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None) -> Optional[dict]:
-    """Лучшая («своя») средняя на таймфрейме и где цена сейчас относительно неё."""
+def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None) -> List[dict]:
+    """Средние, которые акция «уважает» на таймфрейме: для каждой длины — лучшая из EMA/SMA,
+    если отскоков ≥ MIN_WIN при ≥ MIN_TOUCH касаниях и закономерность действует сейчас.
+    Самая сильная помечена best=True. В режиме проверки тикеров (P.debug) — и отвергнутые."""
     closed = len(df) if closed is None else closed
     if closed < MIN_BARS[tf]:
-        return None
+        return []
     h, l, c = (df[k].to_numpy(float) for k in ("high", "low", "close"))
     at = atr(h, l, c, P.atr_len)
+    a, cl = at[-1], c[-1]
+    if np.isnan(a) or a <= 0:
+        return []
     min_touch = {"W": P.min_touch_w, "D": P.min_touch_d, "M": P.min_touch_m}[tf]
-    best, cands = None, []
+    by_len: Dict[int, dict] = {}
+    cands = []
     for kind, n in MAS_TF[tf]:
         ma = moving(df["close"], kind, n)
         ts = touches(df, ma, at, P, tf, closed)
         done = [t for t in ts if t["ok"] is not None]
         wins = sum(t["ok"] for t in done)
+        cands.append(f"{kind}{n} {wins}/{len(done)}")
         if len(done) < min_touch:
             continue
         win = wins / len(done)
         score = (wins + 1) / (len(done) + 2)
-        cands.append(f"{kind}{n} {wins}/{len(done)}")
-        if win >= P.min_win and (best is None or score > best["score"]
-                                 or (score == best["score"] and len(done) > best["n"])):
-            best = dict(kind=kind, len=n, ma=ma, touches=ts, n=len(done), wins=wins, win=win, score=score)
-    if best is None:
-        return dict(rejected="нет средней с долей отскоков ≥ порога", others=cands) if P.debug else None
-    ma, a, cl = best["ma"][-1], at[-1], c[-1]
-    if np.isnan(ma) or np.isnan(a) or a <= 0:
-        return None
-    # закономерность действует сейчас: средняя растёт и цена в основном держится над ней
-    L = TFP[tf]["recent"]
-    with np.errstate(invalid="ignore"):
-        above_share = float(np.mean(c[-L:] > best["ma"][-L:]))
-    rising_now = best["ma"][-1] > best["ma"][-1 - TFP[tf]["slope"]]
-    if not rising_now or above_share < P.min_above:
-        return (dict(rejected=f"не действует сейчас: {best['kind']}{best['len']} растёт={rising_now}, над ней {above_share:.0%}",
-                     others=cands) if P.debug else None)
-    done = [t for t in best["touches"] if t["ok"] is not None]
-    ok = [t for t in done if t["ok"]]
-    slope = (best["ma"][-1] / best["ma"][-1 - TFP[tf]["slope"]] - 1) * 100
-    return dict(ma=f"{best['kind']} {best['len']}", ma_val=round(float(ma), 4), price=round(float(cl), 4),
-                atr=round(float(a), 4), atr_pct=round(float(a / cl * 100), 2),
-                dist_atr=round(float((cl - ma) / a), 2), dist_pct=round(float((cl / ma - 1) * 100), 2),
-                low_atr=round(float((l[-1] - ma) / a), 2), slope=round(float(slope), 2),
-                n=best["n"], wins=best["wins"], win=round(best["win"], 3),
-                rise_avg=round(float(np.mean([t["rise"] for t in ok])), 1) if ok else None,
-                bars_avg=round(float(np.mean([t["bars"] for t in ok])), 1) if ok else None,
-                depth_med=round(float(np.median([t["depth"] for t in done])), 2),
-                last=[[t["date"], t["ok"], t["rise"]] for t in best["touches"][-6:]],
-                above=round(above_share, 2), others=cands, bar=str(df.index[-1].date()))
+        cur = by_len.get(n)
+        if cur is None or score > cur["score"] or (score == cur["score"] and len(done) > cur["n"]):
+            by_len[n] = dict(kind=kind, len=n, ma=ma, touches=ts, n=len(done), wins=wins, win=win, score=score)
+    out, rej = [], []
+    L, S = TFP[tf]["recent"], TFP[tf]["slope"]
+    for n, b in sorted(by_len.items()):
+        m = b["ma"]
+        if b["win"] < P.min_win:
+            rej.append(f"{b['kind']}{n}: отскоков {b['win']:.0%}")
+            continue
+        with np.errstate(invalid="ignore"):
+            above_share = float(np.mean(c[-L:] > m[-L:]))
+        rising_now = bool(m[-1] > m[-1 - S])
+        if np.isnan(m[-1]) or not rising_now or above_share < P.min_above:
+            rej.append(f"{b['kind']}{n}: не действует сейчас (растёт={rising_now}, над ней {above_share:.0%})")
+            continue
+        done = [t for t in b["touches"] if t["ok"] is not None]
+        ok = [t for t in done if t["ok"]]
+        out.append(dict(ma=f"{b['kind']} {n}", ma_val=round(float(m[-1]), 4), price=round(float(cl), 4),
+                        atr=round(float(a), 4), atr_pct=round(float(a / cl * 100), 2),
+                        dist_atr=round(float((cl - m[-1]) / a), 2), dist_pct=round(float((cl / m[-1] - 1) * 100), 2),
+                        low_atr=round(float((l[-1] - m[-1]) / a), 2),
+                        slope=round(float((m[-1] / m[-1 - S] - 1) * 100), 2),
+                        n=b["n"], wins=b["wins"], win=round(b["win"], 3), score=round(b["score"], 3),
+                        rise_avg=round(float(np.mean([t["rise"] for t in ok])), 1) if ok else None,
+                        bars_avg=round(float(np.mean([t["bars"] for t in ok])), 1) if ok else None,
+                        depth_med=round(float(np.median([t["depth"] for t in done])), 2),
+                        last=[[t["date"], t["ok"], t["rise"]] for t in b["touches"][-6:]],
+                        above=round(above_share, 2), others=cands, bar=str(df.index[-1].date()), best=False))
+    if out:
+        max(out, key=lambda r: (r["score"], r["n"]))["best"] = True
+    elif P.debug:
+        return [dict(rejected="; ".join(rej) or "мало касаний", others=cands)]
+    return out
 
 
 # ======================================================================== свечи
@@ -295,16 +306,17 @@ def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timesta
             d = d[(d["open"] > 0) & (d["low"] > 0)]
             for tf, (f, closed) in (("W", weekly(d, now)), ("D", daily(d, now)), ("M", monthly(d, now))):
                 try:
-                    r = evaluate(f, P, tf, closed)
+                    found = evaluate(f, P, tf, closed)
                 except Exception as e:
                     log.debug("%s %s: %s", t, tf, e)
-                    r = None
+                    found = []
                 if closed >= MIN_BARS[tf]:
                     checked[tf] += 1
-                if r and "rejected" in r:
-                    rejected.append(dict(r, ticker=t, tf=tf))
-                elif r:
-                    rows.append(dict(r, ticker=t, tf=tf, etf=t in ETFS))
+                for r in found:
+                    if "rejected" in r:
+                        rejected.append(dict(r, ticker=t, tf=tf))
+                    else:
+                        rows.append(dict(r, ticker=t, tf=tf, etf=t in ETFS))
         log.info("MA: %d/%d, закономерностей %d", min(b + batch, len(tickers)), len(tickers), len(rows))
     if not explicit and loaded < 0.5 * len(tickers):
         raise RuntimeError(f"история загрузилась только по {loaded} из {len(tickers)} акций")
