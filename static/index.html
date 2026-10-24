@@ -330,12 +330,15 @@ td.best{font-weight:700}
     <div class="toolbar">
       <span class="switch on" id="maZone" role="switch" aria-checked="true" title="Только акции, где цена сейчас не дальше 1,5 ATR над своей средней (или под ней не глубже 1 ATR)"><i></i>Только у средней (≤ 1,5 ATR)</span>
       <div class="chips" id="maTf">
-        <button class="chip on" data-f="all">Недели и дни</button>
+        <button class="chip on" data-f="all">Все ТФ</button>
         <button class="chip" data-f="W">Недели</button>
+        <button class="chip" data-f="M">Месяцы</button>
         <button class="chip" data-f="D">Дни</button>
       </div>
       <div class="chips" id="maLen">
         <button class="chip on" data-f="all">Все MA</button>
+        <button class="chip" data-f="20">20 M</button>
+        <button class="chip" data-f="40">40 M</button>
         <button class="chip" data-f="100">100</button>
         <button class="chip" data-f="150">150</button>
         <button class="chip" data-f="200">200</button>
@@ -361,8 +364,9 @@ td.best{font-weight:700}
         <tbody id="maBody"><tr><td colspan="11" class="empty">Загрузка…</td></tr></tbody>
       </table>
     </div>
-    <div class="hint">Для каждой акции перебираются EMA и SMA 100, 150 и 200 — отдельно на неделях и на днях. Касание — минимум свечи дошёл до растущей средней (ближе 0,25 ATR), а перед этим цена закрывалась выше неё;
-      отскок — после касания цена выросла на 2 ATR раньше, чем закрылась ниже MA − 1 ATR. «Своя» средняя — с лучшей долей отскоков (минимум 3 касания на неделях, 5 на днях, отскоков ≥ 70%).
+    <div class="hint">Для каждой акции перебираются EMA и SMA 100, 150 и 200 на неделях и днях, EMA и SMA 20 и 40 — на месяцах (с поправкой на дивиденды). Касание — минимум свечи дошёл до растущей средней (ближе 0,25 ATR), а перед этим цена закрывалась выше неё;
+      отскок — после касания цена выросла на 2 ATR раньше, чем закрылась ниже MA − 1 ATR; пробоем считается и такое закрытие гэпом или сползанием без касания. Показываются все средние, от которых отскоков ≥ 60% (минимум 4 касания на неделях и месяцах, 5 на днях), ★ — самая надёжная.
+      Закономерность должна действовать сейчас: средняя растёт, а цена последние полгода (на месяцах — год) ≥ 70% времени закрывалась над ней.
       Сигнал — цена сейчас не дальше 1,5 ATR над своей средней. ATR(14) того же таймфрейма. Все акции США от $5 и $5 млн оборота в день + крупные ETF, OI опционов ≥ 1000. Считается по будням после закрытия.
       NEW — подошла к средней в последнем прогоне (в Telegram приходят только такие). Тикер открывает TradingView нужного таймфрейма.</div>
   </section>
@@ -772,7 +776,7 @@ $('#maZone').onclick = () => setMaZone(!maZoneOn);
 $$('th[data-ak]').forEach(th => th.onclick = () => {
   const k = th.dataset.ak; maDir = maK === k ? -maDir : (['ticker', 'tf', 'ma', 'dist_atr', 'dist_pct'].includes(k) ? 1 : -1); maK = k; renderMa200();
 });
-const MA_TF = {W: 'Неделя', D: 'День'};
+const MA_TF = {W: 'Неделя', D: 'День', M: 'Месяц'};
 const dmy = iso => iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(2, 4);
 function renderMa200() {
   if (!ma2 || !ma2.rows) { $('#maBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер считает по будням после закрытия рынка</td></tr>'; return; }
@@ -782,7 +786,7 @@ function renderMa200() {
   rows.sort((a, b) => { const x = val(a, maK), y = val(b, maK); return (x > y ? 1 : x < y ? -1 : 0) * maDir; });
   $$('th[data-ak]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.ak === maK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${maDir > 0 ? '↑' : '↓'}</span>`); });
   const C = ma2.checked || {}, zn = ma2.rows.filter(r => r.zone).length;
-  $('#maCount').textContent = `показано ${rows.length} · у средней ${zn} · закономерностей ${ma2.rows.length} · проверено ${C.W || 0} нед. / ${C.D || 0} дн. · ${dm(ma2.today)}`;
+  $('#maCount').textContent = `показано ${rows.length} · у средней ${zn} · закономерностей ${ma2.rows.length} · проверено ${C.W || 0} нед. / ${C.M || 0} мес. / ${C.D || 0} дн. · ${dm(ma2.today)}`;
   $('#maBody').innerHTML = rows.slice(0, 800).map(r => {
     const tv = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(r.ticker.replace(/-/g, '.')) + '&interval=' + r.tf;
     const d = r.dist_atr, w = Math.max(4, 100 - Math.min(Math.abs(d), 3) / 3 * 96);
@@ -791,7 +795,7 @@ function renderMa200() {
     return `<tr title="Другие средние (отскоков/касаний): ${(r.others || []).join(', ')}">
       <td><a href="${tv}" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
       <td>${MA_TF[r.tf]}</td>
-      <td class="mono"><b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span></td>
+      <td class="mono">${r.best ? '<span title="Самая надёжная средняя этой акции на этом таймфрейме">★</span> ' : ''}<b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span></td>
       <td class="r mono">${fmt(r.price)}</td>
       <td class="r"><div class="zone" style="justify-content:flex-end"><span class="meter"><i style="width:${w}%;background:${col}"></i></span><span class="mono">${(d > 0 ? '+' : '') + d.toFixed(2).replace('.', ',')}</span></div></td>
       <td class="r mono hide-sm">${pct(r.dist_pct)}</td>
