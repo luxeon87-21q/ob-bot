@@ -1,4 +1,4 @@
-name: MA200 — ложный пробой и отскок (по будням)
+name: Своя скользящая (по будням)
 
 on:
   schedule:
@@ -43,7 +43,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Поиск отскоков от MA200
+      - name: Поиск подходов к своей скользящей
         id: scan
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}

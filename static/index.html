@@ -161,7 +161,7 @@ td.best{font-weight:700}
       <button data-v="season">Сезонность</button>
       <button data-v="hammer">Хаммер</button>
       <button data-v="samurai">Самурай</button>
-      <button data-v="ma200" title="Ложный пробой 200-й скользящей и отскок: день, неделя, месяц">MA200</button>
+      <button data-v="ma200" title="Своя скользящая: средняя, от которой акция исторически отскакивает, и подход цены к ней">Скользящие</button>
       <button data-v="chart">График</button>
       <a href="options.html" class="navlink" title="Скринер опционов: продажа путов с фильтрами и сохранёнными сканами">Опционы ↗</a>
     </nav>
@@ -325,24 +325,20 @@ td.best{font-weight:700}
       Акции, которые уже не торгуются, в проверку не попали. «Ликвидные опционы» — акции S&amp;P 500 и Nasdaq-100 с OI ≥ 50 000 сейчас и ETF: выборка небольшая, цифры по ней менее надёжны.</div>
   </section>
 
-  <!-- MA200: ЛОЖНЫЙ ПРОБОЙ И ОТСКОК -->
+  <!-- СВОЯ СКОЛЬЗЯЩАЯ -->
   <section class="view" id="v-ma200">
     <div class="toolbar">
+      <span class="switch on" id="maZone" role="switch" aria-checked="true" title="Только акции, где цена сейчас не дальше 1,5 ATR над своей средней (или под ней не глубже 1 ATR)"><i></i>Только у средней (≤ 1,5 ATR)</span>
       <div class="chips" id="maTf">
-        <button class="chip on" data-f="all">Все ТФ</button>
-        <button class="chip" data-f="D">День</button>
-        <button class="chip" data-f="W">Неделя</button>
-        <button class="chip" data-f="M">Месяц</button>
+        <button class="chip on" data-f="all">Недели и дни</button>
+        <button class="chip" data-f="W">Недели</button>
+        <button class="chip" data-f="D">Дни</button>
       </div>
-      <div class="chips" id="maKind">
-        <button class="chip on" data-f="all">EMA и SMA</button>
-        <button class="chip" data-f="EMA">EMA 200</button>
-        <button class="chip" data-f="SMA">SMA 200</button>
-      </div>
-      <div class="chips" id="maTrig">
-        <button class="chip on" data-f="all">Любой триггер</button>
-        <button class="chip" data-f="main">Выше хая прокола</button>
-        <button class="chip" data-f="alt">Выше MA на объёме</button>
+      <div class="chips" id="maLen">
+        <button class="chip on" data-f="all">Все MA</button>
+        <button class="chip" data-f="100">100</button>
+        <button class="chip" data-f="150">150</button>
+        <button class="chip" data-f="200">200</button>
       </div>
       <input type="search" id="maSearch" placeholder="Тикер…" style="width:120px">
       <span class="count" id="maCount"></span>
@@ -352,22 +348,23 @@ td.best{font-weight:700}
         <thead><tr>
           <th data-ak="ticker">Тикер</th>
           <th data-ak="tf">ТФ</th>
-          <th data-ak="ma">MA</th>
+          <th data-ak="ma" title="Средняя, от которой акция исторически отскакивала чаще всего">Своя MA</th>
           <th data-ak="price" class="r">Цена</th>
-          <th data-ak="dist" class="r" title="Насколько цена сейчас выше 200-й средней — не упущен ли вход">До MA</th>
-          <th data-ak="vol_ratio" class="r" title="Объём сигнальной свечи к среднему за 20 свечей">Объём</th>
-          <th data-ak="pierce" class="hide-sm" title="Свеча прокола и глубина прокола в ATR (не глубже 1)">Прокол</th>
-          <th class="hide-sm">Триггер</th>
+          <th data-ak="dist_atr" class="r" title="Расстояние от цены до средней в ATR (минус — цена под средней)">До MA, ATR</th>
+          <th data-ak="dist_pct" class="r hide-sm">До MA, %</th>
+          <th data-ak="atr_pct" class="r hide-sm" title="1 ATR(14) этого таймфрейма и 1,5 ATR — как в табличке на графике">1 ATR / 1,5 ATR</th>
+          <th data-ak="win" class="r" title="Сколько касаний средней закончились отскоком на 2 ATR раньше, чем цена закрылась ниже MA − 1 ATR">Отскоков</th>
+          <th data-ak="rise_avg" class="r hide-sm" title="Средний рост от минимума свечи касания за 13 недель / 40 дней после отскока">Ср. рост</th>
+          <th class="hide-sm" title="Последние касания: зелёный — отскок, серый — пробой">Касания</th>
           <th data-ak="oi" class="r hide-sm">OI 30д</th>
         </tr></thead>
-        <tbody id="maBody"><tr><td colspan="9" class="empty">Загрузка…</td></tr></tbody>
+        <tbody id="maBody"><tr><td colspan="11" class="empty">Загрузка…</td></tr></tbody>
       </table>
     </div>
-    <div class="hint">Сигнал — по последней закрытой свече таймфрейма (день, неделя, месяц). Условия: 200-я средняя растёт или горизонтальна (MA ≥ MA 5 свечей назад);
-      на одной из 3 предыдущих свечей минимум ушёл под MA, но не глубже 1 ATR(14), а закрытие осталось выше MA − 0,3 ATR (ложный пробой);
-      сигнальная свеча — бычья и закрылась выше максимума свечи прокола <b>или</b> закрылась выше MA на объёме выше среднего за 20 свечей.
-      Все акции США с ценой от $5, оборотом от $5 млн в день и OI опционов ≥ 1000. Считается по будням после закрытия; на месяцах — только акции с историей больше 200 месяцев.
-      NEW — сигнал появился в последнем прогоне. Тикер открывает график TradingView нужного таймфрейма.</div>
+    <div class="hint">Для каждой акции перебираются EMA и SMA 100, 150 и 200 — отдельно на неделях и на днях. Касание — минимум свечи дошёл до растущей средней (ближе 0,25 ATR), а перед этим цена закрывалась выше неё;
+      отскок — после касания цена выросла на 2 ATR раньше, чем закрылась ниже MA − 1 ATR. «Своя» средняя — с лучшей долей отскоков (минимум 3 касания на неделях, 5 на днях, отскоков ≥ 70%).
+      Сигнал — цена сейчас не дальше 1,5 ATR над своей средней. ATR(14) того же таймфрейма. Все акции США от $5 и $5 млн оборота в день + крупные ETF, OI опционов ≥ 1000. Считается по будням после закрытия.
+      NEW — подошла к средней в последнем прогоне (в Telegram приходят только такие). Тикер открывает TradingView нужного таймфрейма.</div>
   </section>
 
   <!-- САМУРАЙ — ПРОДАЖА ПУТОВ -->
@@ -766,52 +763,46 @@ function renderSeason() {
 }
 
 
-/* ---------- MA200: ложный пробой и отскок ---------- */
-let ma2 = null, maK = 'vol_ratio', maDir = -1;
-const maTf = chipGroup('#maTf', renderMa200), maKind = chipGroup('#maKind', renderMa200), maTrig = chipGroup('#maTrig', renderMa200);
+/* ---------- своя скользящая ---------- */
+let ma2 = null, maK = 'dist_atr', maDir = 1, maZoneOn = store.get('maZone', true);
+const maTf = chipGroup('#maTf', renderMa200), maLen = chipGroup('#maLen', renderMa200);
 $('#maSearch').oninput = renderMa200;
+function setMaZone(v) { maZoneOn = v; store.set('maZone', v); const el = $('#maZone'); el.classList.toggle('on', v); el.setAttribute('aria-checked', v); renderMa200(); }
+$('#maZone').onclick = () => setMaZone(!maZoneOn);
 $$('th[data-ak]').forEach(th => th.onclick = () => {
-  const k = th.dataset.ak; maDir = maK === k ? -maDir : (['ticker', 'tf', 'ma'].includes(k) ? 1 : -1); maK = k; renderMa200();
+  const k = th.dataset.ak; maDir = maK === k ? -maDir : (['ticker', 'tf', 'ma', 'dist_atr', 'dist_pct'].includes(k) ? 1 : -1); maK = k; renderMa200();
 });
-const MA_TF = {D: 'День', W: 'Неделя', M: 'Месяц'};
-const MA_MON = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
-const maBar = (tf, iso) => !iso ? '—' : tf === 'M' ? MA_MON[+iso.slice(5, 7) - 1] + ' ' + iso.slice(0, 4) : (tf === 'W' ? 'нед. до ' : '') + dm(iso);
+const MA_TF = {W: 'Неделя', D: 'День'};
+const dmy = iso => iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(2, 4);
 function renderMa200() {
-  if (!ma2 || !ma2.rows) { $('#maBody').innerHTML = '<tr><td colspan="9" class="empty">Данных ещё нет — сканер считает по будням после закрытия рынка</td></tr>'; return; }
-  const tf = maTf(), kind = maKind(), tr = maTrig(), q = $('#maSearch').value.trim().toUpperCase();
-  let rows = ma2.rows.filter(r => (tf === 'all' || r.tf === tf) && (kind === 'all' || r.ma === kind)
-    && (tr === 'all' || r.trig.includes(tr)) && (!q || r.ticker.startsWith(q)));
-  if (kind === 'all') {                       // EMA и SMA по одной акции и ТФ — в одну строку
-    const m = new Map();
-    for (const r of rows) {
-      const k = r.ticker + '|' + r.tf, x = m.get(k);
-      if (!x) m.set(k, {...r, mas: [r], trig: [...r.trig]});
-      else { x.mas.push(r); r.trig.forEach(t => x.trig.includes(t) || x.trig.push(t)); x.new = x.new || r.new;
-        x.dist = Math.min(x.dist, r.dist); x.vol_ratio = Math.max(x.vol_ratio || 0, r.vol_ratio || 0); }
-    }
-    rows = [...m.values()];
-  } else rows = rows.map(r => ({...r, mas: [r]}));
-  const val = (r, k) => k === 'ma' ? r.mas.map(x => x.ma).join() : k === 'tf' ? 'DWM'.indexOf(r.tf) : (r[k] ?? -1e9);
+  if (!ma2 || !ma2.rows) { $('#maBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер считает по будням после закрытия рынка</td></tr>'; return; }
+  const tf = maTf(), ln = maLen(), q = $('#maSearch').value.trim().toUpperCase();
+  let rows = ma2.rows.filter(r => (!maZoneOn || r.zone) && (tf === 'all' || r.tf === tf) && (ln === 'all' || r.ma.endsWith(' ' + ln)) && (!q || r.ticker.startsWith(q)));
+  const val = (r, k) => k === 'tf' ? r.tf : (r[k] ?? -1e9);
   rows.sort((a, b) => { const x = val(a, maK), y = val(b, maK); return (x > y ? 1 : x < y ? -1 : 0) * maDir; });
   $$('th[data-ak]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.ak === maK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${maDir > 0 ? '↑' : '↓'}</span>`); });
-  const B = ma2.bars || {}, C = ma2.checked || {};
-  $('#maCount').textContent = `сигналов: ${rows.length} · день ${maBar('D', B.D)} · ${maBar('W', B.W)} · ${maBar('M', B.M)} · проверено ${C.D || 0}/${C.W || 0}/${C.M || 0}`;
-  $('#maBody').innerHTML = rows.map(r => {
+  const C = ma2.checked || {}, zn = ma2.rows.filter(r => r.zone).length;
+  $('#maCount').textContent = `показано ${rows.length} · у средней ${zn} · закономерностей ${ma2.rows.length} · проверено ${C.W || 0} нед. / ${C.D || 0} дн. · ${dm(ma2.today)}`;
+  $('#maBody').innerHTML = rows.slice(0, 800).map(r => {
     const tv = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(r.ticker.replace(/-/g, '.')) + '&interval=' + r.tf;
-    const trig = r.trig.map(t => t === 'main' ? '<span class="badge bull" title="Бычья свеча закрылась выше максимума свечи прокола">выше хая прокола</span>'
-      : '<span class="badge gray" title="Закрытие выше MA при объёме выше среднего за 20 свечей">выше MA на объёме</span>').join(' ');
-    return `<tr>
-      <td><a href="${tv}" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
-      <td title="${maBar(r.tf, r.bar)}">${MA_TF[r.tf]}</td>
-      <td class="mono">${r.mas.map(x => x.ma).join(' · ')}</td>
+    const d = r.dist_atr, w = Math.max(4, 100 - Math.min(Math.abs(d), 3) / 3 * 96);
+    const col = d < 0 ? 'var(--bear)' : d <= 1 ? 'var(--bull)' : d <= 1.5 ? 'var(--warn)' : 'var(--muted)';
+    const dots = (r.last || []).map(([dt, ok, rise]) => `<i class="${ok ? 'ok' : ''}" title="${dmy(dt)}: ${ok == null ? 'ещё не ясно' : ok ? 'отскок' : 'пробой'}, рост до ${String(rise).replace('.', ',')}%"></i>`).join('');
+    return `<tr title="Другие средние (отскоков/касаний): ${(r.others || []).join(', ')}">
+      <td><a href="${tv}" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
+      <td>${MA_TF[r.tf]}</td>
+      <td class="mono"><b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span></td>
       <td class="r mono">${fmt(r.price)}</td>
-      <td class="r mono">${r.mas.map(x => `<span class="${x.dist >= 0 ? 'up' : 'down'}" title="${x.ma} 200 = ${fmt(x.ma_val)}">${pct(x.dist)}</span>`).join('<br>')}</td>
-      <td class="r mono">${r.vol_ratio == null ? '—' : r.vol_ratio + '%'}</td>
-      <td class="mono hide-sm">${maBar(r.tf, r.pierce)} <span style="color:var(--muted)">${r.mas.map(x => x.depth == null ? '—' : x.depth.toFixed(2).replace('.', ',')).join(' / ')} ATR</span></td>
-      <td class="hide-sm">${trig}</td>
+      <td class="r"><div class="zone" style="justify-content:flex-end"><span class="meter"><i style="width:${w}%;background:${col}"></i></span><span class="mono">${(d > 0 ? '+' : '') + d.toFixed(2).replace('.', ',')}</span></div></td>
+      <td class="r mono hide-sm">${pct(r.dist_pct)}</td>
+      <td class="r mono hide-sm">${fmt(r.atr)} <span style="color:var(--muted)">(${String(r.atr_pct).replace('.', ',')}%)</span><br>${fmt(r.atr * 1.5)}</td>
+      <td class="r mono"><b>${r.wins}/${r.n}</b> <span style="color:var(--muted)">${Math.round(r.win * 100)}%</span></td>
+      <td class="r mono hide-sm">${r.rise_avg == null ? '—' : '+' + String(r.rise_avg).replace('.', ',') + '%'}</td>
+      <td class="hide-sm"><span class="yrs bull">${dots}</span></td>
       <td class="r mono hide-sm">${r.oi == null ? '—' : Number(r.oi).toLocaleString('ru-RU')}</td></tr>`;
-  }).join('') || '<tr><td colspan="9" class="empty">' + (ma2.rows.length ? 'Под фильтр ничего не попало' : 'Сейчас сигналов нет') + '</td></tr>';
+  }).join('') || '<tr><td colspan="11" class="empty">' + (ma2.rows.length ? 'Под фильтр ничего не попало' : 'Закономерностей не найдено') + '</td></tr>';
 }
+setMaZone(maZoneOn);
 
 /* ---------- хаммер + бабочка ---------- */
 let ham = null, hamBt = null, hmAll = store.get('hmAll', false);
