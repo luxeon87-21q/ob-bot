@@ -148,6 +148,11 @@ td.best{font-weight:700}
 }
 .kind{display:inline-block;margin-left:6px;font:600 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 5px;border-radius:4px;color:var(--muted);background:var(--panel2);text-transform:uppercase;letter-spacing:.03em;vertical-align:middle}
 .kind.sw{color:var(--text);box-shadow:inset 0 0 0 1px var(--muted)}
+#tvPop{position:fixed;z-index:1000;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.28);overflow:hidden}
+#tvPop.on{display:flex}
+#tvPop .tvh{padding:6px 10px;font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line)}
+#tvPop .tvh b{color:var(--text);font-size:13.5px}
+#tvPopChart{flex:1;min-height:0}
 </style>
 </head>
 <body>
@@ -793,7 +798,7 @@ function renderMa200() {
     const col = d < 0 ? 'var(--bear)' : d <= 1 ? 'var(--bull)' : d <= 1.5 ? 'var(--warn)' : 'var(--muted)';
     const dots = (r.last || []).map(([dt, ok, rise]) => `<i class="${ok ? 'ok' : ''}" title="${dmy(dt)}: ${ok == null ? 'ещё не ясно' : ok ? 'отскок' : 'пробой'}, рост до ${String(rise).replace('.', ',')}%"></i>`).join('');
     return `<tr title="Другие средние (отскоков/касаний): ${(r.others || []).join(', ')}">
-      <td><a href="${tv}" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
+      <td><a href="${tv}" target="_blank" rel="noopener" data-tv-ma="${r.ma}"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
       <td>${MA_TF[r.tf]}</td>
       <td class="mono">${r.best ? '<span title="Самая надёжная средняя этой акции на этом таймфрейме">★</span> ' : ''}<b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span></td>
       <td class="r mono">${fmt(r.price)}</td>
@@ -1169,6 +1174,62 @@ async function loadAll() {
   try { ma2 = await api('/api/ma200'); } catch (e) { ma2 = null; }
   renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200();
 }
+/* ---------- быстрый просмотр TradingView при наведении на тикер ---------- */
+(function () {
+  if (!matchMedia('(hover: hover)').matches) return;          // на телефоне — обычная ссылка
+  const box = document.createElement('div');
+  box.id = 'tvPop';
+  box.innerHTML = '<div class="tvh"><b></b><span></span></div><div id="tvPopChart"></div>';
+  document.body.appendChild(box);
+  let tvReady = null, showT = null, hideT = null, cur = null;
+  const loadTv = () => tvReady || (tvReady = new Promise((res, rej) => {
+    const sc = document.createElement('script'); sc.src = 'https://s3.tradingview.com/tv.js'; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc);
+  }));
+  const STUDY = {EMA: 'MAExp@tv-basicstudies', SMA: 'MASimple@tv-basicstudies'};
+  const TFN = {D: 'день', W: 'неделя', M: 'месяц'};
+  const dark = () => (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+  function open(a, x, y) {
+    let u; try { u = new URL(a.href); } catch (e) { return; }
+    const sym = u.searchParams.get('symbol'), iv = u.searchParams.get('interval') || 'D';
+    if (!sym) return;
+    cur = a;
+    const W = Math.min(700, innerWidth - 24), Hh = Math.min(440, innerHeight - 24);
+    let left = x + 18; if (left + W > innerWidth - 12) left = Math.max(12, x - W - 18);
+    let top = y + 14; if (top + Hh > innerHeight - 12) top = Math.max(12, innerHeight - Hh - 12);
+    Object.assign(box.style, {width: W + 'px', height: Hh + 'px', left: left + 'px', top: top + 'px'});
+    const ma = a.dataset.tvMa || '';
+    box.querySelector('.tvh b').textContent = sym;
+    box.querySelector('.tvh span').textContent = (TFN[iv] || iv) + (ma ? ' · ' + ma : '') + ' · клик — открыть в TradingView';
+    box.classList.add('on');
+    const studies = [];
+    if (ma) { const [k, n] = ma.split(' '); if (STUDY[k]) studies.push({id: STUDY[k], inputs: {length: +n}}); }
+    const el = $('#tvPopChart'); el.innerHTML = '';
+    loadTv().then(() => {
+      if (cur !== a) return;
+      el.innerHTML = '';
+      new TradingView.widget({container_id: 'tvPopChart', symbol: sym, interval: iv, autosize: true, theme: dark() ? 'dark' : 'light',
+        style: '1', locale: 'ru', timezone: 'America/New_York', hide_top_toolbar: true, hide_side_toolbar: true,
+        allow_symbol_change: false, save_image: false, studies});
+    }).catch(() => { el.innerHTML = '<div class="empty">TradingView не загрузился</div>'; });
+  }
+  function hide() { cur = null; box.classList.remove('on'); $('#tvPopChart').innerHTML = ''; }
+  document.addEventListener('mouseover', e => {
+    const t = e.target, a = t.closest && t.closest('a[href*="tradingview.com/chart"]');
+    if (a) {
+      clearTimeout(hideT);
+      if (a === cur) return;
+      clearTimeout(showT);
+      const x = e.clientX, y = e.clientY;
+      showT = setTimeout(() => open(a, x, y), 350);
+      return;
+    }
+    if (t.closest && t.closest('#tvPop')) { clearTimeout(hideT); return; }
+    clearTimeout(showT);
+    if (cur) { clearTimeout(hideT); hideT = setTimeout(hide, 350); }
+  });
+  addEventListener('scroll', () => { if (cur) hide(); }, {passive: true});
+})();
+
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);
 </script>
