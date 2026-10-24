@@ -2,7 +2,7 @@
 «Своя» скользящая: у каждой акции ищем среднюю, от которой цена исторически отскакивает,
 и показываем, насколько цена сейчас к ней близко (в ATR и %).
 
-Перебор: EMA и SMA 100 / 150 / 200, отдельно на неделях (W) и днях (D).
+Перебор: EMA и SMA 100 / 150 / 200 на неделях (W) и днях (D), EMA и SMA 20 / 40 на месяцах (M).
 
 Касание (по истории):
   • цена подходит сверху — предыдущие APPROACH свечей закрывались выше средней;
@@ -45,8 +45,10 @@ BASE = Path(__file__).resolve().parent
 OUT_FILE = BASE / "cache" / "ma200.json"
 SENT_FILE = BASE / "cache" / "ma200_sent.json"
 ET = "America/New_York"
-TFS = ("W", "D")
+TFS = ("W", "D", "M")
 MAS = [(k, n) for n in (100, 150, 200) for k in ("EMA", "SMA")]
+MAS_TF = {"W": MAS, "D": MAS, "M": [(k, n) for n in (20, 40) for k in ("EMA", "SMA")]}
+MIN_BARS = {"W": 260, "D": 260, "M": 100}
 ETFS = ["SPY", "QQQ", "IWM", "DIA", "RSP", "SMH", "SOXX", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP",
         "XLU", "XLB", "XLRE", "XLC", "XBI", "IBB", "KRE", "XHB", "ITB", "GLD", "SLV", "GDX", "TLT", "EEM",
         "EFA", "FXI", "KWEB", "ARKK", "IGV", "XOP", "XME", "TAN", "URA", "IYR", "VNQ", "MDY"]
@@ -70,6 +72,8 @@ class Params:
     rearm_sent: float = 3.0    # повторный сигнал в Telegram — после ухода дальше 3 ATR
     min_touch_w: int = 3
     min_touch_d: int = 5
+    min_touch_m: int = 3
+    debug: int = 0            # 1 — вернуть и отвергнутые (для проверки тикеров)
     min_win: float = 0.7
     min_above: float = 0.7    # сейчас: доля закрытий над средней за последние 26 недель / 60 дней
     years: int = 21
@@ -87,7 +91,8 @@ class Params:
 
 
 # свечей на таймфрейм: подход сверху, наклон средней, сколько ждать отскока
-TFP = {"W": dict(approach=4, slope=8, hold=13, recent=26), "D": dict(approach=10, slope=20, hold=40, recent=60)}
+TFP = {"W": dict(approach=4, slope=8, hold=13, recent=26), "D": dict(approach=10, slope=20, hold=40, recent=60),
+       "M": dict(approach=2, slope=4, hold=6, recent=12)}
 
 
 # ======================================================================== индикаторы
@@ -179,13 +184,13 @@ def touches(df: pd.DataFrame, ma: np.ndarray, at: np.ndarray, P: Params, tf: str
 def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None) -> Optional[dict]:
     """Лучшая («своя») средняя на таймфрейме и где цена сейчас относительно неё."""
     closed = len(df) if closed is None else closed
-    if closed < 260:
+    if closed < MIN_BARS[tf]:
         return None
     h, l, c = (df[k].to_numpy(float) for k in ("high", "low", "close"))
     at = atr(h, l, c, P.atr_len)
-    min_touch = P.min_touch_w if tf == "W" else P.min_touch_d
+    min_touch = {"W": P.min_touch_w, "D": P.min_touch_d, "M": P.min_touch_m}[tf]
     best, cands = None, []
-    for kind, n in MAS:
+    for kind, n in MAS_TF[tf]:
         ma = moving(df["close"], kind, n)
         ts = touches(df, ma, at, P, tf, closed)
         done = [t for t in ts if t["ok"] is not None]
@@ -199,7 +204,7 @@ def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None)
                                  or (score == best["score"] and len(done) > best["n"])):
             best = dict(kind=kind, len=n, ma=ma, touches=ts, n=len(done), wins=wins, win=win, score=score)
     if best is None:
-        return None
+        return dict(rejected="нет средней с долей отскоков ≥ порога", others=cands) if P.debug else None
     ma, a, cl = best["ma"][-1], at[-1], c[-1]
     if np.isnan(ma) or np.isnan(a) or a <= 0:
         return None
@@ -209,7 +214,8 @@ def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None)
         above_share = float(np.mean(c[-L:] > best["ma"][-L:]))
     rising_now = best["ma"][-1] > best["ma"][-1 - TFP[tf]["slope"]]
     if not rising_now or above_share < P.min_above:
-        return None
+        return (dict(rejected=f"не действует сейчас: {best['kind']}{best['len']} растёт={rising_now}, над ней {above_share:.0%}",
+                     others=cands) if P.debug else None)
     done = [t for t in best["touches"] if t["ok"] is not None]
     ok = [t for t in done if t["ok"]]
     slope = (best["ma"][-1] / best["ma"][-1 - TFP[tf]["slope"]] - 1) * 100
@@ -250,6 +256,14 @@ def weekly(df: pd.DataFrame, now: pd.Timestamp):
     return w, closed
 
 
+def monthly(df: pd.DataFrame, now: pd.Timestamp):
+    m = df.resample("MS").agg(OHLCV).dropna(subset=["open", "close"])
+    closed = len(m)
+    if len(m) and _left((m.index[-1] + pd.offsets.MonthEnd(0)).date(), now):
+        closed -= 1
+    return m, closed
+
+
 def daily(df: pd.DataFrame, now: pd.Timestamp):
     closed = len(df) - (1 if len(df) and _left(df.index[-1].date(), now) else 0)
     return df, closed
@@ -269,6 +283,7 @@ def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timesta
         log.info("акций США: %d, после отсева по цене/обороту (+ETF): %d", len(u), len(tickers))
     rows: List[dict] = []
     checked = {tf: 0 for tf in TFS}
+    rejected: List[dict] = []
     loaded = 0
     for b in range(0, len(tickers), batch):
         part = tickers[b:b + batch]
@@ -278,15 +293,17 @@ def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timesta
             if not explicit and t not in ETFS and not seasonal.liquid(d, SP):
                 continue
             d = d[(d["open"] > 0) & (d["low"] > 0)]
-            for tf, (f, closed) in (("W", weekly(d, now)), ("D", daily(d, now))):
+            for tf, (f, closed) in (("W", weekly(d, now)), ("D", daily(d, now)), ("M", monthly(d, now))):
                 try:
                     r = evaluate(f, P, tf, closed)
                 except Exception as e:
                     log.debug("%s %s: %s", t, tf, e)
                     r = None
-                if closed >= 260:
+                if closed >= MIN_BARS[tf]:
                     checked[tf] += 1
-                if r:
+                if r and "rejected" in r:
+                    rejected.append(dict(r, ticker=t, tf=tf))
+                elif r:
                     rows.append(dict(r, ticker=t, tf=tf, etf=t in ETFS))
         log.info("MA: %d/%d, закономерностей %d", min(b + batch, len(tickers)), len(tickers), len(rows))
     if not explicit and loaded < 0.5 * len(tickers):
@@ -313,11 +330,11 @@ def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timesta
     rows.sort(key=lambda r: (not r["zone"], r["dist_atr"]))
     return dict(updated=pd.Timestamp.now(tz="UTC").isoformat(), today=now.date().isoformat(),
                 params=asdict(P), mas=[f"{k} {n}" for k, n in MAS], checked=checked, rows=rows,
-                oi_dropped=oi_dropped)
+                oi_dropped=oi_dropped, rejected=rejected)
 
 
 # ======================================================================== Telegram
-TF_NAME = {"W": "Недели", "D": "Дни"}
+TF_NAME = {"W": "Недели", "D": "Дни", "M": "Месяцы"}
 
 
 def key_of(r: dict) -> str:
@@ -390,6 +407,8 @@ def main():
             return
     P = Params.from_env()
     tickers = [x.strip().upper() for x in a.tickers.split(",")] if a.tickers else None
+    if tickers:
+        P.debug = 1
     res = run(P, tickers, now)
     res["after_close"] = (now.hour, now.minute) >= (16, 15)
     sent = {} if a.tickers else load_sent()
