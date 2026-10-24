@@ -280,6 +280,25 @@ def daily(df: pd.DataFrame, now: pd.Timestamp):
     return df, closed
 
 
+def ob_list(df: pd.DataFrame, k: int = 6) -> List[dict]:
+    """Действующие ордер-блоки Smart Money Concepts (internal и swing) на этом же таймфрейме, ближние к цене."""
+    try:
+        from order_blocks import detect
+        _, bulls, bears = detect(df, 5, "Wick", 5)
+    except Exception as e:
+        log.debug("OB: %s", e)
+        return []
+    px = float(df["close"].iloc[-1])
+    out = []
+    for o in bulls + bears:
+        edge = o.top if o.side == "bull" else o.btm
+        inside = o.btm <= px <= o.top
+        out.append(dict(side=o.side, kind=o.kind, top=round(float(o.top), 4), btm=round(float(o.btm), 4),
+                        t=str(o.ob_time.date()), dist=0.0 if inside else round((edge / px - 1) * 100, 2)))
+    out.sort(key=lambda x: abs(x["dist"]))
+    return out[:k]
+
+
 # ======================================================================== прогон
 def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timestamp] = None,
         batch: int = 80) -> dict:
@@ -312,11 +331,12 @@ def run(P: Params, tickers: Optional[List[str]] = None, now: Optional[pd.Timesta
                     found = []
                 if closed >= MIN_BARS[tf]:
                     checked[tf] += 1
+                obs = ob_list(f.iloc[:closed]) if any("rejected" not in r for r in found) else []
                 for r in found:
                     if "rejected" in r:
                         rejected.append(dict(r, ticker=t, tf=tf))
                     else:
-                        rows.append(dict(r, ticker=t, tf=tf, etf=t in ETFS))
+                        rows.append(dict(r, ticker=t, tf=tf, etf=t in ETFS, obs=obs))
         log.info("MA: %d/%d, закономерностей %d", min(b + batch, len(tickers)), len(tickers), len(rows))
     if not explicit and loaded < 0.5 * len(tickers):
         raise RuntimeError(f"история загрузилась только по {loaded} из {len(tickers)} акций")

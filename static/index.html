@@ -153,6 +153,13 @@ td.best{font-weight:700}
 #tvPop .tvh{padding:6px 10px;font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line)}
 #tvPop .tvh b{color:var(--text);font-size:13.5px}
 #tvPopChart{flex:1;min-height:0}
+#tvPop .tvob{display:flex;flex-wrap:wrap;gap:4px 6px;padding:5px 10px;border-bottom:1px solid var(--line);font-size:12px}
+#tvPop .tvob:empty{display:none}
+#tvPop .tvob .o{font-family:"JetBrains Mono",ui-monospace,monospace;padding:1px 6px;border-radius:5px;white-space:nowrap}
+#tvPop .tvob .o.bull{color:var(--bull);background:var(--bull-bg)} #tvPop .tvob .o.bear{color:var(--bear);background:var(--bear-bg)}
+#tvPop .tvob .o.hit{box-shadow:inset 0 0 0 1.5px var(--bull);font-weight:700}
+#tvPop .tvob .lbl{color:var(--muted)}
+.obtag{display:inline-block;margin-left:5px;font:700 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 4px;border-radius:4px;color:var(--bull);background:var(--bull-bg);vertical-align:middle}
 </style>
 </head>
 <body>
@@ -373,7 +380,7 @@ td.best{font-weight:700}
       отскок — после касания цена выросла на 2 ATR раньше, чем закрылась ниже MA − 1 ATR; пробоем считается и такое закрытие гэпом или сползанием без касания. Показываются все средние, от которых отскоков ≥ 60% (минимум 4 касания на неделях и месяцах, 5 на днях), ★ — самая надёжная.
       Закономерность должна действовать сейчас: средняя растёт, а цена последние полгода (на месяцах — год) ≥ 70% времени закрывалась над ней.
       Сигнал — цена сейчас не дальше 1,5 ATR над своей средней. ATR(14) того же таймфрейма. Все акции США от $5 и $5 млн оборота в день + крупные ETF, OI опционов ≥ 1000. Считается по будням после закрытия.
-      NEW — подошла к средней в последнем прогоне (в Telegram приходят только такие). Тикер открывает TradingView нужного таймфрейма.</div>
+      OB — у средней есть бычий ордер-блок (Smart Money Concepts) того же таймфрейма; при наведении на тикер — график TradingView и список действующих OB. NEW — подошла к средней в последнем прогоне (в Telegram приходят только такие). Тикер открывает TradingView нужного таймфрейма.</div>
   </section>
 
   <!-- САМУРАЙ — ПРОДАЖА ПУТОВ -->
@@ -798,9 +805,9 @@ function renderMa200() {
     const col = d < 0 ? 'var(--bear)' : d <= 1 ? 'var(--bull)' : d <= 1.5 ? 'var(--warn)' : 'var(--muted)';
     const dots = (r.last || []).map(([dt, ok, rise]) => `<i class="${ok ? 'ok' : ''}" title="${dmy(dt)}: ${ok == null ? 'ещё не ясно' : ok ? 'отскок' : 'пробой'}, рост до ${String(rise).replace('.', ',')}%"></i>`).join('');
     return `<tr title="Другие средние (отскоков/касаний): ${(r.others || []).join(', ')}">
-      <td><a href="${tv}" target="_blank" rel="noopener" data-tv-ma="${r.ma}"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
+      <td><a href="${tv}" target="_blank" rel="noopener" data-tv-ma="${r.ma}" data-tv-key="${esc(r.ticker + '|' + r.tf + '|' + r.ma)}"><b>${esc(r.ticker)}</b></a>${r.etf ? ' <span class="badge gray">ETF</span>' : ''}${r.new ? '<span class="newtag">NEW</span>' : ''}</td>
       <td>${MA_TF[r.tf]}</td>
-      <td class="mono">${r.best ? '<span title="Самая надёжная средняя этой акции на этом таймфрейме">★</span> ' : ''}<b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span></td>
+      <td class="mono">${r.best ? '<span title="Самая надёжная средняя этой акции на этом таймфрейме">★</span> ' : ''}<b>${r.ma}</b> <span style="color:var(--muted)">${fmt(r.ma_val)}</span>${(r.obs || []).some(o => o.side === 'bull' && o.top >= r.ma_val - r.atr && o.btm <= r.ma_val + 1.5 * r.atr) ? '<span class="obtag" title="Бычий ордер-блок этого таймфрейма совпадает с зоной средней">OB</span>' : ''}</td>
       <td class="r mono">${fmt(r.price)}</td>
       <td class="r"><div class="zone" style="justify-content:flex-end"><span class="meter"><i style="width:${w}%;background:${col}"></i></span><span class="mono">${(d > 0 ? '+' : '') + d.toFixed(2).replace('.', ',')}</span></div></td>
       <td class="r mono hide-sm">${pct(r.dist_pct)}</td>
@@ -1179,7 +1186,7 @@ async function loadAll() {
   if (!matchMedia('(hover: hover)').matches) return;          // на телефоне — обычная ссылка
   const box = document.createElement('div');
   box.id = 'tvPop';
-  box.innerHTML = '<div class="tvh"><b></b><span></span></div><div id="tvPopChart"></div>';
+  box.innerHTML = '<div class="tvh"><b></b><span></span></div><div class="tvob"></div><div id="tvPopChart"></div>';
   document.body.appendChild(box);
   let tvReady = null, showT = null, hideT = null, cur = null;
   const loadTv = () => tvReady || (tvReady = new Promise((res, rej) => {
@@ -1200,16 +1207,22 @@ async function loadAll() {
     const ma = a.dataset.tvMa || '';
     box.querySelector('.tvh b').textContent = sym;
     box.querySelector('.tvh span').textContent = (TFN[iv] || iv) + (ma ? ' · ' + ma : '') + ' · клик — открыть в TradingView';
+    const key = a.dataset.tvKey, row = key && typeof ma2 !== 'undefined' && ma2 && ma2.rows ? ma2.rows.find(r => r.ticker + '|' + r.tf + '|' + r.ma === key) : null;
+    box.querySelector('.tvob').innerHTML = row && row.obs && row.obs.length ? '<span class="lbl">OB ' + (TFN[iv] || iv) + ':</span>' + row.obs.map(o => {
+      const hit = o.side === 'bull' && o.top >= row.ma_val - row.atr && o.btm <= row.ma_val + 1.5 * row.atr;
+      return '<span class="o ' + o.side + (hit ? ' hit' : '') + '" title="' + (o.side === 'bull' ? 'Бычий' : 'Медвежий') + ' ' + o.kind + ' OB, свеча ' + dm(o.t) + '.' + o.t.slice(2, 4) + (hit ? ' — совпадает с зоной своей средней' : '') + '">' + (o.side === 'bull' ? '▲ ' : '▼ ') + o.kind + ' ' + fmt(o.btm) + '–' + fmt(o.top) + ' ' + (o.dist === 0 ? 'в зоне' : pct(o.dist)) + '</span>';
+    }).join('') : (row ? '<span class="lbl">Действующих OB на этом таймфрейме нет</span>' : '');
     box.classList.add('on');
-    const studies = [];
-    if (ma) { const [k, n] = ma.split(' '); if (STUDY[k]) studies.push({id: STUDY[k], inputs: {length: +n}}); }
+    const studies = [], over = {};
+    if (ma) { const [k, n] = ma.split(' '); if (STUDY[k]) { studies.push({id: STUDY[k], inputs: {length: +n}});
+      over[(k === 'EMA' ? 'moving average exponential' : 'moving average') + '.length'] = +n; } }
     const el = $('#tvPopChart'); el.innerHTML = '';
     loadTv().then(() => {
       if (cur !== a) return;
       el.innerHTML = '';
       new TradingView.widget({container_id: 'tvPopChart', symbol: sym, interval: iv, autosize: true, range: {D: '12M', W: '120M', M: 'ALL'}[iv] || '12M', theme: dark() ? 'dark' : 'light',
         style: '1', locale: 'ru', timezone: 'America/New_York', hide_top_toolbar: true, hide_side_toolbar: true,
-        allow_symbol_change: false, save_image: false, studies});
+        allow_symbol_change: false, save_image: false, studies, studies_overrides: over});
     }).catch(() => { el.innerHTML = '<div class="empty">TradingView не загрузился</div>'; });
   }
   function hide() { cur = null; box.classList.remove('on'); $('#tvPopChart').innerHTML = ''; }
