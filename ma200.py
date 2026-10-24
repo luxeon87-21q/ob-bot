@@ -71,6 +71,7 @@ class Params:
     min_touch_w: int = 3
     min_touch_d: int = 5
     min_win: float = 0.7
+    min_above: float = 0.7    # сейчас: доля закрытий над средней за последние 26 недель / 60 дней
     years: int = 21
     min_price: float = 5.0
     min_dvol: float = 5e6
@@ -86,7 +87,7 @@ class Params:
 
 
 # свечей на таймфрейм: подход сверху, наклон средней, сколько ждать отскока
-TFP = {"W": dict(approach=4, slope=8, hold=13), "D": dict(approach=10, slope=20, hold=40)}
+TFP = {"W": dict(approach=4, slope=8, hold=13, recent=26), "D": dict(approach=10, slope=20, hold=40, recent=60)}
 
 
 # ======================================================================== индикаторы
@@ -157,6 +158,21 @@ def touches(df: pd.DataFrame, ma: np.ndarray, at: np.ndarray, P: Params, tf: str
         out.append(dict(i=int(i), date=str(df.index[i].date()), ok=res, bars=bars,
                         depth=round(float((m - l[i]) / a), 2),
                         rise=round(float(h[i:end].max() / l[i] - 1) * 100, 1)))
+    # Пробои, которые не попали в касания (гэп вниз, медленное сползание, повторный тест без ухода вверх):
+    # закрытие ниже MA − 1 ATR, хотя недавно (2·APPROACH свечей) цена закрывалась выше средней.
+    with np.errstate(invalid="ignore"):
+        brk = c < ma - P.break_atr * at
+    covered = [(t["i"], t["i"] + T["hold"]) for t in out if t["ok"] is False]
+    for j in np.nonzero(brk)[0]:
+        if j >= closed or j < 2 * ap or brk[j - 1] or np.isnan(ma[j]):
+            continue
+        if ca[j] - ca[j - 2 * ap] == 0:                                # выше средней давно не была
+            continue
+        if any(a0 <= j <= b0 for a0, b0 in covered):
+            continue
+        out.append(dict(i=int(j), date=str(df.index[j].date()), ok=False, bars=None, brk=True,
+                        depth=round(float((ma[j] - l[j]) / at[j]), 2), rise=0.0))
+    out.sort(key=lambda t: t["i"])
     return out
 
 
@@ -187,6 +203,13 @@ def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None)
     ma, a, cl = best["ma"][-1], at[-1], c[-1]
     if np.isnan(ma) or np.isnan(a) or a <= 0:
         return None
+    # закономерность действует сейчас: средняя растёт и цена в основном держится над ней
+    L = TFP[tf]["recent"]
+    with np.errstate(invalid="ignore"):
+        above_share = float(np.mean(c[-L:] > best["ma"][-L:]))
+    rising_now = best["ma"][-1] > best["ma"][-1 - TFP[tf]["slope"]]
+    if not rising_now or above_share < P.min_above:
+        return None
     done = [t for t in best["touches"] if t["ok"] is not None]
     ok = [t for t in done if t["ok"]]
     slope = (best["ma"][-1] / best["ma"][-1 - TFP[tf]["slope"]] - 1) * 100
@@ -199,7 +222,7 @@ def evaluate(df: pd.DataFrame, P: Params, tf: str, closed: Optional[int] = None)
                 bars_avg=round(float(np.mean([t["bars"] for t in ok])), 1) if ok else None,
                 depth_med=round(float(np.median([t["depth"] for t in done])), 2),
                 last=[[t["date"], t["ok"], t["rise"]] for t in best["touches"][-6:]],
-                others=cands, bar=str(df.index[-1].date()))
+                above=round(above_share, 2), others=cands, bar=str(df.index[-1].date()))
 
 
 # ======================================================================== свечи
