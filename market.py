@@ -255,8 +255,9 @@ def breadth(closes: pd.DataFrame, highs: pd.DataFrame, lows: pd.DataFrame) -> pd
     adv, dec = (ch > 0).sum(axis=1), (ch < 0).sum(axis=1)
     res["adv"] = adv / (adv + dec).replace(0, np.nan)
     res["ad_line"] = (adv - dec).cumsum()
-    hi = closes >= highs.rolling(252, min_periods=200).max()
-    lo = closes <= lows.rolling(252, min_periods=200).min()
+    # новый 52-недельный максимум/минимум: сегодняшний хай/лой за пределами предыдущих 252 дней
+    hi = highs > highs.shift(1).rolling(252, min_periods=200).max()
+    lo = lows < lows.shift(1).rolling(252, min_periods=200).min()
     res["nh"], res["nl"] = hi.sum(axis=1), lo.sum(axis=1)
     res["n"] = n_all
     out = pd.DataFrame(res)
