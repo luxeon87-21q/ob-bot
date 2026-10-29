@@ -6,6 +6,10 @@ on:
     # если GitHub пропустит первый (повторно не считает: --if-new)
     - cron: '45 21 * * 1-5'
     - cron: '55 23 * * 1-5'
+  # после правок расчёта — пересчитать сразу (без Telegram)
+  push:
+    branches: [main]
+    paths: ['market.py', '.github/workflows/market.yml']
   workflow_dispatch:
     inputs:
       telegram:
@@ -44,7 +48,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         run: |
-          python market.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
+          python market.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.telegram)) && '--no-tg' || '' }}
 
       - name: Сохранить результат
         if: steps.calc.outputs.skip != 'true'
