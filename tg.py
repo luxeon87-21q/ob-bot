@@ -13,6 +13,7 @@ Telegram-бот: подписчики, их команды и рассылка �
   /hammer    — включить/выключить субботний отчёт «хаммер + бабочка» (hammer.py)
   /samurai   — включить/выключить сканер продажи путов «Самурай» (samurai.py, 2 раза в день)
   /ma200     — включить/выключить сканер «своей скользящей» (ma200.py, по будням)
+  /market    — включить/выключить панель рынка: широта, термометр, компоненты SPX у средних (market.py, по будням)
 
 Подписчики хранятся в cache/tg_settings.json:
   {"offset": 123, "owner": "<chat_id владельца>",
@@ -46,6 +47,7 @@ COMMANDS = [
     {"command": "hammer", "description": "Хаммер + бабочка (сб): вкл / выкл"},
     {"command": "samurai", "description": "Самурай — продажа путов (2 раза в день): вкл / выкл"},
     {"command": "ma200", "description": "Своя скользящая — подход к средней (по будням): вкл / выкл"},
+    {"command": "market", "description": "Панель рынка — широта и компоненты SPX (по будням): вкл / выкл"},
     {"command": "settings", "description": "Текущие настройки"},
     {"command": "stop", "description": "Отписаться от сигналов"},
 ]
@@ -103,13 +105,15 @@ def mode_text(sub: dict) -> str:
           else "🗡 Самурай: <b>выключен</b> (включить — /samurai)")
     ma = ("📈 Своя скользящая — подход цены к средней (по будням): <b>включена</b>" if sub.get("ma200", True)
           else "📈 Своя скользящая: <b>выключена</b> (включить — /ma200)")
-    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma
+    mk = ("🧭 Панель рынка — широта, термометр, компоненты SPX у средних (по будням): <b>включена</b>" if sub.get("market", True)
+          else "🧭 Панель рынка: <b>выключена</b> (включить — /market)")
+    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk
 
 
 HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
         "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n"
         "/season — сезонность вкл/выкл\n/hammer — хаммер + бабочка вкл/выкл\n"
-        "/samurai — самурай (продажа путов) вкл/выкл\n/ma200 — своя скользящая вкл/выкл\n"
+        "/samurai — самурай (продажа путов) вкл/выкл\n/ma200 — своя скользящая вкл/выкл\n/market — панель рынка вкл/выкл\n"
         "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
@@ -167,7 +171,8 @@ def process_updates(token: str) -> dict:
             else:
                 reply = "Вы и так не подписаны. Подписаться — /start"
         elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
-                     "/wolfe", "/вульф", "/ob", "/season", "/сезон", "/hammer", "/хаммер", "/samurai", "/самурай", "/ma200"):
+                     "/wolfe", "/вульф", "/ob", "/season", "/сезон", "/hammer", "/хаммер", "/samurai", "/самурай", "/ma200",
+                     "/market", "/рынок"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
             elif cmd in ("/settings", "/status"):
@@ -183,6 +188,9 @@ def process_updates(token: str) -> dict:
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd == "/ma200":
                 sub["ma200"] = not sub.get("ma200", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
+            elif cmd in ("/market", "/рынок"):
+                sub["market"] = not sub.get("market", True)
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd in ("/hammer", "/хаммер"):
                 sub["hammer"] = not sub.get("hammer", True)

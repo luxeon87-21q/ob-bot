@@ -160,6 +160,66 @@ td.best{font-weight:700}
 #tvPop .tvob .o.hit{box-shadow:inset 0 0 0 1.5px var(--bull);font-weight:700}
 #tvPop .tvob .lbl{color:var(--muted)}
 .obtag{display:inline-block;margin-left:5px;font:700 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 4px;border-radius:4px;color:var(--bull);background:var(--bull-bg);vertical-align:middle}
+
+/* рынок — панель приборов */
+:root{--c20:#c27c0e;--c50:#2f6fed;--c100:#0f9488;--c200:#7c3aed;--ink2:#9aa3b2}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--c20:#e0a84a;--c50:#5b8cff;--c100:#2dd4bf;--c200:#a78bfa;--ink2:#5d6675}}
+:root[data-theme="dark"]{--c20:#e0a84a;--c50:#5b8cff;--c100:#2dd4bf;--c200:#a78bfa;--ink2:#5d6675}
+.mk-top{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:10px;margin-bottom:10px}
+.mk-score{padding:14px 16px}
+.mk-score .big{display:flex;align-items:baseline;gap:10px}
+.mk-score .big b{font-size:44px;line-height:1;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.mk-score .big span{font-size:15px;font-weight:600}
+.gauge{position:relative;height:8px;border-radius:4px;margin:12px 0 4px;background:linear-gradient(90deg,var(--bear) 0 30%,var(--warn) 30% 45%,var(--ink2) 45% 60%,color-mix(in srgb,var(--bull) 70%,transparent) 60% 75%,var(--bull) 75%)}
+.gauge i{position:absolute;top:-4px;width:3px;height:16px;border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel)}
+.gscale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.parts{margin-top:12px;display:grid;gap:6px}
+.part{display:grid;grid-template-columns:130px 1fr 34px;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.part .pb{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.part .pb i{display:block;height:100%;background:var(--accent)}
+.part b{color:var(--text);text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.mk-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start}
+.tile{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 12px;box-shadow:inset 3px 0 0 var(--tc,var(--line))}
+.tile .l{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.tile .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.02em}
+.tile .s{font-size:12px;color:var(--muted);margin-top:1px}
+.tile.lo{--tc:var(--bull)} .tile.hi{--tc:var(--bear)} .tile.wm{--tc:var(--warn)}
+.ztag{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;white-space:nowrap}
+.ztag.lo{color:var(--bull);background:var(--bull-bg)} .ztag.hi{color:var(--bear);background:var(--bear-bg)} .ztag.wm{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.mk-chart{position:relative;padding:4px 0 0}
+.mk-chart svg{display:block;width:100%}
+.mk-chart text{font:11px Inter,system-ui,sans-serif;fill:var(--muted)}
+.mk-tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.18);display:none;white-space:nowrap;z-index:2}
+.mk-tip b{font-weight:600}
+.lg{display:inline-flex;align-items:center;gap:6px}
+.lg i{width:12px;height:3px;border-radius:2px;background:var(--lc)}
+.chip.off{opacity:.45}
+.ev{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.ev:last-child{border-bottom:0}
+.ev .d{color:var(--muted);font-size:12.5px}
+.ev .st{color:var(--muted);font-size:12.5px;margin-top:2px}
+.mc{display:inline-block;min-width:66px;padding:3px 6px;border-radius:6px;text-align:right;line-height:1.25}
+.mc small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.01em}
+.mc.support,.mc.bounce,.mc.break_up{background:var(--bull-bg);color:var(--bull)}
+.mc.resist{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.mc.reject,.mc.break_dn{background:var(--bear-bg);color:var(--bear)}
+.mc.above{color:var(--text)} .mc.below{color:var(--bear)}
+.mc .sl{color:var(--muted);font-size:10.5px;margin-left:2px}
+tr.grp td{background:var(--panel2);font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;cursor:default;padding:6px 12px}
+tr.grp:hover td{background:var(--panel2)}
+.mk-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.bal{padding:10px 14px 12px}
+.bal .row{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 54px;gap:8px;align-items:center;font-size:12.5px;height:24px}
+.bal .row>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bal .track{position:relative;height:14px}
+.bal .track:before{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:1px;background:var(--line)}
+.bal .track i{position:absolute;top:0;height:100%;border-radius:3px}
+.bal .sum{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--muted)}
+.q{font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px;white-space:nowrap}
+.q.lead{color:var(--bull);background:var(--bull-bg)} .q.weak{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.q.lag{color:var(--bear);background:var(--bear-bg)} .q.improve{color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent)}
+td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-weight:600}
+@media (max-width:900px){.mk-top,.mk-two{grid-template-columns:1fr} .part{grid-template-columns:110px 1fr 30px}}
 </style>
 </head>
 <body>
@@ -168,6 +228,7 @@ td.best{font-weight:700}
     <div class="brand"><i></i>Ордер-блоки 4H</div>
     <nav id="tabs">
       <button data-v="signals" class="on">Сигналы</button>
+      <button data-v="market" title="Панель приборов: широта S&amp;P 500, веса и скользящие компонентов, ротация, риск">Рынок</button>
       <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
@@ -209,7 +270,112 @@ td.best{font-weight:700}
     <div class="card" id="sigList"><div class="empty">Загрузка…</div></div>
   </section>
 
+  <!-- РЫНОК — ПАНЕЛЬ ПРИБОРОВ -->
+  <section class="view" id="v-market">
+    <div id="mkEmpty" class="card empty">Загрузка…</div>
+    <div id="mkBody" style="display:none">
+      <div class="mk-top">
+        <div class="card mk-score" id="mkScore"></div>
+        <div class="mk-tiles" id="mkTiles"></div>
+      </div>
+
+      <div class="sect">Широта рынка <span>доля акций S&amp;P 500 выше своей скользящей — аналоги S5TW / S5FI / S5OH / S5TH</span></div>
+      <div class="card">
+        <div class="toolbar" style="padding:10px 12px 0;margin:0">
+          <div class="chips" id="mkLines">
+            <button class="chip" data-f="p20"><span class="lg" style="--lc:var(--c20)"><i></i>20 дн.</span></button>
+            <button class="chip" data-f="p50"><span class="lg" style="--lc:var(--c50)"><i></i>50 дн.</span></button>
+            <button class="chip" data-f="p100"><span class="lg" style="--lc:var(--c100)"><i></i>100 дн.</span></button>
+            <button class="chip" data-f="p200"><span class="lg" style="--lc:var(--c200)"><i></i>200 дн.</span></button>
+          </div>
+          <div class="chips" id="mkRange">
+            <button class="chip" data-f="63">3М</button>
+            <button class="chip" data-f="126">6М</button>
+            <button class="chip" data-f="252">1Г</button>
+            <button class="chip" data-f="9999">3Г</button>
+          </div>
+          <span class="count" id="mkChartNote"></span>
+        </div>
+        <div class="mk-chart" id="mkChart"><div class="mk-tip" id="mkTip"></div></div>
+      </div>
+
+      <div class="mk-two" style="margin-top:10px">
+        <div>
+          <div class="sect" style="margin-top:12px">Сигналы последних 10 сессий <span>и что было с SPX после таких же в прошлом</span></div>
+          <div class="card" id="mkEvents"></div>
+        </div>
+        <div>
+          <div class="sect" style="margin-top:12px">Режим риска</div>
+          <div class="mk-tiles" id="mkRisk"></div>
+        </div>
+      </div>
+
+      <div class="sect">Кто тянет SPX <span>вклад сектора = вес × изменение, п.п. индекса</span></div>
+      <div class="mk-two">
+        <div class="card">
+          <div class="toolbar" style="padding:10px 14px 0;margin:0">
+            <div class="chips" id="mkCPer">
+              <button class="chip" data-f="1">День</button>
+              <button class="chip" data-f="5">5 дней</button>
+              <button class="chip" data-f="20">20 дней</button>
+            </div>
+          </div>
+          <div class="bal" id="mkBal"></div>
+        </div>
+        <div class="card">
+          <div class="toolbar" style="padding:10px 14px 0;margin:0"><b style="font-size:13px">Ротация секторов (RRG, недели)</b><span class="count">хвост — 8 недель</span></div>
+          <div class="mk-chart" id="mkRrg" style="padding:0 6px 6px"></div>
+        </div>
+      </div>
+
+      <div class="sect">Компоненты SPX у своих скользящих <span>расстояние от цены до средней и что цена делает у неё</span></div>
+      <div class="toolbar">
+        <div class="chips" id="mkTf"><button class="chip" data-f="W">Недели</button><button class="chip" data-f="D">Дни</button></div>
+        <div class="chips" id="mkKind"><button class="chip" data-f="SMA">SMA</button><button class="chip" data-f="EMA">EMA</button></div>
+        <div class="chips" id="mkUnit"><button class="chip" data-f="atr">в ATR</button><button class="chip" data-f="pct">в %</button></div>
+        <span class="count" id="mkCompNote"></span>
+      </div>
+      <div class="card tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Инструмент</th>
+            <th class="r" title="Доля в S&amp;P 500 по капитализации (Yahoo). У SMH — доля полупроводников в индексе">Вес</th>
+            <th class="r">День</th><th class="r">5 дн.</th><th class="r hide-sm">20 дн.</th>
+            <th class="r hide-sm" title="Изменение за 20 дней минус изменение SPX">Сила к SPX</th>
+            <th class="r hide-sm" title="Акций сектора выше SMA 50 / SMA 200">Широта 50/200</th>
+            <th class="r" id="mkH20">20</th><th class="r" id="mkH50">50</th><th class="r" id="mkH100">100</th><th class="r" id="mkH200">200</th>
+            <th class="hide-sm">Ротация</th>
+          </tr></thead>
+          <tbody id="mkComp"></tbody>
+        </table>
+      </div>
+
+      <div class="sect">Статистика сигналов <span>что было с SPX после каждого события широты, с <span id="mkFrom"></span></span></div>
+      <div class="toolbar">
+        <div class="chips" id="mkStLine">
+          <button class="chip" data-f="p20">20 дн. (S5TW)</button><button class="chip" data-f="p50">50 дн. (S5FI)</button>
+          <button class="chip" data-f="p100">100 дн. (S5OH)</button><button class="chip" data-f="p200">200 дн. (S5TH)</button>
+          <button class="chip" data-f="other">Thrust, дивергенции, термометр</button>
+        </div>
+      </div>
+      <div class="card tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Событие</th><th class="r">Раз</th>
+            <th class="r">5 дн.</th><th class="r">20 дн.</th><th class="r" title="Доля случаев, когда SPX через 20 дней был выше">Рост 20д</th>
+            <th class="r">60 дн.</th><th class="r" title="Доля случаев, когда SPX через 60 дней был выше">Рост 60д</th>
+            <th class="r hide-sm" title="Медиана самой глубокой просадки SPX за 20 дней после события">Просадка 20д</th>
+            <th class="hide-sm">Последние</th>
+          </tr></thead>
+          <tbody id="mkStats"></tbody>
+        </table>
+      </div>
+      <div class="hint" id="mkHint"></div>
+    </div>
+  </section>
+
   <!-- ВОЛНЫ ВУЛЬФА -->
+
   <section class="view" id="v-wolfe">
     <div class="toolbar">
       <div class="chips" id="wSide">
@@ -453,6 +619,7 @@ function staticPath(p) {
   if (p.startsWith('/api/hammer_backtest')) return 'data/hammer_backtest.json';
   if (p.startsWith('/api/samurai')) return 'data/samurai.json';
   if (p.startsWith('/api/ma200')) return 'data/ma200.json';
+  if (p.startsWith('/api/market')) return 'data/market.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -487,12 +654,13 @@ function show(v) {
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   if (v === 'chart') requestAnimationFrame(chartDraw);
+  if (v === 'market') requestAnimationFrame(renderMarketCharts);
 }
 $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v; });
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'market', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -1170,6 +1338,300 @@ async function loadChart(t) {
 $('#tkForm').onsubmit = e => { e.preventDefault(); const t = $('#tkInput').value.trim(); if (t) openChart(t.toUpperCase()); };
 
 /* ---------- загрузка ---------- */
+/* ---------- рынок: панель приборов ---------- */
+let mkt = null;
+function chipOne(sel, key, def, onChange) {
+  const g = $(sel); let val = String(store.get(key, def));
+  if (!g.querySelector(`.chip[data-f="${val}"]`)) val = String(def);
+  const paint = () => g.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x.dataset.f === val));
+  paint();
+  g.querySelectorAll('.chip').forEach(c => c.onclick = () => { val = c.dataset.f; store.set(key, val); paint(); onChange(); });
+  return () => val;
+}
+const mkN = (x, d = 1) => x == null ? '—' : Number(x).toLocaleString('ru-RU', {minimumFractionDigits: d, maximumFractionDigits: d});
+const mkS = (x, d = 1) => x == null ? '—' : (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d).replace('.', ',');
+const mkUD = x => x == null ? '' : x > 0 ? 'up' : x < 0 ? 'down' : '';
+const mkRange = chipOne('#mkRange', 'mkRange', 252, () => drawBreadth());
+const mkTf = chipOne('#mkTf', 'mkTf', 'W', () => renderComp());
+const mkKind = chipOne('#mkKind', 'mkKind', 'SMA', () => renderComp());
+const mkUnit = chipOne('#mkUnit', 'mkUnit', 'atr', () => renderComp());
+const mkCPer = chipOne('#mkCPer', 'mkCPer', 5, () => renderBalance());
+const mkStLine = chipOne('#mkStLine', 'mkStLine', 'p50', () => renderStats());
+let mkOn = store.get('mkLines', ['p20', 'p50', 'p100', 'p200']);
+$$('#mkLines .chip').forEach(c => {
+  const paint = () => c.classList.toggle('off', !mkOn.includes(c.dataset.f));
+  c.classList.add('on'); paint();
+  c.onclick = () => { const f = c.dataset.f; mkOn = mkOn.includes(f) ? mkOn.filter(x => x !== f) : [...mkOn, f]; store.set('mkLines', mkOn); paint(); drawBreadth(); };
+});
+const MK_LN = {p20: ['20 дн.', 'S5TW', '--c20'], p50: ['50 дн.', 'S5FI', '--c50'], p100: ['100 дн.', 'S5OH', '--c100'], p200: ['200 дн.', 'S5TH', '--c200']};
+const MK_ZN = {lo: 'перепродан', hi: 'перегрет', wm: 'тёплая зона'};
+const MK_ST = {support: 'поддержка', resist: 'сопротивл.', bounce: 'отбой ↑', reject: 'отбит ↓', break_up: 'пробой ↑', break_dn: 'пробой ↓', above: '', below: ''};
+const MK_STT = {support: 'Цена над средней ближе 0,75 ATR — проверяет её как поддержку', resist: 'Цена под средней ближе 0,75 ATR — упирается в неё как в сопротивление',
+  bounce: 'За последние свечи коснулась средней сверху и ушла вверх', reject: 'За последние свечи дошла до средней снизу и откатилась',
+  break_up: 'Последние свечи закрылись выше средней, до этого была под ней', break_dn: 'Последние свечи закрылись ниже средней, до этого была над ней',
+  above: 'Выше средней', below: 'Ниже средней'};
+const MK_Q = {lead: 'лидер', weak: 'слабеет', lag: 'отстаёт', improve: 'улучшается'};
+const MK_QC = {lead: 'var(--bull)', weak: 'var(--warn)', lag: 'var(--bear)', improve: 'var(--accent)'};
+const mkZone = v => { const P = mkt.params; return v == null ? '' : v <= P.low ? 'lo' : v >= P.high ? 'hi' : v >= P.warm ? 'wm' : ''; };
+const mkScoreCol = x => x < 30 ? 'var(--bear)' : x < 45 ? 'var(--warn)' : x < 60 ? 'var(--muted)' : 'var(--bull)';
+const mkTv = (t, iv) => 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(t === '^GSPC' ? 'SP:SPX' : t.replace(/-/g, '.')) + '&interval=' + iv;
+const mkTk = t => t === '^GSPC' ? 'SPX' : t;
+
+function mkStatLine(st) {
+  if (!st || !st.n) return 'в истории таких событий не было';
+  const raz = (st.n % 10 >= 2 && st.n % 10 <= 4 && (st.n % 100 < 12 || st.n % 100 > 14)) ? 'раза' : 'раз';
+  return `было ${st.n} ${raz} · SPX через 20 дн. <b class="${mkUD(st.m20)}">${mkS(st.m20)}%</b> (медиана), рост в ${st.w20 == null ? '—' : Math.round(st.w20)}% случаев · через 60 дн. <b class="${mkUD(st.m60)}">${mkS(st.m60)}%</b>`;
+}
+
+function renderMarket() {
+  if (!mkt || !mkt.now) {
+    $('#mkEmpty').style.display = ''; $('#mkBody').style.display = 'none';
+    $('#mkEmpty').textContent = 'Данных ещё нет — панель считается по будням после закрытия рынка';
+    return;
+  }
+  $('#mkEmpty').style.display = 'none'; $('#mkBody').style.display = '';
+  const N = mkt.now, P = mkt.params;
+  const PART = {breadth: 'Широта 20/50/200', trend: 'Тренд SPX (MA дни и недели)', particip: 'Участие (RSP к SPY)', sectors: 'Сектора выше SMA 50', risk: 'Риск (VIX, HYG)'};
+  const hot = ['p20', 'p50'].filter(k => N[k] >= P.high), cold = ['p20', 'p50', 'p100'].filter(k => N[k] <= P.low);
+  const flag = cold.length ? `<span class="ztag lo">Широта в зоне перепроданности: ${cold.map(k => MK_LN[k][1]).join(', ')}</span>`
+    : hot.length ? `<span class="ztag hi">Широта перегрета: ${hot.map(k => MK_LN[k][1]).join(', ')}</span>` : '';
+  const ticks = [0, 30, 45, 60, 75, 100];
+  $('#mkScore').innerHTML = `<div style="font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between"><span>Термометр рынка</span><span>${dmy(N.date)}</span></div>
+    <div class="big"><b style="color:${mkScoreCol(N.score)}">${Math.round(N.score)}</b><span>${esc(N.label)}</span></div>
+    <div class="gauge"><i style="left:calc(${Math.max(0, Math.min(100, N.score))}% - 1.5px)"></i></div>
+    <div class="gscale" style="position:relative;height:14px;display:block">${ticks.map(t => `<span style="position:absolute;left:${t}%;transform:translateX(${t === 0 ? 0 : t === 100 ? -100 : -50}%)">${t}</span>`).join('')}</div>
+    ${flag ? '<div style="margin-top:8px">' + flag + '</div>' : ''}
+    <div class="parts">${Object.entries(PART).filter(([k]) => N.parts[k] != null).map(([k, nm]) =>
+      `<div class="part"><span>${nm}</span><span class="pb"><i style="width:${N.parts[k]}%;background:${mkScoreCol(N.parts[k])}"></i></span><b>${Math.round(N.parts[k])}</b></div>`).join('')}</div>`;
+
+  const spx = mkt.rows.find(r => r.ticker === '^GSPC');
+  let tiles = Object.entries(MK_LN).map(([k, [nm, code]]) => {
+    const v = N[k], z = mkZone(v);
+    return `<div class="tile ${z}"><div class="l"><span>Выше SMA ${nm}</span><span title="Аналог на TradingView">${code}</span></div>
+      <div class="v">${mkN(v, 0)}%</div><div class="s">за 5 дн. ${mkS(N[k + '_d5'], 0)} п. ${z ? `<span class="ztag ${z}">${MK_ZN[z]}</span>` : ''}</div></div>`;
+  }).join('');
+  if (spx) tiles = `<div class="tile"><div class="l"><span>S&amp;P 500</span><span class="${mkUD(spx.r1)}">${mkS(spx.r1, 2)}%</span></div>
+      <div class="v">${mkN(spx.price, 0)}</div><div class="s">до максимума 52 нед. ${mkS(spx.hi52)}%</div></div>` + tiles;
+  const z = N.zweig * 100;
+  tiles += `<div class="tile ${z >= 61.5 ? 'lo' : ''}"><div class="l"><span title="Zweig Breadth Thrust: EMA 10 доли растущих акций">Доля растущих (EMA 10)</span></div>
+      <div class="v">${mkN(z, 0)}%</div><div class="s">thrust: &lt; 40% → &gt; 61,5% за 10 дн.</div></div>
+    <div class="tile"><div class="l"><span>Новые 52-нед.</span></div><div class="v"><span class="up">${N.nh}</span> / <span class="down">${N.nl}</span></div><div class="s">максимумы / минимумы</div></div>`;
+  if (N.top10 != null) tiles += `<div class="tile"><div class="l"><span>Топ-10 компаний</span></div><div class="v">${mkN(N.top10, 1)}%</div><div class="s">веса индекса</div></div>`;
+  $('#mkTiles').innerHTML = tiles;
+
+  // события последних 10 сессий: только рабочие пороги
+  const want = k => !k.startsWith('p') || k.endsWith('|' + P.low) || k.endsWith('|' + P.high);
+  const ev = mkt.recent.filter(e => want(e.key));
+  $('#mkEvents').innerHTML = ev.length ? ev.map(e => `<div class="ev"><span class="d">${dmy(e.date)}</span><div>${esc(e.title)}<div class="st">${mkStatLine(mkt.stats[e.key])}</div></div></div>`).join('')
+    : `<div class="empty" style="padding:24px 16px">Новых сигналов широты за 10 сессий нет. Пороги: перепроданность ≤ ${P.low}%, перекупленность ≥ ${P.high}%.</div>`;
+
+  // риск
+  const R = mkt.risk, rt = [];
+  if (R.vix) rt.push(`<div class="tile ${R.vix.v >= 25 ? 'hi' : R.vix.v >= 20 ? 'wm' : R.vix.v < 15 ? 'lo' : ''}"><div class="l"><span>VIX</span><span>${mkS(R.vix.d5)} за 5д</span></div><div class="v">${mkN(R.vix.v, 1)}</div><div class="s">выше, чем в ${mkN(R.vix.pct1y, 0)}% дней года</div></div>`);
+  if (R.term) rt.push(`<div class="tile ${R.term.v > 1 ? 'hi' : R.term.v > 0.92 ? 'wm' : 'lo'}"><div class="l"><span title="VIX к VIX3M: выше 1 — бэквордация, рынок платит за защиту «на сейчас»">VIX / VIX3M</span></div><div class="v">${mkN(R.term.v, 2)}</div><div class="s">${R.term.v > 1 ? 'бэквордация — стресс' : R.term.v > 0.92 ? 'напряжение растёт' : 'контанго — спокойно'}</div></div>`);
+  if (R.short) rt.push(`<div class="tile ${R.short.v > 1 ? 'wm' : ''}"><div class="l"><span title="VIX9D к VIX: выше 1 — страх на ближайшие дни (событие, отчёт, ФРС)">VIX9D / VIX</span></div><div class="v">${mkN(R.short.v, 2)}</div><div class="s">${R.short.v > 1 ? 'страх на ближайшие дни' : 'ближний страх ниже'}</div></div>`);
+  if (R.hyg) rt.push(`<div class="tile ${R.hyg.dev50 < -1 ? 'hi' : R.hyg.dev50 > 0 ? 'lo' : ''}"><div class="l"><span title="Мусорные облигации: падают раньше акций, когда деньги уходят из риска">HYG</span><span>${mkS(R.hyg.r20)}% за 20д</span></div><div class="v">${mkN(R.hyg.v, 2)}</div><div class="s">к SMA 50: ${mkS(R.hyg.dev50, 2)}%</div></div>`);
+  if (R.tnx) rt.push(`<div class="tile"><div class="l"><span>Доходность 10Y</span></div><div class="v">${mkN(R.tnx.v, 2)}%</div><div class="s">за 20 дн. ${mkS(R.tnx.d20 == null ? null : R.tnx.d20 * 100, 0)} б.п.</div></div>`);
+  if (R.dxy) rt.push(`<div class="tile"><div class="l"><span>Доллар DXY</span></div><div class="v">${mkN(R.dxy.v, 1)}</div><div class="s">к SMA 50: ${mkS(R.dxy.dev50, 2)}%</div></div>`);
+  if (R.cor) rt.push(`<div class="tile ${R.cor.pct1y >= 80 ? 'hi' : R.cor.pct1y <= 20 ? 'lo' : ''}"><div class="l"><span title="Подразумеваемая корреляция S&amp;P 500 на месяц: высокая — всё падает вместе, балансировки нет">Корреляция COR1M</span></div><div class="v">${mkN(R.cor.v, 1)}</div><div class="s">выше, чем в ${mkN(R.cor.pct1y, 0)}% дней года</div></div>`);
+  $('#mkRisk').innerHTML = rt.join('') || '<div class="empty">нет данных</div>';
+  $('#mkFrom').textContent = dmy(mkt.history_from);
+
+  renderComp(); renderStats(); renderBalance();
+  $('#mkHint').innerHTML = `<b>Широта</b> — доля акций нынешнего состава S&amp;P 500 (${N.n} шт.) выше своей SMA 20 / 50 / 100 / 200 дней, считается из дневок Yahoo; аналоги S5TW / S5FI / S5OH / S5TH на TradingView, значения могут отличаться на 1–3 п. Зоны: перепроданность ≤ ${P.low}%, перекупленность ≥ ${P.high}%, пунктир — ${P.warm}%.
+    История считается по нынешнему составу индекса (без выбывших компаний), поэтому в старых годах широта слегка завышена — для статистики это допущение.
+    <br><b>Термометр</b> 0–100 — среднее пяти блоков: широта; где SPX относительно SMA 20/50/100/200 дней и аналогов 20/50/100/200 недель; RSP (равновзвешенный) к SPY относительно своей SMA 50 — широкий или узкий рост; доля 11 секторов выше SMA 50; риск — VIX/VIX3M и HYG относительно SMA 50.
+    <br><b>Вес</b> — капитализация компаний (Yahoo, без поправки на free float) по секторам GICS; у SMH — доля полупроводников в S&amp;P 500 (сам SMH включает и не-американские TSM, ASML). <b>Вклад</b> = вес × изменение, в процентных пунктах индекса.
+    <br><b>Скользящие</b> — SMA и EMA 20/50/100/200 на днях и неделях (текущая неделя участвует, как на TradingView), ATR(14) того же таймфрейма. Поддержка / сопротивление — цена ближе ${P.near_atr.toString().replace('.', ',')} ATR над / под средней; отбой — за последние свечи (3 дня или 2 недели) коснулась средней и ушла от неё; пробой — закрылась по другую сторону. Стрелка — наклон средней.
+    <br><b>Ротация (RRG)</b> — относительная сила ETF к SPX (EMA 10 / EMA 30 недель отношения цен) и её импульс за 4 недели: справа сверху лидеры, справа снизу слабеющие, слева снизу отстающие, слева сверху улучшающиеся. Обычный путь сектора — по часовой стрелке.
+    <br><b>Статистика</b> — каждое событие засчитывается один раз (повтор не раньше чем через ${P.debounce} сессий, дивергенции и thrust — 20); зелёным — где SPX рос заметно чаще обычного дня, красным — реже. Пересчёт по будням после закрытия; в Telegram (/market) — новые события широты, термометра и подходы компонентов к средним.`;
+  if ($('#v-market').classList.contains('on')) renderMarketCharts();
+}
+function renderMarketCharts() { if (!mkt || !mkt.now) return; drawBreadth(); drawRrg(); }
+let mkRT = null;
+addEventListener('resize', () => { clearTimeout(mkRT); mkRT = setTimeout(() => { if ($('#v-market').classList.contains('on')) renderMarketCharts(); }, 150); });
+
+function mkPath(xs, ys) {
+  let d = '', pen = false;
+  for (let i = 0; i < xs.length; i++) {
+    if (ys[i] == null || isNaN(ys[i])) { pen = false; continue; }
+    d += (pen ? 'L' : 'M') + xs[i].toFixed(1) + ' ' + ys[i].toFixed(1); pen = true;
+  }
+  return d;
+}
+
+function drawBreadth() {
+  const box = $('#mkChart'); if (!mkt || !box.clientWidth) return;
+  const S = mkt.series, P = mkt.params, total = S.d.length, R = Math.min(+mkRange(), total), a = total - R;
+  const W = box.clientWidth, L = 38, Rp = 52, h1 = 92, h2 = W < 600 ? 180 : 220, h3 = 62, g = 16, top = 8;
+  const y1 = top, y2 = y1 + h1 + g, y3 = y2 + h2 + g, H = y3 + h3 + 22;
+  const xs = [...Array(R)].map((_, i) => L + (R === 1 ? 0 : i * (W - L - Rp) / (R - 1)));
+  const spx = S.spx.slice(a), lo = Math.min(...spx), hi = Math.max(...spx);
+  const ySpx = v => y1 + h1 - (v - lo) / ((hi - lo) || 1) * h1;
+  const yB = v => y2 + h2 - v / 100 * h2, yS = v => y3 + h3 - v / 100 * h3;
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  // зоны и сетка
+  s += `<rect x="${L}" y="${yB(P.low)}" width="${W - L - Rp}" height="${yB(0) - yB(P.low)}" fill="var(--bull-bg)"/>`;
+  s += `<rect x="${L}" y="${yB(100)}" width="${W - L - Rp}" height="${yB(P.high) - yB(100)}" fill="var(--bear-bg)"/>`;
+  for (const v of [0, 50, 100]) s += `<line x1="${L}" x2="${W - Rp}" y1="${yB(v)}" y2="${yB(v)}" stroke="var(--chart-grid)"/><text x="${L - 6}" y="${yB(v) + 4}" text-anchor="end">${v}</text>`;
+  for (const v of [P.low, P.high]) s += `<text x="${L - 6}" y="${yB(v) + 4}" text-anchor="end">${v}</text>`;
+  s += `<line x1="${L}" x2="${W - Rp}" y1="${yB(P.warm)}" y2="${yB(P.warm)}" stroke="var(--warn)" stroke-dasharray="4 4" opacity=".7"/>`;
+  for (const v of [30, 75]) s += `<line x1="${L}" x2="${W - Rp}" y1="${yS(v)}" y2="${yS(v)}" stroke="var(--chart-grid)" stroke-dasharray="3 3"/><text x="${L - 6}" y="${yS(v) + 4}" text-anchor="end">${v}</text>`;
+  s += `<line x1="${L}" x2="${W - Rp}" y1="${y1 + h1}" y2="${y1 + h1}" stroke="var(--chart-grid)"/>`;
+  // подписи месяцев
+  let lastM = '', lastX = -1e9;
+  for (let i = 0; i < R; i++) {
+    const d = S.d[a + i], m = d.slice(0, 7);
+    if (m !== lastM) { lastM = m; if (xs[i] - lastX > 52 && i > 0) { s += `<line x1="${xs[i]}" x2="${xs[i]}" y1="${y1}" y2="${y3 + h3}" stroke="var(--chart-grid)"/><text x="${xs[i]}" y="${H - 6}" text-anchor="middle">${d.slice(5, 7)}.${d.slice(2, 4)}</text>`; lastX = xs[i]; } }
+  }
+  s += `<text x="${L + 4}" y="${y1 + 11}" style="font-weight:600">S&amp;P 500</text><text x="${W - Rp + 6}" y="${ySpx(hi) + 4}">${mkN(hi, 0)}</text><text x="${W - Rp + 6}" y="${ySpx(lo) + 4}">${mkN(lo, 0)}</text>`;
+  s += `<path d="${mkPath(xs, spx.map(ySpx))}" fill="none" stroke="var(--text)" stroke-width="1.5"/>`;
+  s += `<text x="${L + 4}" y="${y2 + 12}" style="font-weight:600">% акций выше скользящей</text>`;
+  for (const k of ['p200', 'p100', 'p50', 'p20']) if (mkOn.includes(k))
+    s += `<path d="${mkPath(xs, S[k].slice(a).map(v => v == null ? null : yB(v)))}" fill="none" stroke="var(${MK_LN[k][2]})" stroke-width="${k === 'p50' ? 2 : 1.4}" stroke-linejoin="round"/>`;
+  const last = S.score.length - 1;
+  for (const k of Object.keys(MK_LN)) if (mkOn.includes(k) && S[k][last] != null)
+    s += `<text x="${W - Rp + 6}" y="${yB(S[k][last]) + 4}" style="fill:var(${MK_LN[k][2]});font-weight:600">${Math.round(S[k][last])}</text>`;
+  s += `<text x="${L + 4}" y="${y3 + 11}" style="font-weight:600">Термометр</text>`;
+  s += `<path d="${mkPath(xs, S.score.slice(a).map(v => v == null ? null : yS(v)))}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>`;
+  s += `<line id="mkCross" x1="0" x2="0" y1="${y1}" y2="${y3 + h3}" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/>`;
+  s += `<rect id="mkHit" x="${L}" y="${y1}" width="${W - L - Rp}" height="${y3 + h3 - y1}" fill="transparent"/></svg>`;
+  box.querySelectorAll('svg').forEach(x => x.remove());
+  box.insertAdjacentHTML('beforeend', s);
+  $('#mkChartNote').textContent = `${dmy(S.d[a])} — ${dmy(S.d[total - 1])}`;
+  const tip = $('#mkTip'), cross = $('#mkCross');
+  const move = e => {
+    const rc = box.getBoundingClientRect(), x = e.clientX - rc.left;
+    const i = Math.max(0, Math.min(R - 1, Math.round((x - L) / ((W - L - Rp) / Math.max(1, R - 1)))));
+    const j = a + i;
+    cross.setAttribute('x1', xs[i]); cross.setAttribute('x2', xs[i]); cross.style.display = '';
+    tip.innerHTML = `<b>${dmy(S.d[j])}</b> · S&amp;P ${mkN(S.spx[j], 0)}<br>` + Object.entries(MK_LN).map(([k, [nm, code]]) =>
+      `<span class="lg" style="--lc:var(${MK_LN[k][2]})"><i></i>${code} ${S[k][j] == null ? '—' : Math.round(S[k][j]) + '%'}</span>`).join(' &nbsp;') +
+      `<br>Термометр ${S.score[j] == null ? '—' : Math.round(S.score[j])} · растущих (EMA 10) ${S.zweig[j] == null ? '—' : Math.round(S.zweig[j] * 100) + '%'} · 52н: ${S.nh[j]}↑ ${S.nl[j]}↓`;
+    tip.style.display = 'block';
+    const tw = tip.offsetWidth;
+    tip.style.left = Math.max(4, Math.min(W - tw - 4, xs[i] + 12 > W - tw - 4 ? xs[i] - tw - 12 : xs[i] + 12)) + 'px';
+    tip.style.top = (y2 - 6) + 'px';
+  };
+  const hit = $('#mkHit');
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerleave', () => { tip.style.display = 'none'; cross.style.display = 'none'; });
+}
+
+function renderBalance() {
+  if (!mkt || !mkt.rows) return;
+  const per = mkCPer(), k = 'c' + per, rk = 'r' + per;
+  const sec = mkt.rows.filter(r => r.group === 'sector' && r[k] != null).sort((a, b) => b[k] - a[k]);
+  const mega = mkt.rows.filter(r => r.group === 'mega' && r[k] != null);
+  const spx = mkt.rows.find(r => r.ticker === '^GSPC');
+  const mx = Math.max(0.01, ...sec.map(r => Math.abs(r[k])));
+  const sum = sec.reduce((s, r) => s + r[k], 0), ms = mega.reduce((s, r) => s + r[k], 0);
+  $('#mkBal').innerHTML = sec.map(r => {
+    const w = Math.abs(r[k]) / mx * 50, pos = r[k] >= 0;
+    return `<div class="row" title="${esc(r.name)}: вес ${mkN(r.w)}% × ${mkS(r[rk], 2)}% = ${mkS(r[k], 3)} п.п."><span><b>${r.ticker}</b> <span style="color:var(--muted)">${esc(r.name)}</span></span>
+      <span class="track"><i style="left:${pos ? 50 : 50 - w}%;width:${w}%;background:${pos ? 'var(--bull)' : 'var(--bear)'}"></i></span>
+      <span class="mono ${pos ? 'up' : 'down'}" style="text-align:right">${mkS(r[k], 2)}</span></div>`;
+  }).join('') + `<div class="sum">Сумма секторов <b class="${mkUD(sum)}">${mkS(sum, 2)} п.п.</b> · SPX ${spx ? `<b class="${mkUD(spx[rk])}">${mkS(spx[rk], 2)}%</b>` : '—'}
+    · топ-10 компаний <b class="${mkUD(ms)}">${mkS(ms, 2)} п.п.</b> (${mega.filter(r => r[k] > 0).length} из ${mega.length} росли)
+    <br>Растут ${sec.filter(r => r[k] > 0).length} из ${sec.length} секторов — ${sec.filter(r => r[k] > 0).length >= 8 ? 'рост широкий' : sec.filter(r => r[k] > 0).length <= 3 ? 'падение широкое' : 'сектора балансируют друг друга'}.</div>`;
+}
+
+function drawRrg() {
+  const box = $('#mkRrg'); if (!mkt || !box.clientWidth) return;
+  const rows = mkt.rows.filter(r => r.rrg && r.rrg.pts && r.rrg.pts.length);
+  const W = box.clientWidth, H = Math.min(380, Math.max(260, W * 0.72)), L = 28, B = 24, T = 8, Rr = 8;
+  if (!rows.length) { box.innerHTML = '<div class="empty">нет данных</div>'; return; }
+  const all = rows.flatMap(r => r.rrg.pts);
+  const dx = Math.max(0.5, ...all.map(p => Math.abs(p[0] - 100))) * 1.15, dy = Math.max(0.5, ...all.map(p => Math.abs(p[1] - 100))) * 1.15;
+  const X = v => L + (v - 100 + dx) / (2 * dx) * (W - L - Rr), Y = v => T + (1 - (v - 100 + dy) / (2 * dy)) * (H - T - B);
+  const cx = X(100), cy = Y(100);
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <rect x="${cx}" y="${T}" width="${W - Rr - cx}" height="${cy - T}" fill="var(--bull-bg)"/>
+    <rect x="${cx}" y="${cy}" width="${W - Rr - cx}" height="${H - B - cy}" fill="color-mix(in srgb,var(--warn) 10%,transparent)"/>
+    <rect x="${L}" y="${cy}" width="${cx - L}" height="${H - B - cy}" fill="var(--bear-bg)"/>
+    <rect x="${L}" y="${T}" width="${cx - L}" height="${cy - T}" fill="color-mix(in srgb,var(--accent) 9%,transparent)"/>
+    <text x="${W - Rr - 6}" y="${T + 14}" text-anchor="end" style="fill:var(--bull);font-weight:600">Лидеры</text>
+    <text x="${W - Rr - 6}" y="${H - B - 6}" text-anchor="end" style="fill:var(--warn);font-weight:600">Слабеют</text>
+    <text x="${L + 6}" y="${H - B - 6}" style="fill:var(--bear);font-weight:600">Отстают</text>
+    <text x="${L + 6}" y="${T + 14}" style="fill:var(--accent);font-weight:600">Улучшаются</text>
+    <text x="${(W + L) / 2}" y="${H - 6}" text-anchor="middle">Относительная сила к SPX →</text>
+    <text x="10" y="${(H - B) / 2}" text-anchor="middle" transform="rotate(-90 10 ${(H - B) / 2})">Импульс →</text>`;
+  for (const r of rows) {
+    const c = MK_QC[r.rrg.q], pts = r.rrg.pts, xy = pts.map(p => [X(p[0]), Y(p[1])]);
+    s += `<polyline points="${xy.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${c}" stroke-width="1.3" opacity=".55"/>`;
+    s += xy.slice(0, -1).map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.8" fill="${c}" opacity=".55"/>`).join('');
+    const [lx, ly] = xy[xy.length - 1];
+    s += `<circle cx="${lx}" cy="${ly}" r="4.5" fill="${c}" stroke="var(--panel)" stroke-width="1.5"><title>${r.ticker} ${esc(r.name)} — ${MK_Q[r.rrg.q]}</title></circle>
+      <text x="${lx + 7}" y="${ly + 4}" style="fill:var(--text);font-weight:600">${r.ticker}</text>`;
+  }
+  box.innerHTML = s + '</svg>';
+}
+
+function renderComp() {
+  if (!mkt || !mkt.rows) return;
+  const tf = mkTf(), kind = mkKind(), unit = mkUnit();
+  for (const n of [20, 50, 100, 200]) $('#mkH' + n).textContent = `${kind} ${n}${tf}`;
+  const spx = mkt.rows.find(r => r.ticker === '^GSPC');
+  const G = [['index', 'Индекс'], ['sector', 'Сектора SPDR'], ['theme', 'Темы'], ['mega', 'Топ-10 компаний']];
+  let h = '';
+  for (const [gk, gn] of G) {
+    let rs = mkt.rows.filter(r => r.group === gk);
+    if (!rs.length) continue;
+    if (gk !== 'theme') rs.sort((a, b) => (b.w ?? -1) - (a.w ?? -1));
+    const ws = rs.reduce((s, r) => s + (r.w || 0), 0);
+    h += `<tr class="grp"><td colspan="12">${gn}${gk === 'sector' || gk === 'mega' ? ` · ${mkN(ws, 1)}% индекса` : ''}</td></tr>`;
+    for (const r of rs) {
+      const cells = [20, 50, 100, 200].map(n => {
+        const s = r.ma[tf + kind + n];
+        if (!s) return '<td class="r">—</td>';
+        const v = unit === 'atr' ? mkS(s.atr, 2) : mkS(s.pct, 1) + '%';
+        return `<td class="r"><span class="mc ${s.st}" title="${MK_STT[s.st]}. ${kind} ${n} ${tf === 'W' ? 'недель' : 'дней'} = ${mkN(s.v, 2)}, наклон ${s.up ? 'вверх' : 'вниз'}">${v}<span class="sl">${s.up ? '↗' : '↘'}</span>${MK_ST[s.st] ? `<small>${MK_ST[s.st]}</small>` : ''}</span></td>`;
+      }).join('');
+      let near = null;
+      for (const n of [20, 50, 100, 200]) { const s = r.ma[tf + kind + n]; if (s && (!near || Math.abs(s.atr) < Math.abs(near[1]))) near = [n, s.atr]; }
+      const rs20 = r.ticker !== '^GSPC' && spx && r.r20 != null ? r.r20 - spx.r20 : null;
+      h += `<tr>
+        <td><a href="${mkTv(r.ticker, tf)}" target="_blank" rel="noopener"${near ? ` data-tv-ma="${kind} ${near[0]}"` : ''}><b>${esc(mkTk(r.ticker))}</b></a> <span style="color:var(--muted)">${esc(r.name)}${r.sector ? ' · ' + esc(r.sector) : ''}</span></td>
+        <td class="r mono">${r.group === 'index' ? '—' : r.w == null ? '—' : mkN(r.w, 1) + '%'}</td>
+        <td class="r mono ${mkUD(r.r1)}">${mkS(r.r1, 2)}%</td>
+        <td class="r mono ${mkUD(r.r5)}">${mkS(r.r5, 1)}%</td>
+        <td class="r mono hide-sm ${mkUD(r.r20)}">${mkS(r.r20, 1)}%</td>
+        <td class="r mono hide-sm ${mkUD(rs20)}">${rs20 == null ? '—' : mkS(rs20, 1) + ' п.'}</td>
+        <td class="r mono hide-sm">${r.breadth ? `${mkN(r.breadth.p50, 0)}% / ${mkN(r.breadth.p200, 0)}%` : '—'}</td>
+        ${cells}
+        <td class="hide-sm">${r.rrg ? `<span class="q ${r.rrg.q}">${MK_Q[r.rrg.q]}</span>` : ''}</td></tr>`;
+    }
+  }
+  $('#mkComp').innerHTML = h;
+  const st = {};
+  for (const r of mkt.rows) { const s = r.ma[tf + kind + '50']; if (s) st[s.st] = (st[s.st] || 0) + 1; }
+  $('#mkCompNote').textContent = `ATR ${tf === 'W' ? 'недельный' : 'дневной'} · ${mkt.rows.length} инструментов`;
+}
+
+function renderStats() {
+  if (!mkt || !mkt.stats) return;
+  const line = mkStLine(), S = mkt.stats, P = mkt.params, base = S.base;
+  const ord = k => { const p = k.split('|'); return (p[1] === 'lo' ? 0 : 2) + (p[2] === 'in' ? 0 : 1) + parseFloat(p[3]) / 1000 * (p[1] === 'lo' ? 1 : -1); };
+  let keys = line === 'other' ? Object.keys(S).filter(k => !k.startsWith('p') && k !== 'base')
+    : Object.keys(S).filter(k => k.startsWith(line + '|')).sort((a, b) => ord(a) - ord(b));
+  const cmp = (v, b) => v == null || b == null ? '' : v >= b + 8 ? 'better' : v <= b - 8 ? 'worse' : '';
+  const row = (k, st, isBase) => {
+    const mine = k.startsWith('p') && (k.endsWith('|' + P.low) || k.endsWith('|' + P.high));
+    const few = st.n < 5;
+    return `<tr style="${isBase ? 'background:var(--panel2)' : ''}${few ? ';opacity:.6' : ''}">
+      <td style="white-space:normal;min-width:260px">${mine ? '<b>' : ''}${esc(st.title)}${mine ? '</b>' : ''}${few && !isBase ? ' <span style="color:var(--muted)">(мало случаев)</span>' : ''}</td>
+      <td class="r mono">${isBase ? '—' : st.n}</td>
+      <td class="r mono ${mkUD(st.m5)}">${mkS(st.m5, 1)}%</td>
+      <td class="r mono ${mkUD(st.m20)}">${mkS(st.m20, 1)}%</td>
+      <td class="r mono ${isBase ? '' : cmp(st.w20, base.w20)}">${st.w20 == null ? '—' : Math.round(st.w20) + '%'}</td>
+      <td class="r mono ${mkUD(st.m60)}">${mkS(st.m60, 1)}%</td>
+      <td class="r mono ${isBase ? '' : cmp(st.w60, base.w60)}">${st.w60 == null ? '—' : Math.round(st.w60) + '%'}</td>
+      <td class="r mono hide-sm down">${mkS(st.dd20, 1)}%</td>
+      <td class="hide-sm" style="color:var(--muted);font-size:12.5px">${isBase ? '' : (st.last || []).slice(-3).reverse().map(dmy).join(', ')}</td></tr>`;
+  };
+  $('#mkStats').innerHTML = row('base', base, true) + keys.map(k => row(k, S[k], false)).join('');
+}
+
 async function loadAll() {
   try { signals = await api('/api/signals?limit=1500'); } catch (e) { signals = []; }
   try { snap = await api('/api/snapshot'); } catch (e) { snap = null; }
@@ -1179,7 +1641,8 @@ async function loadAll() {
   try { hamBt = await api('/api/hammer_backtest'); } catch (e) { hamBt = null; }
   try { sam = await api('/api/samurai'); } catch (e) { sam = null; }
   try { ma2 = await api('/api/ma200'); } catch (e) { ma2 = null; }
-  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200();
+  try { mkt = await api('/api/market'); } catch (e) { mkt = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200(); renderMarket();
 }
 /* ---------- быстрый просмотр TradingView при наведении на тикер ---------- */
 (function () {
