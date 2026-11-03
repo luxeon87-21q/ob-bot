@@ -178,8 +178,6 @@ tr.today td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .fhead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px}
 .fhead h2{margin:0;font-size:22px} .fhead .links{margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;font-size:13px}
 .fhead .links a{color:var(--accent);text-decoration:none}
-.plan{font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px;background:var(--panel2);color:var(--muted)}
-.plan.no{color:var(--warn)}
 @media (max-width:900px){.fgrid{grid-template-columns:1fr}}
 .obtag{display:inline-block;margin-left:5px;font:700 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 4px;border-radius:4px;color:var(--bull);background:var(--bull-bg);vertical-align:middle}
 
@@ -252,7 +250,6 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <button data-v="signals" class="on">Сигналы</button>
       <button data-v="market" title="Панель приборов: широта S&amp;P 500, веса и скользящие компонентов, ротация, риск">Рынок</button>
       <button data-v="earnings" title="Отчёты недели: сколько закладывают опционы против обычного хода акции после отчёта">Отчёты</button>
-      <button data-v="insiders" title="Сделки инсайдеров (Form 4) и конгрессменов по акциям сайта">Инсайдеры</button>
       <button data-v="fund" title="Карточка компании: выручка, маржа, EPS из отчётов в SEC">Компания</button>
       <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
@@ -571,27 +568,6 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       Считается по будням через ≈20 минут после открытия по живым бид/аск; перед сделкой сверьте с терминалом. Это история и цены, не прогноз направления.</div>
   </section>
 
-  <!-- ИНСАЙДЕРЫ И КОНГРЕСС -->
-  <section class="view" id="v-insiders">
-    <div class="toolbar">
-      <div class="chips" id="inSrc">
-        <button class="chip on" data-f="all">Инсайдеры (Form 4)</button>
-        <button class="chip" data-f="house">Конгресс</button>
-      </div>
-      <div class="chips" id="inSide">
-        <button class="chip on" data-f="all">Покупки и продажи</button>
-        <button class="chip" data-f="P">Покупки</button>
-        <button class="chip" data-f="S">Продажи</button>
-      </div>
-      <span class="switch" id="inNoPlan" role="switch" aria-checked="false" title="Скрыть продажи по заранее утверждённому плану 10b5-1"><i></i>Без плана 10b5-1</span>
-      <span class="switch" id="inCluster" role="switch" aria-checked="false" title="Только акции, которые за 30 дней покупали ≥ 2 инсайдера"><i></i>Кластеры покупок</span>
-      <input type="search" id="inSearch" placeholder="Тикер или имя…" style="width:160px">
-      <span class="count" id="inCount"></span>
-    </div>
-    <div class="card tbl-wrap"><table><thead id="inHead"></thead><tbody id="inBody"><tr><td class="empty">Загрузка…</td></tr></tbody></table></div>
-    <div class="hint" id="inHint"></div>
-  </section>
-
   <!-- КОМПАНИЯ -->
   <section class="view" id="v-fund">
     <div class="toolbar">
@@ -601,7 +577,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       </form>
       <span class="count" id="fdMsg"></span>
     </div>
-    <div id="fdBody"><div class="card empty">Введите тикер — или нажмите «Ф» рядом с тикером на вкладках «Отчёты» и «Инсайдеры»</div></div>
+    <div id="fdBody"><div class="card empty">Введите тикер — или нажмите «Ф» рядом с тикером на вкладке «Отчёты»</div></div>
     <div class="hint">Числа — из отчётов, поданных компанией в SEC (XBRL из 10-Q и 10-K), рост — к тому же кварталу год назад, TTM — сумма 4 последних кварталов.
       4-й квартал отдельно не подаётся: он считается как год (10-K) минус три квартала и помечен «выч.»; EPS такого квартала — приблизительный.
       Банки и страховщики показывают выручку иначе — маржи у них могут быть пустыми. Иностранные компании (20-F по МСФО) не показываются.
@@ -727,7 +703,6 @@ function staticPath(p) {
   if (p.startsWith('/api/market')) return 'data/market.json';
   if (p.startsWith('/api/earnings')) return 'data/earnings.json';
   if (p.startsWith('/api/fund')) return 'data/fund.json';
-  if (p.startsWith('/api/insiders')) return 'data/insiders.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -763,14 +738,13 @@ function show(v) {
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   if (v === 'chart') requestAnimationFrame(chartDraw);
   if (v === 'market') requestAnimationFrame(renderMarketCharts);
-  if (v === 'insiders') renderInsiders();
 }
 $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v; });
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
   else if (h.startsWith('fund/')) { show('fund'); loadFund(h.slice(5)); }
-  else show(['signals', 'market', 'earnings', 'insiders', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'market', 'earnings', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -1146,11 +1120,10 @@ function renderEarnings() {
   }).join('') || '<tr><td colspan="11" class="empty">' + (ern.rows.length ? 'Под фильтр ничего не попало' : 'Отчётов на неделю не найдено') + '</td></tr>';
 }
 
-/* ---------- компания (фундаментал) и инсайдеры ---------- */
-let fundD = null, fundP = null, insD = null, insP = null;
-const fTag = t => `<a class="ftag" href="#fund/${encodeURIComponent(t)}" title="Компания: отчётность и инсайдеры">Ф</a>`;
+/* ---------- компания (фундаментал) ---------- */
+let fundD = null, fundP = null;
+const fTag = t => `<a class="ftag" href="#fund/${encodeURIComponent(t)}" title="Компания: отчётность из SEC">Ф</a>`;
 const getFund = () => fundP || (fundP = api('/api/fund').then(d => (fundD = d)).catch(() => (fundD = null)));
-const getIns = () => insP || (insP = api('/api/insiders').then(d => (insD = d)).catch(() => (insD = null)));
 const big = v => { if (v == null) return '—'; const a = Math.abs(v), s = v < 0 ? '−' : '';
   return s + (a >= 1e9 ? '$' + (a / 1e9).toFixed(2).replace('.', ',') + ' млрд' : a >= 1e6 ? '$' + (a / 1e6).toFixed(1).replace('.', ',') + ' млн' : a >= 1e3 ? '$' + Math.round(a / 1e3) + ' тыс.' : '$' + Math.round(a)); };
 const pc = (x, d = 1) => x == null ? '—' : (x > 0 ? '+' : '') + Number(x).toFixed(d).replace('.', ',') + '%';
@@ -1191,37 +1164,10 @@ const FLAGS = {
   lag: '⏳ 10-Q / 10-K за более свежий период уже подан, а в данных SEC его чисел ещё нет — откройте отчёт по ссылке.',
   derived: 'ℹ️ Последний квартал — четвёртый: вычислен как год минус три квартала, EPS приблизительный.',
 };
-function insRowsHtml(rows) {
-  return rows.map(r => `<tr onclick="window.open('${r.url}','_blank')">
-    <td>${ddmm(r.filed)}</td><td>${r.date ? ddmm(r.date) : '—'}</td>
-    <td><b>${esc(r.t)}</b>${fTag(r.t)}${insD && insD.clusters && insD.clusters[r.t] && r.code === 'P' ? `<span class="newtag" title="За 30 дней покупали ${insD.clusters[r.t]} разных инсайдера">кластер ${insD.clusters[r.t]}</span>` : ''}</td>
-    <td>${esc(r.who || '—')}<div class="time">${esc(r.role || '')}</div></td>
-    <td><span class="badge ${r.code === 'P' ? 'bull' : 'bear'}">${r.code === 'P' ? 'Покупка' : 'Продажа'}</span></td>
-    <td class="r mono">${Number(r.sh).toLocaleString('ru-RU')}</td>
-    <td class="r mono hide-sm">${r.px == null ? '—' : n2(r.px)}</td>
-    <td class="r mono"><b>${big(r.val)}</b></td>
-    <td class="r mono hide-sm">${r.chg == null ? '—' : (r.code === 'P' ? '+' : '−') + String(r.chg).replace('.', ',') + '%'}</td>
-    <td>${r.code === 'S' ? (r.plan ? '<span class="plan" title="Продажа по заранее утверждённому графику">план</span>' : '<span class="plan no" title="Без плана 10b5-1 — решение принято сейчас">без плана</span>') : (r.plan ? '<span class="plan">план</span>' : '')}</td></tr>`).join('');
-}
-const IN_HEAD = `<tr><th>Подано</th><th>Сделка</th><th>Тикер</th><th>Инсайдер</th><th>Тип</th><th class="r">Акций</th><th class="r hide-sm">Цена</th><th class="r">Сумма</th>
-  <th class="r hide-sm" title="Насколько изменилась доля инсайдера этой сделкой">Доля</th><th title="План 10b5-1: продажа по графику, утверждённому заранее">10b5-1</th></tr>`;
-const CG_HEAD = `<tr><th>Подано</th><th>Сделка</th><th>Тикер</th><th>Член Палаты</th><th>Владелец</th><th>Тип</th><th class="r">Сумма</th><th class="r" title="Сколько дней прошло от сделки до раскрытия (норма — до 45)">Дней</th><th class="hide-sm">Актив</th></tr>`;
-function cgRowsHtml(rows) {
-  return rows.map(x => `<tr onclick="window.open('${x.url}','_blank')">
-    <td>${ddmm(x.filed)}</td><td>${x.date ? ddmm(x.date) : '—'}</td>
-    <td>${x.t ? `<b>${esc(x.t)}</b>${fTag(x.t)}` : '—'}</td>
-    <td>${esc(x.who)} <span class="time">${esc(x.district || '')}</span></td><td>${esc(x.owner || '')}</td>
-    <td><span class="badge ${x.type === 'P' ? 'bull' : x.type === 'S' ? 'bear' : 'gray'}">${{P: 'Покупка', S: x.partial ? 'Продажа (част.)' : 'Продажа', E: 'Обмен'}[x.type] || x.type}</span>${x.kind === 'OP' ? ' <span class="plan">опционы</span>' : ''}</td>
-    <td class="r mono">${x.lo == null ? '—' : big(x.lo) + (x.hi ? '–' + big(x.hi) : '+')}</td>
-    <td class="r mono ${x.days > 45 ? 'down' : ''}">${x.days ?? '—'}</td>
-    <td class="hide-sm" style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${esc((x.asset || '') + (x.desc ? ' — ' + x.desc : ''))}">${esc(x.asset || '')}</td></tr>`).join('');
-}
-const flatHouse = () => (insD && insD.house || []).flatMap(f => (f.rows || []).map(x => ({...x, who: f.name, district: f.district, filed: f.filed, url: f.url})));
-
 async function loadFund(t) {
   t = decodeURIComponent(t).toUpperCase().replace(/\./g, '-'); $('#fdInput').value = t;
   $('#fdMsg').textContent = 'Загрузка…';
-  await Promise.all([getFund(), getIns()]);
+  await getFund();
   const f = fundD && fundD.tickers && fundD.tickers[t];
   $('#fdMsg').textContent = fundD ? 'данные SEC на ' + dtf(fundD.updated) + ' UTC' : '';
   if (!f) { $('#fdBody').innerHTML = `<div class="card empty">${fundD ? 'По ' + esc(t) + ' нет данных: тикера нет в списках сайта или компания не отчитывается в SEC в формате US GAAP' : 'Данных ещё нет — сканер считает по будням после закрытия'}</div>`; return; }
@@ -1229,7 +1175,6 @@ async function loadFund(t) {
   const er = ern && ern.rows ? ern.rows.find(r => r.ticker === t) : null;
   const kp = (l, v, s = '', cl = '') => `<div class="kpi"><div class="l">${l}</div><div class="v ${cl}">${v}</div><div class="s">${s}</div></div>`;
   const dpt = (a, b) => a == null || b == null ? '' : `${a - b >= 0 ? '+' : ''}${(a - b).toFixed(1).replace('.', ',')} п. к пред. кв.`;
-  const ins = (insD && insD.f4 || []).filter(r => r.t === t).slice(0, 30), cg = flatHouse().filter(x => x.t === t);
   $('#fdBody').innerHTML = `
     <div class="fhead"><h2>${esc(t)}</h2><span style="color:var(--muted)">${esc(f.name || '')}</span>
       <div class="links">
@@ -1259,49 +1204,9 @@ async function loadFund(t) {
         <td class="r mono hide-sm">${mg(r.gm)}</td><td class="r mono">${mg(r.om)}</td><td class="r mono hide-sm">${mg(r.nm)}</td>
         <td class="r mono">${big(r.ni)}</td><td class="r mono hide-sm ${clsPc(r.ni_yoy)}">${pc(r.ni_yoy)}</td>
         <td class="r mono">${r.eps == null ? '—' : n2(r.eps)}</td><td class="r mono ${clsPc(r.eps_yoy)}">${pc(r.eps_yoy)}</td></tr>`).join('')}</tbody></table></div>`
-    : '<div class="card empty" style="margin-bottom:12px">Квартальных чисел в XBRL нет</div>'}
-    <h3 style="font-size:14px;margin:16px 0 8px">Инсайдеры — сделки на рынке за 120 дней</h3>
-    <div class="card tbl-wrap" style="margin-bottom:12px"><table><thead>${IN_HEAD}</thead><tbody>${insRowsHtml(ins) || '<tr><td colspan="10" class="empty">Покупок и продаж на рынке не было</td></tr>'}</tbody></table></div>
-    ${cg.length ? `<h3 style="font-size:14px;margin:16px 0 8px">Конгресс</h3><div class="card tbl-wrap"><table><thead>${CG_HEAD}</thead><tbody>${cgRowsHtml(cg)}</tbody></table></div>` : ''}`;
+    : '<div class="card empty" style="margin-bottom:12px">Квартальных чисел в XBRL нет</div>'}`;
 }
 $('#fdForm').onsubmit = e => { e.preventDefault(); const t = $('#fdInput').value.trim(); if (t) location.hash = 'fund/' + t.toUpperCase(); };
-
-let inNoPlan = store.get('inNoPlan', false), inCl = store.get('inCluster', false);
-const inSrc = chipGroup('#inSrc', renderInsiders), inSide = chipGroup('#inSide', renderInsiders);
-$('#inSearch').oninput = renderInsiders;
-function setSw(id, key, v) { store.set(key, v); const el = $(id); el.classList.toggle('on', v); el.setAttribute('aria-checked', v); }
-$('#inNoPlan').onclick = () => { inNoPlan = !inNoPlan; setSw('#inNoPlan', 'inNoPlan', inNoPlan); renderInsiders(); };
-$('#inCluster').onclick = () => { inCl = !inCl; setSw('#inCluster', 'inCluster', inCl); renderInsiders(); };
-async function renderInsiders() {
-  setSw('#inNoPlan', 'inNoPlan', inNoPlan); setSw('#inCluster', 'inCluster', inCl);
-  await getIns();
-  if (!insD) { $('#inBody').innerHTML = '<tr><td class="empty">Данных ещё нет — сканер считает по будням после закрытия</td></tr>'; return; }
-  const src = inSrc(), side = inSide(), q = $('#inSearch').value.trim().toUpperCase();
-  const match = (t, who) => !q || (t || '').startsWith(q) || (who || '').toUpperCase().includes(q);
-  if (src === 'house') {
-    $('#inNoPlan').style.display = $('#inCluster').style.display = 'none';
-    const rows = flatHouse().filter(x => (side === 'all' || x.type === side) && match(x.t, x.who));
-    const scans = (insD.house || []).filter(f => f.scan);
-    $('#inHead').innerHTML = CG_HEAD;
-    $('#inBody').innerHTML = cgRowsHtml(rows.slice(0, 1000)) || '<tr><td colspan="9" class="empty">Нет сделок под фильтр</td></tr>';
-    $('#inCount').textContent = `сделок ${rows.length} · деклараций ${(insD.house || []).length} · ${dtf(insD.updated)} UTC`;
-    $('#inHint').innerHTML = `Декларации членов Палаты представителей (PTR, закон STOCK Act): сделки самого члена, супруга(и) и детей. Раскрываются до 45 дней спустя — это не опережающий сигнал. Суммы — диапазоны из декларации. Строка открывает PDF.
-      ${scans.length ? `<br>Бумажные декларации (сканы) не разбираются автоматически: ${scans.slice(0, 15).map(f => `<a href="${f.url}" target="_blank" rel="noopener">${esc(f.name)} ${ddmm(f.filed)}</a>`).join(', ')}${scans.length > 15 ? ' …' : ''}.` : ''}
-      Сенат здесь не показан: его сайт efdsearch.senate.gov требует вручную принять соглашение.`;
-    return;
-  }
-  $('#inNoPlan').style.display = $('#inCluster').style.display = '';
-  const cl = insD.clusters || {};
-  const rows = (insD.f4 || []).filter(r => (side === 'all' || r.code === side) && (!inNoPlan || !r.plan)
-    && (!inCl || (r.code === 'P' && cl[r.t])) && match(r.t, r.who));
-  $('#inHead').innerHTML = IN_HEAD;
-  $('#inBody').innerHTML = insRowsHtml(rows.slice(0, 1000)) || '<tr><td colspan="10" class="empty">Нет сделок под фильтр</td></tr>';
-  const nb = (insD.f4 || []).filter(r => r.code === 'P').length;
-  $('#inCount').textContent = `показано ${rows.length} · покупок ${nb} · кластеров ${Object.keys(cl).length} · ${dtf(insD.updated)} UTC`;
-  $('#inHint').innerHTML = `Form 4 в SEC по акциям сайта за 120 дней: только сделки на открытом рынке (P — покупка, S — продажа); гранты, исполнение опционов, налоги и подарки не показаны. Инсайдер подаёт форму в течение 2 рабочих дней.
-    «План 10b5-1» — продажа по графику, утверждённому за месяцы до сделки: о будущем она почти ничего не говорит. Сильнее сигнал — покупки, особенно <b>кластер</b> (≥ 2 разных инсайдера за 30 дней), и крупные продажи без плана.
-    «Доля» — на сколько процентов сделка изменила пакет инсайдера. Строка открывает форму в SEC, «Ф» — карточку компании.`;
-}
 
 /* ---------- хаммер + бабочка ---------- */
 let ham = null, hamBt = null, hmAll = store.get('hmAll', false);
@@ -1634,7 +1539,7 @@ async function loadChart(t) {
   $('#chartHead').innerHTML = `<h2>${esc(t)}</h2><span class="mono" style="font-size:18px">${fmt(last.close)}</span>
     <span class="mono ${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>
     <span class="time">4H · свеча ${dtf(d.last_bar)} ET</span>${oiTag(t)}
-    <a class="time" style="margin-left:auto" href="#fund/${encodeURIComponent(t)}">Компания: отчётность и инсайдеры →</a>
+    <a class="time" style="margin-left:auto" href="#fund/${encodeURIComponent(t)}">Компания: отчётность →</a>
     <a class="time" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.replace(/-/g, '.'))}&interval=240">Открыть в TradingView ↗</a>`;
   const obs = [...d.obs].sort((a, b) => a.dist - b.dist);
   const evs = d.events.slice(-8).reverse();
@@ -1960,9 +1865,8 @@ async function loadAll() {
   try { mkt = await api('/api/market'); } catch (e) { mkt = null; }
   try { ern = await api('/api/earnings'); } catch (e) { ern = null; }
   renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200(); renderMarket(); setErOb(erObOn);
-  fundP = insP = null;
+  fundP = null;
   if (location.hash.startsWith('#fund/')) loadFund(location.hash.slice(6));
-  if (location.hash === '#insiders') renderInsiders();
 }
 /* ---------- быстрый просмотр TradingView при наведении на тикер ---------- */
 (function () {

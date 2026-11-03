@@ -1,19 +1,14 @@
-name: Компания и инсайдеры — SEC и Конгресс (по будням)
+name: Компания — отчётность из SEC (по будням)
 
 on:
   schedule:
-    # пн–пт 22:20 UTC — после закрытия (Form 4 и 10-Q этого дня уже в SEC); ≈00:20 по Кишинёву
+    # пн–пт 22:20 UTC — после закрытия (10-Q этого дня уже в SEC); ≈00:20 по Кишинёву
     - cron: '20 22 * * 1-5'
   # после правок расчёта — пересчитать сразу (без Telegram)
   push:
     branches: [main]
-    paths: ['sec.py', 'fundamentals.py', 'insiders.py', '.github/workflows/sec.yml']
-  workflow_dispatch:
-    inputs:
-      telegram:
-        description: 'Разослать новое подписчикам в Telegram'
-        type: boolean
-        default: false
+    paths: ['sec.py', 'fundamentals.py', '.github/workflows/sec.yml']
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -42,24 +37,16 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: pdftotext для деклараций Конгресса
-        run: sudo apt-get install -y -qq poppler-utils >/dev/null
-
       - name: Фундаментал (10-Q / 10-K)
-        continue-on-error: true      # отказ SEC не должен останавливать Конгресс и сайт
+        continue-on-error: true      # отказ SEC не должен останавливать публикацию сайта
         run: python fundamentals.py
-
-      - name: Инсайдеры (Form 4) и Конгресс (PTR)
-        env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        run: python insiders.py ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.telegram)) && '--no-tg' || '' }}
 
       - name: Сохранить результат
         if: always()
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/fund.json cache/insiders.json cache/insiders_seen.json cache/sec_cik.json; do
+          for f in cache/fund.json cache/sec_cik.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
           git commit -m "SEC $(date -u +'%Y-%m-%d') [skip ci]" || echo "без изменений"

@@ -1,5 +1,5 @@
 """
-SEC EDGAR: общий доступ для фундаментала (fundamentals.py) и инсайдеров (insiders.py).
+SEC EDGAR: доступ для фундаментала (fundamentals.py).
 
 SEC требует User-Agent с контактом и не больше 10 запросов в секунду. Контакт задаётся
 переменной SEC_USER_AGENT (секрет GitHub), по умолчанию — адрес бота на GitHub.

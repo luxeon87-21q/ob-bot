@@ -16,8 +16,6 @@ Telegram-бот: подписчики, их команды и рассылка �
   /market    — включить/выключить панель рынка: широта, термометр, компоненты SPX у средних (market.py, по будням)
   /earnings  — отчёты, которые играются сегодняшними опционами: заложенный ход против истории (earnings.py)
   /fund TICKER — карточка компании: выручка, маржа, EPS по кварталам (fundamentals.py)
-  /insiders [TICKER] — сделки инсайдеров и конгрессменов (insiders.py); без тикера — последние покупки
-  /insiders_daily — включить/выключить рассылку о новых покупках инсайдеров и сделках Конгресса
   /earnings_daily — включить/выключить рассылку по отчётам (по будням после открытия)
 
 Подписчики хранятся в cache/tg_settings.enc — зашифрованно (Fernet, ключ в переменной
@@ -63,8 +61,6 @@ COMMANDS = [
     {"command": "earnings", "description": "Отчёты сегодня: заложенный ход против истории"},
     {"command": "earnings_daily", "description": "Отчёты — рассылка после открытия (по будням): вкл / выкл"},
     {"command": "fund", "description": "Компания: выручка, маржа, EPS — /fund AMD"},
-    {"command": "insiders", "description": "Инсайдеры и Конгресс — /insiders или /insiders AMD"},
-    {"command": "insiders_daily", "description": "Инсайдеры и Конгресс — рассылка (по будням): вкл / выкл"},
     {"command": "settings", "description": "Текущие настройки"},
     {"command": "stop", "description": "Отписаться от сигналов"},
 ]
@@ -166,9 +162,7 @@ def mode_text(sub: dict) -> str:
           else "🧭 Панель рынка: <b>выключена</b> (включить — /market)")
     er = ("📊 Отчёты — рассылка после открытия (по будням): <b>включена</b>" if sub.get("earnings", True)
           else "📊 Отчёты: <b>выключены</b> (включить — /earnings_daily)")
-    ins = ("🕵️ Инсайдеры и Конгресс — новые покупки и сделки (по будням): <b>включены</b>" if sub.get("insiders", True)
-           else "🕵️ Инсайдеры и Конгресс: <b>выключены</b> (включить — /insiders_daily)")
-    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk + "\n" + er + "\n" + ins
+    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk + "\n" + er
 
 
 HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
@@ -176,8 +170,7 @@ HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только 
         "/season — сезонность вкл/выкл\n/hammer — хаммер + бабочка вкл/выкл\n"
         "/samurai — самурай (продажа путов) вкл/выкл\n/ma200 — своя скользящая вкл/выкл\n/market — панель рынка вкл/выкл\n"
         "/earnings — отчёты сегодня: заложенный ход против истории\n/earnings_daily — рассылка по отчётам вкл/выкл\n"
-        "/fund AMD — компания: выручка, маржа, EPS\n/insiders — инсайдеры и Конгресс (/insiders AMD — по акции)\n"
-        "/insiders_daily — рассылка по инсайдерам вкл/выкл\n"
+        "/fund AMD — компания: выручка, маржа, EPS\n"
         "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
@@ -256,45 +249,9 @@ def fund_text(t: str) -> str:
     if docs.get("report"):
         lines.append(f'📄 <a href="{docs["report"]["url"]}">{docs["report"]["form"]}</a>'
                      + (f' · <a href="{docs["press"]["url"]}">пресс-релиз {docs["press"]["filed"][8:10]}.{docs["press"]["filed"][5:7]}</a>' if docs.get("press") else ""))
-    ins = [r for r in (_cache("insiders.json") or {}).get("f4", []) if r.get("t") == t]
-    if ins:
-        b = [r for r in ins if r["code"] == "P"]
-        s = [r for r in ins if r["code"] == "S"]
-        lines.append(f"🕵️ Инсайдеры за 120 дн.: покупок {len(b)} на {_big(sum(r.get('val') or 0 for r in b))}, "
-                     f"продаж {len(s)} на {_big(sum(r.get('val') or 0 for r in s))} (без плана 10b5-1: {sum(1 for r in s if not r.get('plan'))}) — /insiders {t}")
     lines.append(f"🌐 {link}")
     return "\n".join(lines)
 
-
-def insiders_text(t: str = "") -> str:
-    d = _cache("insiders.json")
-    if not d:
-        return "Данных ещё нет — сканер считает по будням после закрытия."
-    cl = d.get("clusters") or {}
-    f4 = [r for r in d.get("f4", []) if not t or r.get("t") == t]
-    cg = [dict(x, who=h["name"], district=h.get("district", ""), filed=h["filed"]) for h in d.get("house", [])
-          for x in h.get("rows", []) if x.get("t") and (not t or x["t"] == t)]
-    head = f"🕵️ <b>Инсайдеры{' — ' + t if t else ': последние покупки'}</b>"
-    if not t:
-        f4 = [r for r in f4 if r["code"] == "P"]
-    lines = [head]
-    for r in f4[:15]:
-        act = "🟢 купил" if r["code"] == "P" else "🔴 продал"
-        plan = "" if r["code"] == "P" else (" (план 10b5-1)" if r.get("plan") else " (<b>без плана</b>)")
-        c = f" · 👥 кластер {cl[r['t']]}" if r["code"] == "P" and r.get("t") in cl else ""
-        lines.append(f"{r['filed'][8:10]}.{r['filed'][5:7]} <b>{r['t']}</b>: {r.get('who') or '?'} ({r.get('role') or '—'}) "
-                     f"{act} {_big(r.get('val'))}{plan}{c}")
-    if len(lines) == 1:
-        lines.append("Сделок на открытом рынке за 120 дней нет.")
-    if cg:
-        lines.append("\n🏛 <b>Конгресс</b>")
-        for x in cg[:10]:
-            act = {"P": "купил(а)", "S": "продал(а)", "E": "обмен"}.get(x["type"], x["type"])
-            amt = _big(x.get("lo")) + ("–" + _big(x["hi"]) if x.get("hi") else "+")
-            lines.append(f"{x['filed'][8:10]}.{x['filed'][5:7]} <b>{x['t']}</b>: {x['who']} ({x['district']}, {x.get('owner', '')}) "
-                         f"{act} {amt}, раскрыто через {x.get('days', '?')} дн.")
-    lines.append(f"\n🌐 {SITE_URL}#{'fund/' + t if t else 'insiders'}")
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- команды
@@ -333,8 +290,6 @@ def process_updates(token: str) -> dict:
         arg = re.sub(r"[^A-Z0-9-]", "", words[1].upper().replace(".", "-"))[:10] if len(words) > 1 else ""
         if cmd in ("/fund", "/компания"):
             reply = fund_text(arg) if arg else "Напишите тикер: <code>/fund AMD</code>"
-        elif cmd in ("/insiders", "/инсайдеры"):
-            reply = insiders_text(arg)
         elif cmd == "/start":
             if not sub:
                 sub = subs[cid] = {"only_new": True, "name": ch.get("first_name", ""),
@@ -349,7 +304,7 @@ def process_updates(token: str) -> dict:
                 reply = "Вы и так не подписаны. Подписаться — /start"
         elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
                      "/wolfe", "/вульф", "/ob", "/season", "/сезон", "/hammer", "/хаммер", "/samurai", "/самурай", "/ma200",
-                     "/market", "/рынок", "/earnings", "/отчёты", "/отчеты", "/earnings_daily", "/insiders_daily"):
+                     "/market", "/рынок", "/earnings", "/отчёты", "/отчеты", "/earnings_daily"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
             elif cmd in ("/settings", "/status"):
@@ -368,9 +323,6 @@ def process_updates(token: str) -> dict:
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd in ("/earnings", "/отчёты", "/отчеты"):
                 reply = earnings_text()
-            elif cmd == "/insiders_daily":
-                sub["insiders"] = not sub.get("insiders", True)
-                reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd == "/earnings_daily":
                 sub["earnings"] = not sub.get("earnings", True)
                 reply = "✅ Готово.\n" + mode_text(sub)
