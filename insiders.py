@@ -364,12 +364,12 @@ def run(tickers: List[str], no_house: bool = False, budget_s: float = 2400, work
     prev = load_json(OUT_FILE, {})
     seen_d = load_json(SEEN_FILE, {})
     seen4, seenh = set(seen_d.get("f4", [])), set(seen_d.get("house", []))
-    first = not seen_d
-    since = (today - timedelta(days=FIRST_DAYS if first else 10)).isoformat()
+    first4, firsth = not seen4, not seenh          # первый запуск — отдельно для SEC и Палаты
+    since = (today - timedelta(days=FIRST_DAYS if first4 else 10)).isoformat()
     api = sec.SEC()
     ciks = api.cik_map()
     todo = [(t, ciks[t]) for t in tickers if t in ciks]
-    log.info("Form 4: %d тикеров, с %s%s", len(todo), since, " (первый запуск)" if first else "")
+    log.info("Form 4: %d тикеров, с %s%s", len(todo), since, " (первый запуск)" if first4 else "")
     new4, t0 = [], time.time()
     with ThreadPoolExecutor(workers) as pool:
         futs = {pool.submit(form4_rows, api, t, c, seen4, since): t for t, c in todo}
@@ -384,7 +384,7 @@ def run(tickers: List[str], no_house: bool = False, budget_s: float = 2400, work
                     g.cancel()
                 break
     log.info("Form 4: новых сделок P/S %d за %.0f с", len(new4), time.time() - t0)
-    newh = [] if no_house else house(seenh, today, (today - timedelta(days=FIRST_DAYS if first else 30)).isoformat())
+    newh = [] if no_house else house(seenh, today, (today - timedelta(days=FIRST_DAYS if firsth else 30)).isoformat())
 
     keep = (today - timedelta(days=KEEP_DAYS)).isoformat()
     f4 = [r for r in (prev.get("f4") or []) if r["filed"] >= keep] + new4
@@ -398,7 +398,7 @@ def run(tickers: List[str], no_house: bool = False, budget_s: float = 2400, work
                                     separators=(",", ":")), encoding="utf-8")
     res = dict(updated=datetime.now(timezone.utc).isoformat(timespec="seconds"), today=today.isoformat(),
                f4=f4, house=hs, clusters=cl)
-    return res, ([] if first else new4), ([] if first else newh), cl
+    return res, ([] if first4 else new4), ([] if firsth else newh), cl
 
 
 def main():
