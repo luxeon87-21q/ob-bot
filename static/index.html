@@ -117,6 +117,16 @@ tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
 .obrow .z{font-weight:500}
 .obrow .m{color:var(--muted);font-size:12px}
 .hint{color:var(--muted);font-size:12.5px;margin-top:10px}
+.rt-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.rt-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.rt-form input{border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:13px;padding:6px 8px;border-radius:7px;min-width:0}
+.rt-card{margin-bottom:10px}
+.rt-card .hd{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.rt-card .hd b{font-size:16px}
+.rt-leg{font-family:"JetBrains Mono",monospace;font-size:13px}
+table.grid td,table.grid th{text-align:right;padding:5px 8px}
+table.grid td:first-child,table.grid th:first-child{text-align:left}
+.pos{color:var(--bull)} .neg{color:var(--bear)}
 .yrs{display:inline-flex;gap:2px;vertical-align:middle}
 .yrs i{width:7px;height:14px;border-radius:2px;background:var(--panel2);border:1px solid var(--line)}
 .yrs i.ok{background:var(--bull);border-color:transparent} .yrs.bear i.ok{background:var(--bear)}
@@ -256,6 +266,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <button data-v="season">Сезонность</button>
       <button data-v="hammer">Хаммер</button>
       <button data-v="samurai">Самурай</button>
+      <button data-v="ratio" title="Пут-ратио диагональ под отчёт: −2 ближних пута / +4 дальних ниже, поиск страйков и калькулятор">Пут-ратио</button>
       <button data-v="ma200" title="Своя скользящая: средняя, от которой акция исторически отскакивает, и подход цены к ней">Скользящие</button>
       <button data-v="trader" title="Time Machine по ордер-блокам, статистика правила OB, сканер сетапов, новости, калькулятор риска">Трейдер</button>
       <button data-v="chart">График</button>
@@ -670,6 +681,39 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       Сканер запускается по будням дважды: ≈10:30 и ≈15:00 по Нью-Йорку. Отчёт «н/д» — Yahoo не знает дату, проверьте сами.</div>
   </section>
 
+  <!-- ПУТ-РАТИО ПОД ОТЧЁТ -->
+  <section class="view" id="v-ratio">
+    <div class="toolbar"><span class="count" id="rtCount"></span></div>
+    <div id="rtCards"><div class="card"><div class="empty">Загрузка…</div></div></div>
+
+    <div class="sect">Калькулятор своей позиции</div>
+    <div class="card" style="padding:12px 14px">
+      <div class="rt-form" id="rtForm">
+        <label>Цена<input type="number" step="any" id="rc_S" value="620"></label>
+        <label>Дней до выхода<input type="number" step="1" id="rc_X" value="20" title="Обычно — за день до отчёта"></label>
+        <label>Продано, шт<input type="number" step="1" id="rc_n1" value="2"></label>
+        <label>Страйк K1<input type="number" step="any" id="rc_K1" value="580"></label>
+        <label>Дней до E1<input type="number" step="1" id="rc_T1" value="39"></label>
+        <label>IV K1, %<input type="number" step="any" id="rc_V1" value="55"></label>
+        <label>Куплено, шт<input type="number" step="1" id="rc_n2" value="4"></label>
+        <label>Страйк K2<input type="number" step="any" id="rc_K2" value="510"></label>
+        <label>Дней до E2<input type="number" step="1" id="rc_T2" value="67"></label>
+        <label>IV K2, %<input type="number" step="any" id="rc_V2" value="52"></label>
+        <label title="На сколько пунктов IV растёт при падении акции на 1% (лог.): 0,7 ≈ +7 пунктов при −10%">β IV к цене<input type="number" step="any" id="rc_B" value="0.7"></label>
+        <label title="Пусто — цена по модели">Кредит (+) / дебет (−)<input type="number" step="any" id="rc_C" placeholder="по модели"></label>
+      </div>
+      <div id="rcOut" style="margin-top:10px"></div>
+    </div>
+    <div class="hint">Идея: продать 2 пута ближней серии (после отчёта) и купить 4 пута дальней серии ниже — за кредит около нуля, дельта ≈ 0, гамма ≈ 0.
+      Вега плюсовая: позиция зарабатывает на росте IV перед отчётом и на обвале акции (4 длинных пута), теряет понемногу, если ничего не происходит. Выход — до отчёта.<br>
+      Поиск идёт по выгрузке скринера опционов (дважды в день): отчёт через 12–35 дней, IV30 &lt; 50%, IV Rank ≤ 40, объём опционов ≥ 5000;
+      короткий страйк на 2–14% ниже цены, длинный на 4–25% ниже и ниже короткого; кредит по середине не хуже −0,25; |дельта| ≤ 8 на лот.
+      P&amp;L — на день перед отчётом. «База»: IV растёт так, как уже заложено в цены сейчас (σ(T) = √(σ₀² + ход²/T)); «ход +25%»: рынок закладывает отчёт дороже;
+      «IV та же». Цена — от −2σ до +2σ базовой волатильности, при падении IV растёт (β = 0,7). Выход по худшей стороне бид/аск.
+      Залог — 2 × (K1 − K2) × 100, как у брокера для диагонали. Ранг — ожидаемый P&amp;L к залогу; комбинации с убытком больше 20% залога при ±1,5σ отброшены.
+      Это модель Блэка–Шоулза, а не история: проверяйте цены в терминале. Не инвестиционная рекомендация.</div>
+  </section>
+
   <!-- ГРАФИК -->
   <section class="view" id="v-chart">
     <div class="toolbar">
@@ -701,6 +745,7 @@ function staticPath(p) {
   if (p.startsWith('/api/seasonal')) return 'data/seasonal.json';
   if (p.startsWith('/api/hammer_backtest')) return 'data/hammer_backtest.json';
   if (p.startsWith('/api/samurai')) return 'data/samurai.json';
+  if (p.startsWith('/api/ratio')) return 'data/ratio.json';
   if (p.startsWith('/api/ma200')) return 'data/ma200.json';
   if (p.startsWith('/api/market')) return 'data/market.json';
   if (p.startsWith('/api/earnings')) return 'data/earnings.json';
@@ -748,7 +793,7 @@ function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
   else if (h.startsWith('fund/')) { show('fund'); loadFund(h.slice(5)); }
-  else show(['signals', 'market', 'earnings', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'trader', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'market', 'earnings', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ratio', 'ma200', 'trader', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -1327,6 +1372,74 @@ function renderSamurai() {
       <td>${esc(c.reason || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">—</td></tr>';
 }
 
+/* ---------- пут-ратио ---------- */
+let rto = null;
+const ncdf = x => { const t = 1 / (1 + 0.2316419 * Math.abs(x)), d = 0.3989423 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return x > 0 ? 1 - p : p; };
+function bsPut(S, K, T, iv, r = 0.04) {
+  if (T <= 0 || iv <= 0) return {p: Math.max(K - S, 0), d: K > S ? -1 : 0, g: 0, v: 0, t: 0};
+  const sq = Math.sqrt(T), d1 = (Math.log(S / K) + (r + iv * iv / 2) * T) / (iv * sq), d2 = d1 - iv * sq;
+  const pdf = Math.exp(-d1 * d1 / 2) / Math.sqrt(2 * Math.PI);
+  return {p: K * Math.exp(-r * T) * ncdf(-d2) - S * ncdf(-d1), d: ncdf(d1) - 1, g: pdf / (S * iv * sq), v: S * pdf * sq / 100,
+    t: (-S * pdf * iv / (2 * sq) + r * K * Math.exp(-r * T) * ncdf(-d2)) / 365};
+}
+const sgn = x => `<span class="${x >= 0 ? 'pos' : 'neg'}">${x >= 0 ? '+' : ''}${Math.round(x).toLocaleString('ru-RU')}</span>`;
+function renderRatio() {
+  const box = $('#rtCards');
+  if (!rto || !rto.rows) { box.innerHTML = '<div class="card"><div class="empty">Данных ещё нет — поиск запускается после выгрузки опционов (по будням дважды)</div></div>'; return; }
+  const ok = rto.rows.filter(r => r.best && r.best.length);
+  $('#rtCount').textContent = `данные опционов на ${dtf(rto.data_et.replace(' ', 'T'))} NY · кандидатов ${rto.candidates} · с подходящими комбинациями ${ok.length}`;
+  if (!ok.length) { box.innerHTML = `<div class="card"><div class="empty">Сейчас нет акций под условия: отчёт через 12–35 дней, IV30 &lt; 50%, IV Rank ≤ 40, объём опционов ≥ 5000${rto.candidates ? ` (кандидатов ${rto.candidates}, но без комбинаций по ограничениям)` : ''}.<br>Свою позицию можно посчитать в калькуляторе ниже.</div></div>`; return; }
+  const zl = ['−2σ', '−1,5σ', '−1σ', '−0,5σ', '0', '+0,5σ', '+1σ', '+1,5σ', '+2σ'];
+  box.innerHTML = ok.map(r => {
+    const b = r.best[0], days = Math.round((new Date(r.earn) - new Date(rto.today)) / 864e5);
+    const alt = r.best.slice(1, 4).map(x => `<tr><td class="rt-leg">−2×${x.k1} ${dm(x.e1)} / +4×${x.k2} ${dm(x.e2)}</td><td>${fmt(x.credit)}</td><td>${x.delta}</td><td>${x.vega}</td><td>${x.margin.toLocaleString('ru-RU')}</td><td>${sgn(x.exp_base)}</td><td>${x.ret.toFixed(1).replace('.', ',')}%</td><td>${sgn(x.worst)}</td></tr>`).join('');
+    const mv = z => { const sb = b.sb, X = b.exit_days; return ((Math.exp(z * sb * Math.sqrt(X / 365)) - 1) * 100).toFixed(0) + '%'; };
+    return `<div class="card rt-card">
+      <div class="hd"><b>${esc(r.ticker)}</b><span class="mono">${fmt(r.price)}</span>
+        <span>отчёт <b class="mono" style="font-size:13px">${dm(r.earn)}</b> (через ${days} дн.)</span>
+        <span class="mono">IV30 ${(r.iv30 * 100).toFixed(0)}% · IV Rank ${r.ivs === 'hv' ? '≈' : ''}${r.ivr == null ? '—' : Math.round(r.ivr)}</span>
+        <span class="count">${esc(r.name || '')}</span></div>
+      <div style="padding:10px 14px">
+        <div class="rt-leg"><b>−2 пута ${b.k1}</b> до ${b.e1} (бид ${fmt(b.bid1)} / аск ${fmt(b.ask1)}) · <b>+4 пута ${b.k2}</b> до ${b.e2} (бид ${fmt(b.bid2)} / аск ${fmt(b.ask2)})</div>
+        <div class="kpis" style="margin:10px 0">
+          <div class="kpi"><div class="l">Кредит по середине</div><div class="v">${fmt(b.credit)}</div><div class="s">по худшей стороне ${fmt(b.credit_cons)}</div></div>
+          <div class="kpi"><div class="l">Дельта / гамма</div><div class="v">${b.delta} / ${b.gamma}</div><div class="s">на лот 2×4</div></div>
+          <div class="kpi"><div class="l">Вега / тета</div><div class="v">${b.vega} / ${b.theta}</div><div class="s">$ за пункт IV / за день</div></div>
+          <div class="kpi"><div class="l">Залог</div><div class="v">${b.margin.toLocaleString('ru-RU')}</div><div class="s">2 × (K1 − K2) × 100</div></div>
+          <div class="kpi"><div class="l">Ожидание к выходу</div><div class="v">${sgn(b.exp_base)}</div><div class="s">${b.ret.toFixed(1).replace('.', ',')}% залога · ход +25%: ${sgn(b.exp_rich)} · IV та же: ${sgn(b.exp_flat)}</div></div>
+        </div>
+        <div class="tbl-wrap"><table class="grid"><thead><tr><th>Цена через ${b.exit_days} дн.</th>${zl.map((z, i) => `<th>${z}<span class="sub" style="display:block;font-weight:400">${mv(-2 + i * 0.5)}</span></th>`).join('')}</tr></thead>
+          <tbody><tr><td>P&amp;L, база</td>${b.grid.map(x => `<td class="mono">${sgn(x)}</td>`).join('')}</tr></tbody></table></div>
+        <div class="hint" style="margin-top:6px">ATM-IV сейчас ${(b.iv1 * 100).toFixed(0)}% / ${(b.iv2 * 100).toFixed(0)}% → к выходу по модели ${(b.iv1_exit * 100).toFixed(0)}% / ${(b.iv2_exit * 100).toFixed(0)}% · базовая IV ${(b.sb * 100).toFixed(0)}%, ход на отчёте ≈ ${(b.m * 100).toFixed(1)}%</div>
+        ${alt ? `<div class="sect" style="margin-top:10px">Другие варианты</div><div class="tbl-wrap"><table class="grid"><thead><tr><th>Позиция</th><th>Кредит</th><th>Дельта</th><th>Вега</th><th>Залог</th><th>Ожидание</th><th>% залога</th><th>Худший ±1,5σ</th></tr></thead><tbody>${alt}</tbody></table></div>` : ''}
+      </div></div>`;
+  }).join('');
+}
+function calcRatio() {
+  const g = id => parseFloat($('#rc_' + id).value);
+  const S = g('S'), X = g('X'), n1 = g('n1'), n2 = g('n2'), K1 = g('K1'), K2 = g('K2'), T1 = g('T1'), T2 = g('T2'), V1 = g('V1') / 100, V2 = g('V2') / 100, B = g('B');
+  if ([S, X, n1, n2, K1, K2, T1, T2, V1, V2].some(x => isNaN(x))) { $('#rcOut').innerHTML = ''; return; }
+  const a = bsPut(S, K1, T1 / 365, V1), b = bsPut(S, K2, T2 / 365, V2);
+  const model = n1 * a.p - n2 * b.p, cIn = $('#rc_C').value, credit = cIn === '' ? model : parseFloat(cIn);
+  const G = k => (-n1 * a[k] + n2 * b[k]) * 100;
+  const margin = Math.max(n1 * (K1 - K2) * 100 - Math.max(credit, 0) * 100, 0);
+  const moves = [-25, -20, -15, -10, -5, 0, 5, 10, 15], dvs = [-5, 0, 5, 10, 15];
+  const rows = dvs.map(dv => `<tr><td>IV ${dv >= 0 ? '+' : ''}${dv} п.</td>${moves.map(m => {
+    const S2 = S * (1 + m / 100), sv = -B * Math.log(S2 / S);
+    const va = bsPut(S2, K1, Math.max(T1 - X, 0) / 365, Math.max(V1 + dv / 100 + sv, 0.05)).p;
+    const vb = bsPut(S2, K2, Math.max(T2 - X, 0) / 365, Math.max(V2 + dv / 100 + sv, 0.05)).p;
+    return `<td class="mono">${sgn(100 * (credit - n1 * va + n2 * vb))}</td>`; }).join('')}</tr>`).join('');
+  $('#rcOut').innerHTML = `<div class="kpis">
+      <div class="kpi"><div class="l">Цена позиции по модели</div><div class="v">${fmt(model)}</div><div class="s">${model >= 0 ? 'кредит' : 'дебет'} на 1 комплект</div></div>
+      <div class="kpi"><div class="l">Дельта / гамма</div><div class="v">${G('d').toFixed(1)} / ${G('g').toFixed(2)}</div></div>
+      <div class="kpi"><div class="l">Вега / тета</div><div class="v">${G('v').toFixed(0)} / ${G('t').toFixed(1)}</div><div class="s">$ за пункт IV / за день</div></div>
+      <div class="kpi"><div class="l">Залог</div><div class="v">${Math.round(margin).toLocaleString('ru-RU')}</div><div class="s">${n1} × (K1 − K2) × 100</div></div></div>
+    <div class="tbl-wrap"><table class="grid"><thead><tr><th>P&amp;L через ${X} дн. при изменении цены →</th>${moves.map(m => `<th>${m > 0 ? '+' : ''}${m}%</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="hint">IV меняется на указанные пункты в обеих сериях, плюс рост IV при падении цены (β). Без комиссий и проскальзывания.</div>`;
+}
+$('#rtForm').addEventListener('input', calcRatio);
+
 /* ---------- график (свой canvas, без внешних библиотек) ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const AXW = 70, AXH = 26, RPAD = 8;
@@ -1868,7 +1981,8 @@ async function loadAll() {
   try { ma2 = await api('/api/ma200'); } catch (e) { ma2 = null; }
   try { mkt = await api('/api/market'); } catch (e) { mkt = null; }
   try { ern = await api('/api/earnings'); } catch (e) { ern = null; }
-  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200(); renderMarket(); setErOb(erObOn);
+  try { rto = await api('/api/ratio'); } catch (e) { rto = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderRatio(); calcRatio(); renderMa200(); renderMarket(); setErOb(erObOn);
   fundP = null;
   if (location.hash.startsWith('#fund/')) loadFund(location.hash.slice(6));
 }

@@ -68,6 +68,10 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         run: python samurai.py --from-dataset ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
 
+      - name: Пут-ратио под отчёт — поиск страйков
+        if: steps.scan.outputs.skip != 'true'
+        run: python ratio.py || echo "пут-ратио не посчитан"
+
       - name: Сохранить выгрузку в кэш
         if: steps.scan.outputs.skip != 'true'
         uses: actions/cache/save@v4
@@ -80,7 +84,7 @@ jobs:
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/samurai.json cache/iv_history.json cache/samurai_vol.json cache/optscreen_info.json; do
+          for f in cache/samurai.json cache/ratio.json cache/iv_history.json cache/samurai_vol.json cache/optscreen_info.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
           git commit -m "Самурай $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"
