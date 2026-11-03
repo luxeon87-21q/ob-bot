@@ -7,6 +7,18 @@ on:
         description: 'Только эти тикеры (через запятую), без фильтров IV и дней до отчёта'
         type: string
         default: ''
+      iv_max:
+        description: 'Порог IV30 (доля), по умолчанию 0.50'
+        type: string
+        default: '0.50'
+      ivr_max:
+        description: 'Порог IV Rank, по умолчанию 40'
+        type: string
+        default: '40'
+      out:
+        description: 'Файл результата'
+        type: string
+        default: 'cache/ratio.json'
 
 permissions:
   contents: write
@@ -35,12 +47,15 @@ jobs:
       - name: Поиск
         env:
           TICKERS: ${{ inputs.tickers }}
+          RATIO_IV_MAX: ${{ inputs.iv_max }}
+          RATIO_IVR_MAX: ${{ inputs.ivr_max }}
+          OUT: ${{ inputs.out }}
         run: |
-          if [ -n "$TICKERS" ]; then python ratio.py --tickers "$TICKERS"; else python ratio.py; fi
+          if [ -n "$TICKERS" ]; then python ratio.py --tickers "$TICKERS" --out "$OUT"; else python ratio.py --out "$OUT"; fi
       - name: Сохранить
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          git add -f cache/ratio.json
+          git add -f "${{ inputs.out }}"
           git commit -m "Пут-ратио: поиск [skip ci]" || echo "без изменений"
           for i in 1 2 3; do git pull --rebase --autostash -X theirs && git push && break; sleep 5; done

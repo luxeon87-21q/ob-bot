@@ -43,8 +43,9 @@ OUT_FILE = BASE / "cache" / "ratio.json"
 log = logging.getLogger("ob_bot.ratio")
 
 DAYS_MIN, DAYS_MAX = 12, 35     # дней до отчёта (в примере 21)
-IV_MAX = 0.50                   # IV30 ниже 50%
-IVR_MAX = 40                    # «низкий процентиль»
+import os as _os
+IV_MAX = float(_os.environ.get("RATIO_IV_MAX", 0.50))   # IV30 ниже 50%
+IVR_MAX = float(_os.environ.get("RATIO_IVR_MAX", 40))   # «низкий процентиль»
 VOL_MIN = 5000
 SHORT_N, LONG_N = 2, 4
 CREDIT_MIN = -0.25              # по середине: кредит или почти ноль
