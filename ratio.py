@@ -98,9 +98,31 @@ def atm_iv(rows, S):
     return best["iv"] if best else None
 
 
+FUNNEL: Dict[str, int] = {}
+
+
 def candidates(ds: dict, only: Optional[List[str]] = None) -> List[dict]:
     today = pd.Timestamp(ds["today"])
     out = []
+    f = FUNNEL
+    f.clear()
+    for t in ds["tickers"]:
+        if t.get("etf") or not t.get("earn") or not t.get("iv"):
+            continue
+        f["stocks"] = f.get("stocks", 0) + 1
+        d = (pd.Timestamp(t["earn"]) - today).days
+        if not (DAYS_MIN <= d <= DAYS_MAX):
+            continue
+        f["earn_window"] = f.get("earn_window", 0) + 1
+        if (t.get("vol") or 0) < VOL_MIN:
+            continue
+        f["vol"] = f.get("vol", 0) + 1
+        if t["iv"] < IV_MAX:
+            f["iv_lt"] = f.get("iv_lt", 0) + 1
+        if t.get("ivr") is None or t["ivr"] <= IVR_MAX:
+            f["ivr_le"] = f.get("ivr_le", 0) + 1
+        if t["iv"] < IV_MAX and (t.get("ivr") is None or t["ivr"] <= IVR_MAX):
+            f["both"] = f.get("both", 0) + 1
     for i, t in enumerate(ds["tickers"]):
         if only:
             if t["t"] not in only:
@@ -217,7 +239,7 @@ def run(ds: dict, only: Optional[List[str]] = None) -> dict:
         rows.append(dict(ticker=c["t"], name=c.get("n"), price=c["p"], earn=c.get("earn"), iv30=c.get("iv"),
                          ivr=c.get("ivr"), ivs=c.get("ivs"), vol=c.get("vol"), n_combos=len(best), best=best[:5]))
     rows.sort(key=lambda r: -(r["best"][0]["ret"] if r["best"] else -1e9))
-    return dict(made=ds.get("made"), data_et=ds.get("et"), today=ds["today"], candidates=len(cands),
+    return dict(made=ds.get("made"), data_et=ds.get("et"), today=ds["today"], candidates=len(cands), funnel=dict(FUNNEL),
                 params=dict(days=[DAYS_MIN, DAYS_MAX], iv_max=IV_MAX, ivr_max=IVR_MAX, vol_min=VOL_MIN,
                             ratio=[SHORT_N, LONG_N], credit_min=CREDIT_MIN, delta_max=DELTA_MAX, max_loss=MAX_LOSS),
                 rows=rows)
