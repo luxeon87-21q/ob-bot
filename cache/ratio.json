@@ -3,6 +3,13 @@
  "data_et": "2026-11-03 11:22",
  "today": "2026-11-03",
  "candidates": 0,
+ "funnel": {
+  "stocks": 563,
+  "earn_window": 75,
+  "vol": 44,
+  "iv_lt": 9,
+  "ivr_le": 8
+ },
  "params": {
   "days": [
    12,
