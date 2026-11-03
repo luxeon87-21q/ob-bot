@@ -387,6 +387,11 @@ def build_message(res: dict, top: int = 20) -> str:
     tod, tom = tradable_today(res)
     if not tod and not tom:
         return ""
+    far = sum(r.get("note") == "far" for r in tod + tom)
+    tod = [r for r in tod if r.get("note") != "far"]          # месячная экспирация — не сыграть сам отчёт
+    tom = [r for r in tom if r.get("note") != "far"]
+    if not tod and not tom:
+        return ""
     by_vol = lambda xs: sorted(xs, key=lambda r: -(r.get("vol") or 0))[:top]
     nd = next_bday(date.fromisoformat(res["today"]))
     out = ["📊 <b>Отчёты — что можно сыграть сегодняшними опционами</b>",
@@ -398,6 +403,8 @@ def build_message(res: dict, top: int = 20) -> str:
     if tom:
         out.append(f"\n🌅 <b>{nd.strftime('%d.%m')} до открытия</b>")
         out += [_line(r) for r in by_vol(tom)]
+    if far:
+        out.append(f"\nЕщё {far} — только с месячной экспирацией (ход в опционах не выделить), они на сайте.")
     out.append(f"\n📦 — сигнал ордер-блока 4H за неделю. Вся неделя: {SITE_URL}")
     out.append("⚠️ История и цены опционов, не прогноз направления. Не инвестиционная рекомендация.")
     return "\n".join(out)
