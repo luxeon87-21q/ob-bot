@@ -166,6 +166,21 @@ td.best{font-weight:700}
 .mv{display:inline-flex;gap:2px;vertical-align:middle;align-items:flex-end;height:16px}
 .mv i{width:5px;border-radius:1px;background:var(--muted);opacity:.7} .mv i.u{background:var(--bull)} .mv i.d{background:var(--bear)}
 tr.today td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.ftag{display:inline-block;margin-left:5px;font:700 10px/1.6 Inter,sans-serif;padding:0 5px;border-radius:4px;color:var(--accent);background:var(--panel2);text-decoration:none;vertical-align:middle}
+.ftag:hover{background:var(--accent);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi .l{font-size:12px;color:var(--muted)} .kpi .v{font:600 20px/1.3 "JetBrains Mono",monospace;margin-top:2px} .kpi .s{font-size:12px;color:var(--muted)}
+.flag{border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.fgrid .card{padding:10px 12px} .fgrid h4{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.fgrid svg{width:100%;height:auto;display:block}
+.fhead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px}
+.fhead h2{margin:0;font-size:22px} .fhead .links{margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;font-size:13px}
+.fhead .links a{color:var(--accent);text-decoration:none}
+.plan{font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px;background:var(--panel2);color:var(--muted)}
+.plan.no{color:var(--warn)}
+@media (max-width:900px){.fgrid{grid-template-columns:1fr}}
 .obtag{display:inline-block;margin-left:5px;font:700 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 4px;border-radius:4px;color:var(--bull);background:var(--bull-bg);vertical-align:middle}
 
 /* рынок — панель приборов */
@@ -237,6 +252,8 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <button data-v="signals" class="on">Сигналы</button>
       <button data-v="market" title="Панель приборов: широта S&amp;P 500, веса и скользящие компонентов, ротация, риск">Рынок</button>
       <button data-v="earnings" title="Отчёты недели: сколько закладывают опционы против обычного хода акции после отчёта">Отчёты</button>
+      <button data-v="insiders" title="Сделки инсайдеров (Form 4) и конгрессменов по акциям сайта">Инсайдеры</button>
+      <button data-v="fund" title="Карточка компании: выручка, маржа, EPS из отчётов в SEC">Компания</button>
       <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
@@ -554,6 +571,43 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       Считается по будням через ≈20 минут после открытия по живым бид/аск; перед сделкой сверьте с терминалом. Это история и цены, не прогноз направления.</div>
   </section>
 
+  <!-- ИНСАЙДЕРЫ И КОНГРЕСС -->
+  <section class="view" id="v-insiders">
+    <div class="toolbar">
+      <div class="chips" id="inSrc">
+        <button class="chip on" data-f="all">Инсайдеры (Form 4)</button>
+        <button class="chip" data-f="house">Конгресс</button>
+      </div>
+      <div class="chips" id="inSide">
+        <button class="chip on" data-f="all">Покупки и продажи</button>
+        <button class="chip" data-f="P">Покупки</button>
+        <button class="chip" data-f="S">Продажи</button>
+      </div>
+      <span class="switch" id="inNoPlan" role="switch" aria-checked="false" title="Скрыть продажи по заранее утверждённому плану 10b5-1"><i></i>Без плана 10b5-1</span>
+      <span class="switch" id="inCluster" role="switch" aria-checked="false" title="Только акции, которые за 30 дней покупали ≥ 2 инсайдера"><i></i>Кластеры покупок</span>
+      <input type="search" id="inSearch" placeholder="Тикер или имя…" style="width:160px">
+      <span class="count" id="inCount"></span>
+    </div>
+    <div class="card tbl-wrap"><table><thead id="inHead"></thead><tbody id="inBody"><tr><td class="empty">Загрузка…</td></tr></tbody></table></div>
+    <div class="hint" id="inHint"></div>
+  </section>
+
+  <!-- КОМПАНИЯ -->
+  <section class="view" id="v-fund">
+    <div class="toolbar">
+      <form id="fdForm" style="display:flex;gap:6px">
+        <input type="text" id="fdInput" placeholder="Тикер, напр. AMD" style="width:160px;text-transform:uppercase">
+        <button class="btn">Показать</button>
+      </form>
+      <span class="count" id="fdMsg"></span>
+    </div>
+    <div id="fdBody"><div class="card empty">Введите тикер — или нажмите «Ф» рядом с тикером на вкладках «Отчёты» и «Инсайдеры»</div></div>
+    <div class="hint">Числа — из отчётов, поданных компанией в SEC (XBRL из 10-Q и 10-K), рост — к тому же кварталу год назад, TTM — сумма 4 последних кварталов.
+      4-й квартал отдельно не подаётся: он считается как год (10-K) минус три квартала и помечен «выч.»; EPS такого квартала — приблизительный.
+      Банки и страховщики показывают выручку иначе — маржи у них могут быть пустыми. Иностранные компании (20-F по МСФО) не показываются.
+      Обновляется по будням после закрытия: числа перекачиваются, когда компания подала новый 10-Q / 10-K. Это отчётность, а не оценка «дорого / дёшево».</div>
+  </section>
+
   <!-- СВОЯ СКОЛЬЗЯЩАЯ -->
   <section class="view" id="v-ma200">
     <div class="toolbar">
@@ -672,6 +726,8 @@ function staticPath(p) {
   if (p.startsWith('/api/ma200')) return 'data/ma200.json';
   if (p.startsWith('/api/market')) return 'data/market.json';
   if (p.startsWith('/api/earnings')) return 'data/earnings.json';
+  if (p.startsWith('/api/fund')) return 'data/fund.json';
+  if (p.startsWith('/api/insiders')) return 'data/insiders.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -707,12 +763,14 @@ function show(v) {
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   if (v === 'chart') requestAnimationFrame(chartDraw);
   if (v === 'market') requestAnimationFrame(renderMarketCharts);
+  if (v === 'insiders') renderInsiders();
 }
 $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v; });
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'market', 'earnings', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
+  else if (h.startsWith('fund/')) { show('fund'); loadFund(h.slice(5)); }
+  else show(['signals', 'market', 'earnings', 'insiders', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -1075,7 +1133,7 @@ function renderEarnings() {
     const st = r.straddle, ob = r.ob;
     return `<tr class="${r.date === ern.today ? 'today' : ''}">
       <td>${WD[d.getUTCDay()]} ${ddmm(r.date)}<span class="ses ${cls}">${lbl}</span></td>
-      <td><a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.ticker.replace(/-/g, '.'))}&interval=D" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${ob ? `<span class="obtag" style="${ob.side === 'bear' ? 'color:var(--bear);background:var(--bear-bg)' : ''}" title="Ордер-блок 4H: ${ob.side === 'bull' ? 'бычий' : 'медвежий'}, ${TYPE[ob.type] || ob.type}, ${dtf(ob.bar_time)}">OB</span>` : ''}</td>
+      <td><a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.ticker.replace(/-/g, '.'))}&interval=D" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${fTag(r.ticker)}${ob ? `<span class="obtag" style="${ob.side === 'bear' ? 'color:var(--bear);background:var(--bear-bg)' : ''}" title="Ордер-блок 4H: ${ob.side === 'bull' ? 'бычий' : 'медвежий'}, ${TYPE[ob.type] || ob.type}, ${dtf(ob.bar_time)}">OB</span>` : ''}</td>
       <td class="r mono hide-sm">${fmt(r.price)}</td>
       <td class="r mono" title="${st ? `стрэддл ${ks(st.strike)}: $${n2(st.price)} (${st.src === 'mid' ? 'середина бид/аск' : 'последняя сделка'}), экспирация ${ddmm(st.exp)}` : 'нет цен опционов'}"><b>${r.implied == null ? '—' : (r.note === 'far' ? '≈' : '±') + c1(r.implied) + '%'}</b>${r.note ? `<sup title="${r.note === 'far' ? 'Ближайшая экспирация через ' + (st && st.exp_days) + ' дн. после реакции — в стрэддл входят лишние дни, заложенный ход завышен, перекос не считается' : 'Цена по старым сделкам и подозрительно низкая — перекос не считается'}">${r.note === 'far' ? 'мес' : '?'}</sup>` : ''}</td>
       <td class="r mono">${r.hist_avg == null ? '—' : '±' + c1(r.hist_avg) + '%'} <span style="color:var(--muted)">(${r.hist_n || 0})</span></td>
@@ -1086,6 +1144,163 @@ function renderEarnings() {
       <td class="r mono hide-sm">${r.eps_est == null ? '—' : n2(r.eps_est)}${r.beat_n ? ` <span style="color:var(--muted)">${r.beats}/${r.beat_n}</span>` : ''}</td>
       <td class="r mono hide-sm">${r.vol == null ? '—' : Number(r.vol).toLocaleString('ru-RU')}</td></tr>`;
   }).join('') || '<tr><td colspan="11" class="empty">' + (ern.rows.length ? 'Под фильтр ничего не попало' : 'Отчётов на неделю не найдено') + '</td></tr>';
+}
+
+/* ---------- компания (фундаментал) и инсайдеры ---------- */
+let fundD = null, fundP = null, insD = null, insP = null;
+const fTag = t => `<a class="ftag" href="#fund/${encodeURIComponent(t)}" title="Компания: отчётность и инсайдеры">Ф</a>`;
+const getFund = () => fundP || (fundP = api('/api/fund').then(d => (fundD = d)).catch(() => (fundD = null)));
+const getIns = () => insP || (insP = api('/api/insiders').then(d => (insD = d)).catch(() => (insD = null)));
+const big = v => { if (v == null) return '—'; const a = Math.abs(v), s = v < 0 ? '−' : '';
+  return s + (a >= 1e9 ? '$' + (a / 1e9).toFixed(2).replace('.', ',') + ' млрд' : a >= 1e6 ? '$' + (a / 1e6).toFixed(1).replace('.', ',') + ' млн' : a >= 1e3 ? '$' + Math.round(a / 1e3) + ' тыс.' : '$' + Math.round(a)); };
+const pc = (x, d = 1) => x == null ? '—' : (x > 0 ? '+' : '') + Number(x).toFixed(d).replace('.', ',') + '%';
+const mg = x => x == null ? '—' : Number(x).toFixed(1).replace('.', ',') + '%';
+const clsPc = x => x == null ? '' : x >= 0 ? 'up' : 'down';
+const qLabel = r => { const d = new Date(r.e + 'T12:00:00Z'); return ['I', 'I', 'I', 'II', 'II', 'II', 'III', 'III', 'III', 'IV', 'IV', 'IV'][d.getUTCMonth()] + ' ' + String(d.getUTCFullYear()).slice(2); };
+function svgBars(q) {
+  const W = 520, H = 170, pad = 26, n = q.length, bw = (W - 2 * pad) / n * 0.64;
+  const mx = Math.max(1, ...q.map(r => Math.abs(r.rev || 0)));
+  const bars = q.map((r, i) => {
+    const x = pad + (i + 0.5) * (W - 2 * pad) / n, h = (r.rev || 0) / mx * (H - 52);
+    return `<rect x="${x - bw / 2}" y="${H - 22 - h}" width="${bw}" height="${Math.max(1, h)}" rx="3" fill="var(--accent)" opacity="${r.d ? 0.45 : 0.85}"><title>${qLabel(r)}: ${big(r.rev)}${r.d ? ' (вычислен)' : ''}</title></rect>
+      <text x="${x}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--muted)">${qLabel(r)}</text>
+      ${r.rev_yoy == null ? '' : `<text x="${x}" y="${H - 28 - h}" text-anchor="middle" font-size="10.5" font-family="JetBrains Mono" fill="${r.rev_yoy >= 0 ? 'var(--bull)' : 'var(--bear)'}">${pc(r.rev_yoy, 0)}</text>`}`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Выручка по кварталам">${bars}</svg>`;
+}
+function svgMargins(q) {
+  const W = 520, H = 186, pad = 30, n = q.length;
+  const ser = [['gm', 'Валовая', 'var(--accent)'], ['om', 'Операционная', 'var(--warn)'], ['nm', 'Чистая', 'var(--bull)']];
+  const vals = q.flatMap(r => ser.map(([k]) => r[k])).filter(v => v != null);
+  if (!vals.length) return '<div class="empty">Маржи не раскрываются (банк, страховщик или нет данных)</div>';
+  const lo = Math.min(0, ...vals), hi = Math.max(10, ...vals), y = v => H - 24 - (v - lo) / (hi - lo) * (H - 60);
+  const x = i => pad + (i + 0.5) * (W - 2 * pad) / n;
+  const lines = ser.map(([k, name, col]) => {
+    const pts = q.map((r, i) => r[k] == null ? null : [x(i), y(r[k]), r]).filter(Boolean);
+    if (!pts.length) return '';
+    return `<polyline fill="none" stroke="${col}" stroke-width="2" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>` +
+      pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${col}"><title>${name} ${qLabel(p[2])}: ${mg(p[2][k])}</title></circle>`).join('');
+  }).join('');
+  const zero = lo < 0 ? `<line x1="${pad}" x2="${W - pad}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)" stroke-dasharray="3 3"/>` : '';
+  const labels = q.map((r, i) => `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--muted)">${qLabel(r)}</text>`).join('');
+  const legend = ser.map(([, name, col], i) => `<g transform="translate(${pad + i * 120},10)"><rect width="10" height="3" y="4" fill="${col}"/><text x="14" y="10" font-size="11" fill="var(--muted)">${name}</text></g>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Маржи по кварталам">${legend}${zero}${lines}${labels}</svg>`;
+}
+const FLAGS = {
+  one_off: '⚠️ Чистая прибыль последнего квартала больше операционной — внутри разовые доходы (переоценка вложений, налоговые статьи). Рост чистой прибыли не равен росту бизнеса.',
+  lag: '⏳ 10-Q / 10-K за более свежий период уже подан, а в данных SEC его чисел ещё нет — откройте отчёт по ссылке.',
+  derived: 'ℹ️ Последний квартал — четвёртый: вычислен как год минус три квартала, EPS приблизительный.',
+};
+function insRowsHtml(rows) {
+  return rows.map(r => `<tr onclick="window.open('${r.url}','_blank')">
+    <td>${ddmm(r.filed)}</td><td>${r.date ? ddmm(r.date) : '—'}</td>
+    <td><b>${esc(r.t)}</b>${fTag(r.t)}${insD && insD.clusters && insD.clusters[r.t] && r.code === 'P' ? `<span class="newtag" title="За 30 дней покупали ${insD.clusters[r.t]} разных инсайдера">кластер ${insD.clusters[r.t]}</span>` : ''}</td>
+    <td>${esc(r.who || '—')}<div class="time">${esc(r.role || '')}</div></td>
+    <td><span class="badge ${r.code === 'P' ? 'bull' : 'bear'}">${r.code === 'P' ? 'Покупка' : 'Продажа'}</span></td>
+    <td class="r mono">${Number(r.sh).toLocaleString('ru-RU')}</td>
+    <td class="r mono hide-sm">${r.px == null ? '—' : n2(r.px)}</td>
+    <td class="r mono"><b>${big(r.val)}</b></td>
+    <td class="r mono hide-sm">${r.chg == null ? '—' : (r.code === 'P' ? '+' : '−') + String(r.chg).replace('.', ',') + '%'}</td>
+    <td>${r.code === 'S' ? (r.plan ? '<span class="plan" title="Продажа по заранее утверждённому графику">план</span>' : '<span class="plan no" title="Без плана 10b5-1 — решение принято сейчас">без плана</span>') : (r.plan ? '<span class="plan">план</span>' : '')}</td></tr>`).join('');
+}
+const IN_HEAD = `<tr><th>Подано</th><th>Сделка</th><th>Тикер</th><th>Инсайдер</th><th>Тип</th><th class="r">Акций</th><th class="r hide-sm">Цена</th><th class="r">Сумма</th>
+  <th class="r hide-sm" title="Насколько изменилась доля инсайдера этой сделкой">Доля</th><th title="План 10b5-1: продажа по графику, утверждённому заранее">10b5-1</th></tr>`;
+const CG_HEAD = `<tr><th>Подано</th><th>Сделка</th><th>Тикер</th><th>Член Палаты</th><th>Владелец</th><th>Тип</th><th class="r">Сумма</th><th class="r" title="Сколько дней прошло от сделки до раскрытия (норма — до 45)">Дней</th><th class="hide-sm">Актив</th></tr>`;
+function cgRowsHtml(rows) {
+  return rows.map(x => `<tr onclick="window.open('${x.url}','_blank')">
+    <td>${ddmm(x.filed)}</td><td>${x.date ? ddmm(x.date) : '—'}</td>
+    <td>${x.t ? `<b>${esc(x.t)}</b>${fTag(x.t)}` : '—'}</td>
+    <td>${esc(x.who)} <span class="time">${esc(x.district || '')}</span></td><td>${esc(x.owner || '')}</td>
+    <td><span class="badge ${x.type === 'P' ? 'bull' : x.type === 'S' ? 'bear' : 'gray'}">${{P: 'Покупка', S: x.partial ? 'Продажа (част.)' : 'Продажа', E: 'Обмен'}[x.type] || x.type}</span>${x.kind === 'OP' ? ' <span class="plan">опционы</span>' : ''}</td>
+    <td class="r mono">${x.lo == null ? '—' : big(x.lo) + (x.hi ? '–' + big(x.hi) : '+')}</td>
+    <td class="r mono ${x.days > 45 ? 'down' : ''}">${x.days ?? '—'}</td>
+    <td class="hide-sm" style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${esc((x.asset || '') + (x.desc ? ' — ' + x.desc : ''))}">${esc(x.asset || '')}</td></tr>`).join('');
+}
+const flatHouse = () => (insD && insD.house || []).flatMap(f => (f.rows || []).map(x => ({...x, who: f.name, district: f.district, filed: f.filed, url: f.url})));
+
+async function loadFund(t) {
+  t = decodeURIComponent(t).toUpperCase().replace(/\./g, '-'); $('#fdInput').value = t;
+  $('#fdMsg').textContent = 'Загрузка…';
+  await Promise.all([getFund(), getIns()]);
+  const f = fundD && fundD.tickers && fundD.tickers[t];
+  $('#fdMsg').textContent = fundD ? 'данные SEC на ' + dtf(fundD.updated) + ' UTC' : '';
+  if (!f) { $('#fdBody').innerHTML = `<div class="card empty">${fundD ? 'По ' + esc(t) + ' нет данных: тикера нет в списках сайта или компания не отчитывается в SEC в формате US GAAP' : 'Данных ещё нет — сканер считает по будням после закрытия'}</div>`; return; }
+  const q = f.q || [], c = q[0] || {}, p = q[1] || {}, docs = f.docs || {};
+  const er = ern && ern.rows ? ern.rows.find(r => r.ticker === t) : null;
+  const kp = (l, v, s = '', cl = '') => `<div class="kpi"><div class="l">${l}</div><div class="v ${cl}">${v}</div><div class="s">${s}</div></div>`;
+  const dpt = (a, b) => a == null || b == null ? '' : `${a - b >= 0 ? '+' : ''}${(a - b).toFixed(1).replace('.', ',')} п. к пред. кв.`;
+  const ins = (insD && insD.f4 || []).filter(r => r.t === t).slice(0, 30), cg = flatHouse().filter(x => x.t === t);
+  $('#fdBody').innerHTML = `
+    <div class="fhead"><h2>${esc(t)}</h2><span style="color:var(--muted)">${esc(f.name || '')}</span>
+      <div class="links">
+        <a href="#chart/${encodeURIComponent(t)}">График 4H и OB</a>
+        <a target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.replace(/-/g, '.'))}&interval=D">TradingView ↗</a>
+        ${docs.report ? `<a target="_blank" rel="noopener" href="${docs.report.url}">${esc(docs.report.form)} за ${ddmm(docs.report.period || '')} ↗</a>` : ''}
+        ${docs.press ? `<a target="_blank" rel="noopener" href="${docs.press.url}">Пресс-релиз ${ddmm(docs.press.filed)} ↗</a>` : ''}
+      </div></div>
+    ${er ? `<div class="flag" style="border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)">📊 Отчёт ${WD[new Date(er.date + 'T12:00:00Z').getUTCDay()]} ${ddmm(er.date)} ${(SES[er.session] || ['', 'время ?'])[1]}: опционы закладывают ${er.implied == null ? '—' : '±' + c1(er.implied) + '%'}, обычный ход ±${c1(er.hist_avg)}%${er.eps_est != null ? ', оценка EPS ' + n2(er.eps_est) : ''}. <a href="#earnings">Все отчёты →</a></div>` : ''}
+    ${(f.flags || []).map(k => FLAGS[k] ? `<div class="flag">${FLAGS[k]}</div>` : '').join('')}
+    ${q.length ? `<div class="kpis">
+      ${kp('Выручка, ' + qLabel(c) + (c.d ? ' (выч.)' : ''), big(c.rev), c.rev_yoy == null ? '' : `<span class="${clsPc(c.rev_yoy)}">${pc(c.rev_yoy)}</span> к году назад`)}
+      ${kp('Выручка за 4 кв.', big(f.ttm && f.ttm.rev))}
+      ${kp('EPS разводн., ' + qLabel(c), c.eps == null ? '—' : n2(c.eps), c.eps_yoy == null ? '' : `<span class="${clsPc(c.eps_yoy)}">${pc(c.eps_yoy)}</span> к году назад`)}
+      ${kp('EPS за 4 кв.', f.ttm && f.ttm.eps != null ? n2(f.ttm.eps) : '—')}
+      ${kp('Валовая маржа', mg(c.gm), dpt(c.gm, p.gm))}
+      ${kp('Операционная маржа', mg(c.om), dpt(c.om, p.om), c.om != null && c.om < 0 ? 'down' : '')}
+      ${kp('Чистая маржа', mg(c.nm), dpt(c.nm, p.nm), c.nm != null && c.nm < 0 ? 'down' : '')}
+      ${kp('Чистая прибыль', big(c.ni), c.ni_yoy == null ? '' : `<span class="${clsPc(c.ni_yoy)}">${pc(c.ni_yoy)}</span> к году назад`)}
+    </div>
+    <div class="fgrid"><div class="card"><h4>Выручка по кварталам и рост к году назад</h4>${svgBars([...q].reverse())}</div>
+      <div class="card"><h4>Маржи</h4>${svgMargins([...q].reverse())}</div></div>
+    <div class="card tbl-wrap" style="margin-bottom:12px"><table><thead><tr><th>Квартал</th><th class="r">Выручка</th><th class="r">Рост</th>
+      <th class="r hide-sm">Валовая</th><th class="r">Опер.</th><th class="r hide-sm">Чистая маржа</th><th class="r">Чистая прибыль</th><th class="r hide-sm">Рост</th><th class="r">EPS</th><th class="r">Рост EPS</th></tr></thead>
+      <tbody>${q.map(r => `<tr style="cursor:default"><td>${qLabel(r)} <span class="time">${esc(r.fp || '')}${r.d ? ' · выч.' : ''}</span></td>
+        <td class="r mono">${big(r.rev)}</td><td class="r mono ${clsPc(r.rev_yoy)}">${pc(r.rev_yoy)}</td>
+        <td class="r mono hide-sm">${mg(r.gm)}</td><td class="r mono">${mg(r.om)}</td><td class="r mono hide-sm">${mg(r.nm)}</td>
+        <td class="r mono">${big(r.ni)}</td><td class="r mono hide-sm ${clsPc(r.ni_yoy)}">${pc(r.ni_yoy)}</td>
+        <td class="r mono">${r.eps == null ? '—' : n2(r.eps)}</td><td class="r mono ${clsPc(r.eps_yoy)}">${pc(r.eps_yoy)}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="card empty" style="margin-bottom:12px">Квартальных чисел в XBRL нет</div>'}
+    <h3 style="font-size:14px;margin:16px 0 8px">Инсайдеры — сделки на рынке за 120 дней</h3>
+    <div class="card tbl-wrap" style="margin-bottom:12px"><table><thead>${IN_HEAD}</thead><tbody>${insRowsHtml(ins) || '<tr><td colspan="10" class="empty">Покупок и продаж на рынке не было</td></tr>'}</tbody></table></div>
+    ${cg.length ? `<h3 style="font-size:14px;margin:16px 0 8px">Конгресс</h3><div class="card tbl-wrap"><table><thead>${CG_HEAD}</thead><tbody>${cgRowsHtml(cg)}</tbody></table></div>` : ''}`;
+}
+$('#fdForm').onsubmit = e => { e.preventDefault(); const t = $('#fdInput').value.trim(); if (t) location.hash = 'fund/' + t.toUpperCase(); };
+
+let inNoPlan = store.get('inNoPlan', false), inCl = store.get('inCluster', false);
+const inSrc = chipGroup('#inSrc', renderInsiders), inSide = chipGroup('#inSide', renderInsiders);
+$('#inSearch').oninput = renderInsiders;
+function setSw(id, key, v) { store.set(key, v); const el = $(id); el.classList.toggle('on', v); el.setAttribute('aria-checked', v); }
+$('#inNoPlan').onclick = () => { inNoPlan = !inNoPlan; setSw('#inNoPlan', 'inNoPlan', inNoPlan); renderInsiders(); };
+$('#inCluster').onclick = () => { inCl = !inCl; setSw('#inCluster', 'inCluster', inCl); renderInsiders(); };
+async function renderInsiders() {
+  setSw('#inNoPlan', 'inNoPlan', inNoPlan); setSw('#inCluster', 'inCluster', inCl);
+  await getIns();
+  if (!insD) { $('#inBody').innerHTML = '<tr><td class="empty">Данных ещё нет — сканер считает по будням после закрытия</td></tr>'; return; }
+  const src = inSrc(), side = inSide(), q = $('#inSearch').value.trim().toUpperCase();
+  const match = (t, who) => !q || (t || '').startsWith(q) || (who || '').toUpperCase().includes(q);
+  if (src === 'house') {
+    $('#inNoPlan').style.display = $('#inCluster').style.display = 'none';
+    const rows = flatHouse().filter(x => (side === 'all' || x.type === side) && match(x.t, x.who));
+    const scans = (insD.house || []).filter(f => f.scan);
+    $('#inHead').innerHTML = CG_HEAD;
+    $('#inBody').innerHTML = cgRowsHtml(rows.slice(0, 1000)) || '<tr><td colspan="9" class="empty">Нет сделок под фильтр</td></tr>';
+    $('#inCount').textContent = `сделок ${rows.length} · деклараций ${(insD.house || []).length} · ${dtf(insD.updated)} UTC`;
+    $('#inHint').innerHTML = `Декларации членов Палаты представителей (PTR, закон STOCK Act): сделки самого члена, супруга(и) и детей. Раскрываются до 45 дней спустя — это не опережающий сигнал. Суммы — диапазоны из декларации. Строка открывает PDF.
+      ${scans.length ? `<br>Бумажные декларации (сканы) не разбираются автоматически: ${scans.slice(0, 15).map(f => `<a href="${f.url}" target="_blank" rel="noopener">${esc(f.name)} ${ddmm(f.filed)}</a>`).join(', ')}${scans.length > 15 ? ' …' : ''}.` : ''}
+      Сенат здесь не показан: его сайт efdsearch.senate.gov требует вручную принять соглашение.`;
+    return;
+  }
+  $('#inNoPlan').style.display = $('#inCluster').style.display = '';
+  const cl = insD.clusters || {};
+  const rows = (insD.f4 || []).filter(r => (side === 'all' || r.code === side) && (!inNoPlan || !r.plan)
+    && (!inCl || (r.code === 'P' && cl[r.t])) && match(r.t, r.who));
+  $('#inHead').innerHTML = IN_HEAD;
+  $('#inBody').innerHTML = insRowsHtml(rows.slice(0, 1000)) || '<tr><td colspan="10" class="empty">Нет сделок под фильтр</td></tr>';
+  const nb = (insD.f4 || []).filter(r => r.code === 'P').length;
+  $('#inCount').textContent = `показано ${rows.length} · покупок ${nb} · кластеров ${Object.keys(cl).length} · ${dtf(insD.updated)} UTC`;
+  $('#inHint').innerHTML = `Form 4 в SEC по акциям сайта за 120 дней: только сделки на открытом рынке (P — покупка, S — продажа); гранты, исполнение опционов, налоги и подарки не показаны. Инсайдер подаёт форму в течение 2 рабочих дней.
+    «План 10b5-1» — продажа по графику, утверждённому за месяцы до сделки: о будущем она почти ничего не говорит. Сильнее сигнал — покупки, особенно <b>кластер</b> (≥ 2 разных инсайдера за 30 дней), и крупные продажи без плана.
+    «Доля» — на сколько процентов сделка изменила пакет инсайдера. Строка открывает форму в SEC, «Ф» — карточку компании.`;
 }
 
 /* ---------- хаммер + бабочка ---------- */
@@ -1419,7 +1634,8 @@ async function loadChart(t) {
   $('#chartHead').innerHTML = `<h2>${esc(t)}</h2><span class="mono" style="font-size:18px">${fmt(last.close)}</span>
     <span class="mono ${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>
     <span class="time">4H · свеча ${dtf(d.last_bar)} ET</span>${oiTag(t)}
-    <a class="time" style="margin-left:auto" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.replace(/-/g, '.'))}&interval=240">Открыть в TradingView ↗</a>`;
+    <a class="time" style="margin-left:auto" href="#fund/${encodeURIComponent(t)}">Компания: отчётность и инсайдеры →</a>
+    <a class="time" target="_blank" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.replace(/-/g, '.'))}&interval=240">Открыть в TradingView ↗</a>`;
   const obs = [...d.obs].sort((a, b) => a.dist - b.dist);
   const evs = d.events.slice(-8).reverse();
   $('#chartSide').innerHTML = `<h3>Действующие ордер-блоки</h3>` + (obs.length ? obs.map(o => `
@@ -1744,6 +1960,9 @@ async function loadAll() {
   try { mkt = await api('/api/market'); } catch (e) { mkt = null; }
   try { ern = await api('/api/earnings'); } catch (e) { ern = null; }
   renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200(); renderMarket(); setErOb(erObOn);
+  fundP = insP = null;
+  if (location.hash.startsWith('#fund/')) loadFund(location.hash.slice(6));
+  if (location.hash === '#insiders') renderInsiders();
 }
 /* ---------- быстрый просмотр TradingView при наведении на тикер ---------- */
 (function () {
