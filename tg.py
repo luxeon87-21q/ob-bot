@@ -17,9 +17,13 @@ Telegram-бот: подписчики, их команды и рассылка �
   /earnings  — отчёты, которые играются сегодняшними опционами: заложенный ход против истории (earnings.py)
   /earnings_daily — включить/выключить утреннюю рассылку по отчётам (по будням до открытия)
 
-Подписчики хранятся в cache/tg_settings.json:
+Подписчики хранятся в cache/tg_settings.enc — зашифрованно (Fernet, ключ в переменной
+TG_STATE_KEY = секрет GitHub). Внутри тот же JSON:
   {"offset": 123, "owner": "<chat_id владельца>",
    "subs": {"<chat_id>": {"only_new": true, "ob": true, "wolfe": true, "name": "Denis", "since": "2026-09-25"}}}
+Репозиторий публичный, поэтому открытый cache/tg_settings.json в git больше не попадает
+(.gitignore). Без ключа (локальный запуск) используется открытый файл; в GitHub Actions
+без ключа сохранение запрещено, чтобы не потерять подписчиков.
 
 Файл пишет только задача telegram.yml (раз в 10 минут); проверка акций его лишь читает.
 """
@@ -27,6 +31,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 from datetime import date
@@ -35,7 +40,8 @@ from pathlib import Path
 import requests
 
 BASE = Path(__file__).resolve().parent
-SETTINGS_FILE = BASE / "cache" / "tg_settings.json"
+SETTINGS_FILE = BASE / "cache" / "tg_settings.json"      # открытый: только локально / для миграции
+ENC_FILE = BASE / "cache" / "tg_settings.enc"           # зашифрованный: хранится в git
 LEGACY_CHAT_FILE = BASE / "cache" / "chat_id"
 SITE_URL = "https://luxeon87-21q.github.io/ob-bot/"
 log = logging.getLogger("ob_bot.tg")
@@ -58,9 +64,38 @@ COMMANDS = [
 
 
 # ---------------------------------------------------------------- хранение
+def _fernet():
+    key = os.environ.get("TG_STATE_KEY", "").strip()
+    if not key:
+        return None
+    from cryptography.fernet import Fernet
+    return Fernet(key.encode())
+
+
+def _read_raw() -> str | None:
+    """Текст настроек: из зашифрованного файла (если есть ключ), иначе из открытого."""
+    if ENC_FILE.exists():
+        f = _fernet()
+        if f is None:
+            if SETTINGS_FILE.exists():
+                return SETTINGS_FILE.read_text(encoding="utf-8")
+            # без ключа зашифрованное не прочитать; пустой список подписчиков молча не возвращаем
+            raise RuntimeError("cache/tg_settings.enc есть, но TG_STATE_KEY не задан")
+        return f.decrypt(ENC_FILE.read_bytes().strip()).decode("utf-8")
+    if SETTINGS_FILE.exists():
+        return SETTINGS_FILE.read_text(encoding="utf-8")
+    return None
+
+
+def needs_migration() -> bool:
+    """Открытый файл ещё лежит, а ключ уже есть — пора зашифровать и убрать открытый."""
+    return _fernet() is not None and (SETTINGS_FILE.exists() or LEGACY_CHAT_FILE.exists())
+
+
 def load() -> dict:
+    raw = _read_raw()
     try:
-        st = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        st = json.loads(raw) if raw else {}
     except Exception:
         st = {}
     st.setdefault("offset", 0)
@@ -80,7 +115,18 @@ def load() -> dict:
 
 def save(st: dict) -> None:
     SETTINGS_FILE.parent.mkdir(exist_ok=True)
-    SETTINGS_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+    data = json.dumps(st, ensure_ascii=False, indent=1)
+    f = _fernet()
+    if f is None:
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            raise RuntimeError("TG_STATE_KEY не задан в секретах GitHub — настройки не сохранены")
+        SETTINGS_FILE.write_text(data, encoding="utf-8")   # локальный запуск без ключа
+        return
+    tmp = ENC_FILE.with_suffix(".tmp")
+    tmp.write_bytes(f.encrypt(data.encode("utf-8")) + b"\n")
+    tmp.replace(ENC_FILE)
+    for p in (SETTINGS_FILE, LEGACY_CHAT_FILE):     # открытые копии больше не нужны
+        p.unlink(missing_ok=True)
 
 
 def api(token: str, method: str, **params):
@@ -244,8 +290,11 @@ def process_updates(token: str) -> dict:
                         disable_web_page_preview=True)
                 except Exception as e:
                     log.warning("sendMessage %s: %s", cid, e)
-    old_format = not SETTINGS_FILE.exists() or '"subs"' not in SETTINGS_FILE.read_text(encoding="utf-8")
-    if ups or old_format:
+    if ENC_FILE.exists() and _fernet() is not None:
+        old_format = False
+    else:
+        old_format = not SETTINGS_FILE.exists() or '"subs"' not in SETTINGS_FILE.read_text(encoding="utf-8")
+    if ups or old_format or needs_migration():
         save(st)
     return st
 

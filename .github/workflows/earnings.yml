@@ -31,6 +31,9 @@ concurrency:
   group: earnings
   cancel-in-progress: false
 
+env:
+  TG_STATE_KEY: ${{ secrets.TG_STATE_KEY }}   # ключ шифрования cache/tg_settings.enc
+
 jobs:
   earnings:
     runs-on: ubuntu-latest

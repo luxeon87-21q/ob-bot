@@ -17,6 +17,9 @@ concurrency:
   group: scan
   cancel-in-progress: false
 
+env:
+  TG_STATE_KEY: ${{ secrets.TG_STATE_KEY }}   # ключ шифрования cache/tg_settings.enc
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -67,7 +70,7 @@ jobs:
         run: |
           git config user.name "ob-bot"
           git config user.email "ob-bot@users.noreply.github.com"
-          for f in cache/state.json cache/site_status.json cache/signals.jsonl cache/snapshot.json cache/tg_settings.json cache/wolfe_seeded.json cache/smc_seeded.json cache/options.json cache/universe_*.json; do
+          for f in cache/state.json cache/site_status.json cache/signals.jsonl cache/snapshot.json cache/wolfe_seeded.json cache/smc_seeded.json cache/options.json cache/universe_*.json; do
             if [ -e "$f" ]; then git add -f "$f"; fi
           done
           git commit -m "Проверка $(date -u +'%Y-%m-%d %H:%M') UTC [skip ci]" || echo "без изменений"
