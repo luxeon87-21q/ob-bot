@@ -23,7 +23,7 @@ import requests
 
 BASE = Path(__file__).resolve().parent
 CIK_FILE = BASE / "cache" / "sec_cik.json"
-DEFAULT_UA = "ob-bot (github.com/luxeon87-21q/ob-bot) ob-bot@users.noreply.github.com"
+DEFAULT_UA = "ob-bot ob-bot@users.noreply.github.com"
 log = logging.getLogger("ob_bot.sec")
 
 
@@ -72,7 +72,16 @@ class SEC:
                 return json.loads(CIK_FILE.read_text(encoding="utf-8"))
         except Exception:
             pass
-        raw = self.json("https://www.sec.gov/files/company_tickers.json") or {}
+        r = self.get("https://www.sec.gov/files/company_tickers.json")
+        if r.status_code == 403:
+            log.error("SEC отклонил запрос (403) с подписью «%s». Задайте секрет SEC_USER_AGENT: «Имя Фамилия "
+                      "email@домен» — SEC требует реальный контакт", self.ua)
+            try:
+                return json.loads(CIK_FILE.read_text(encoding="utf-8"))   # старый список, если есть
+            except Exception:
+                return {}
+        r.raise_for_status()
+        raw = r.json() or {}
         out = {}
         for v in raw.values():
             t = str(v["ticker"]).upper().replace(".", "-")

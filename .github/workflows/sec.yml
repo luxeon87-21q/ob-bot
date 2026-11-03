@@ -46,6 +46,7 @@ jobs:
         run: sudo apt-get install -y -qq poppler-utils >/dev/null
 
       - name: Фундаментал (10-Q / 10-K)
+        continue-on-error: true      # отказ SEC не должен останавливать Конгресс и сайт
         run: python fundamentals.py
 
       - name: Инсайдеры (Form 4) и Конгресс (PTR)
@@ -69,6 +70,7 @@ jobs:
 
   deploy:
     needs: sec
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
