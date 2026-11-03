@@ -1,14 +1,14 @@
 {
- "made": "2026-11-03T16:38:50.299491+00:00",
- "data_et": "2026-11-03 11:22",
+ "made": "2026-11-03T20:44:09.369361+00:00",
+ "data_et": "2026-11-03 15:28",
  "today": "2026-11-03",
  "candidates": 0,
  "funnel": {
-  "stocks": 563,
-  "earn_window": 75,
-  "vol": 44,
-  "iv_lt": 9,
-  "ivr_le": 8
+  "stocks": 555,
+  "earn_window": 79,
+  "vol": 39,
+  "iv_lt": 8,
+  "ivr_le": 7
  },
  "params": {
   "days": [
@@ -16,7 +16,7 @@
    35
   ],
   "iv_max": 0.5,
-  "ivr_max": 40,
+  "ivr_max": 40.0,
   "vol_min": 5000,
   "ratio": [
    2,
