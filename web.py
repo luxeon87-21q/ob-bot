@@ -200,6 +200,13 @@ def make_handler(scanner: Scanner, password: str):
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
                     self.wfile.write(body)
+                elif u.path == "/trader.js":
+                    body = (bot.BASE / "static" / "trader.js").read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/javascript; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
                 elif u.path in ("/options.html", "/data/optscreen.json"):
                     f = bot.BASE / ("static/options.html" if u.path.endswith(".html") else "cache/optscreen.json")
                     body = f.read_bytes() if f.exists() else b"{}"
@@ -216,7 +223,7 @@ def make_handler(scanner: Scanner, password: str):
                 elif u.path == "/api/seasonal":
                     f = bot.BASE / "cache" / "seasonal.json"
                     self._json(json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)
-                elif u.path in ("/api/hammer", "/api/hammer_backtest", "/api/samurai", "/api/ma200", "/api/market", "/api/earnings", "/api/fund"):
+                elif u.path in ("/api/hammer", "/api/hammer_backtest", "/api/samurai", "/api/ma200", "/api/market", "/api/earnings", "/api/fund", "/api/trader"):
                     f = bot.BASE / "cache" / (u.path.rsplit("/", 1)[1] + ".json")
                     self._json(json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)
                 elif u.path == "/api/signals":

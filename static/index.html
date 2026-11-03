@@ -257,6 +257,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <button data-v="hammer">Хаммер</button>
       <button data-v="samurai">Самурай</button>
       <button data-v="ma200" title="Своя скользящая: средняя, от которой акция исторически отскакивает, и подход цены к ней">Скользящие</button>
+      <button data-v="trader" title="Time Machine по ордер-блокам, статистика правила OB, сканер сетапов, новости, калькулятор риска">Трейдер</button>
       <button data-v="chart">График</button>
       <a href="options.html" class="navlink" title="Скринер опционов: продажа путов с фильтрами и сохранёнными сканами">Опционы ↗</a>
     </nav>
@@ -686,6 +687,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <div class="card side" id="chartSide"><h3>Действующие ордер-блоки</h3><div class="empty">Выберите тикер</div></div>
     </div>
   </section>
+  <section class="view" id="v-trader"></section>
 </main>
 
 <script>
@@ -703,6 +705,7 @@ function staticPath(p) {
   if (p.startsWith('/api/market')) return 'data/market.json';
   if (p.startsWith('/api/earnings')) return 'data/earnings.json';
   if (p.startsWith('/api/fund')) return 'data/fund.json';
+  if (p.startsWith('/api/trader')) return 'data/trader.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -738,13 +741,14 @@ function show(v) {
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   if (v === 'chart') requestAnimationFrame(chartDraw);
   if (v === 'market') requestAnimationFrame(renderMarketCharts);
+  if (v === 'trader' && window.trShow) window.trShow();
 }
 $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v; });
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
   else if (h.startsWith('fund/')) { show('fund'); loadFund(h.slice(5)); }
-  else show(['signals', 'market', 'earnings', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'market', 'earnings', 'fund', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'trader', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -1934,5 +1938,6 @@ async function loadAll() {
 loadAll(); refreshStatus(); route();
 setInterval(refreshStatus, STATIC ? 30000 : 4000);
 </script>
+<script src="trader.js"></script>
 </body>
 </html>

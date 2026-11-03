@@ -30,6 +30,7 @@ import requests
 import data
 from order_blocks import Event, detect
 import options
+import trader
 import wolfe
 
 BASE = Path(__file__).resolve().parent
@@ -138,6 +139,12 @@ def only_new(found: Dict[str, List[Event]]) -> Dict[str, List[Event]]:
 
 
 LAST_OI: Dict[str, dict] = {}     # OI опционов с последней проверки (для подписей в сообщениях)
+LAST_TM: Dict[tuple, dict] = {}   # Time Machine по сигналам этой проверки (trader.py), строка в сообщении
+LAST_BARS: Dict[str, pd.DataFrame] = {}   # свечи последней проверки — для trader.py без повторного чтения
+
+
+def tm_key(t: str, e) -> tuple:
+    return (t, e.type, e.ob.side, e.bar_time.isoformat(), e.ob.ob_time.isoformat())
 
 
 def build_message(found: Dict[str, List[Event]], oi_min: int = 0) -> str:
@@ -176,7 +183,9 @@ def build_message(found: Dict[str, List[Event]], oi_min: int = 0) -> str:
                     extra = f"закрытие {fmt(e.close)}"
                 oi_lbl = f"  · {options.fmt_oi(options.oi_of(LAST_OI, t))}" if LAST_OI else ""
                 kind = "swing" if getattr(ob, "kind", "") == "swing" else "internal"
-                rows.append(f"• {link(t)}  {zone}  <code>{kind}</code>  <i>{extra}</i>{oi_lbl}")
+                tm = trader.tg_line(LAST_TM.get(tm_key(t, e))) if LAST_TM else ""
+                rows.append(f"• {link(t)}  {zone}  <code>{kind}</code>  <i>{extra}</i>{oi_lbl}"
+                            + (f"\n    <i>{tm}</i>" if tm else ""))
         if rows:
             lines += ["", f"<b>{title}</b>"] + rows
     return "\n".join(lines)
@@ -263,6 +272,8 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
     if progress:
         progress("загрузка свечей", 0, len(tickers))
     bars = data.update_bars(tickers)
+    global LAST_BARS
+    LAST_BARS = bars
     log.info("свечи получены по %d акциям", len(bars))
     if len(bars) < max(1, len(tickers) // 3):
         raise RuntimeError(f"Yahoo отдал данные только по {len(bars)} из {len(tickers)} акций — проверка отменена")
@@ -284,6 +295,7 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         wanted = {"formed"}
     state = load_state()
     found: Dict[str, List[Event]] = {}
+    det: Dict[str, list] = {}               # все события OB по акции (история для Time Machine)
     found_w: Dict[str, list] = {}          # волны Вульфа
     wolfe_seed = bool(s.get("wolfe")) and not WOLFE_SEEDED_FILE.exists()
     smc_seed = not SMC_SEEDED_FILE.exists()
@@ -319,6 +331,7 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         new = [e for e in new if e.type in wanted]
         if new:
             found[t] = new
+            det[t] = events
 
         if s.get("wolfe"):
             wev = wolfe.detect(df, s.get("wolfe_pivot", 4))
@@ -347,6 +360,19 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         before = len(found)
         found = {t: evs for t, evs in found.items() if options.passes(LAST_OI, t, oi_min)}
         log.info("фильтр OI ≥ %d: акций с сигналами OB %d → %d", oi_min, before, len(found))
+    global LAST_TM
+    LAST_TM = {}
+    for t, evs in found.items():                       # Time Machine: оценка каждого сигнала (не ломает рассылку)
+        for e in evs:
+            if e.type not in ("formed", "touched"):
+                continue
+            try:
+                tm = trader.evaluate_signal(bars[t], det.get(t, []), event_dict(t, e))
+            except Exception as ex:
+                log.warning("Time Machine %s: %s", t, ex)
+                tm = None
+            if tm:
+                LAST_TM[tm_key(t, e)] = tm
     if not found and not found_w:
         log.info("новых сигналов нет")
     elif deliver:

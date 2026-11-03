@@ -21,6 +21,7 @@ import pandas as pd
 import bot
 import data
 import tg
+import trader
 import web
 
 BASE = Path(__file__).resolve().parent
@@ -82,6 +83,10 @@ def build(s: dict, telegram: bool, site_only: bool = False) -> None:
     else:
         n = bot.run_once(dict(s), dry=True, deliver=deliver)
         log.info("сигналов: %d", n)
+        try:                                   # вкладка «Трейдер»: Time Machine, статистика OB, сканер, новости
+            trader.build(s, with_news=True, bars=bot.LAST_BARS or None)
+        except Exception as e:                 # не должна ломать сигналы и сайт
+            log.warning("трейдер: %s", e)
 
     if SITE.exists():
         shutil.rmtree(SITE)
@@ -93,7 +98,8 @@ def build(s: dict, telegram: bool, site_only: bool = False) -> None:
 
     shutil.copy(bot.SNAPSHOT_FILE, SITE / "data" / "snapshot.json")
     (SITE / "options.html").write_text((BASE / "static" / "options.html").read_text(encoding="utf-8"), encoding="utf-8")
-    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json", "samurai.json", "optscreen.json", "ma200.json", "market.json", "earnings.json", "fund.json"):
+    shutil.copy(BASE / "static" / "trader.js", SITE / "trader.js")
+    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json", "samurai.json", "optscreen.json", "ma200.json", "market.json", "earnings.json", "fund.json", "trader.json"):
         f = BASE / "cache" / name
         if f.exists():
             shutil.copy(f, SITE / "data" / name)

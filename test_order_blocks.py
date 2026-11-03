@@ -166,6 +166,7 @@ def test_to_4h_incomplete_last_bar():
 def test_telegram_subscribers(tmp_path):
     import tg
     tg.SETTINGS_FILE = tmp_path / "tg.json"
+    tg.ENC_FILE = tmp_path / "tg.enc"                         # не трогаем настоящий зашифрованный файл
     tg.LEGACY_CHAT_FILE = tmp_path / "chat_id"
     tg.LEGACY_CHAT_FILE.write_text("111")                      # старый формат: один владелец
     sent, q = [], []
