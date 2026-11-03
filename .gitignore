@@ -3,3 +3,6 @@ site/
 .env
 bot.log
 __pycache__/
+cache/tg_settings.json
+cache/chat_id
+cache/*.tmp

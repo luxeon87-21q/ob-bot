@@ -30,6 +30,9 @@ concurrency:
   group: options
   cancel-in-progress: false
 
+env:
+  TG_STATE_KEY: ${{ secrets.TG_STATE_KEY }}   # ключ шифрования cache/tg_settings.enc
+
 jobs:
   samurai:
     runs-on: ubuntu-latest

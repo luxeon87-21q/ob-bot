@@ -27,6 +27,9 @@ concurrency:
   group: market
   cancel-in-progress: false
 
+env:
+  TG_STATE_KEY: ${{ secrets.TG_STATE_KEY }}   # ключ шифрования cache/tg_settings.enc
+
 jobs:
   market:
     runs-on: ubuntu-latest

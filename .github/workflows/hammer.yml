@@ -15,6 +15,9 @@ concurrency:
   group: hammer
   cancel-in-progress: false
 
+env:
+  TG_STATE_KEY: ${{ secrets.TG_STATE_KEY }}   # ключ шифрования cache/tg_settings.enc
+
 jobs:
   backtest:
     runs-on: ubuntu-latest
