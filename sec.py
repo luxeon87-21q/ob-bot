@@ -74,6 +74,14 @@ class SEC:
             pass
         r = self.get("https://www.sec.gov/files/company_tickers.json")
         if r.status_code == 403:
+            log.error("SEC 403, ответ: %s", " ".join(r.text.split())[:300])
+            for u in ("https://www.sec.gov/include/ticker.txt", "https://data.sec.gov/submissions/CIK0000320193.json",
+                      "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json"):
+                try:
+                    x = self.get(u, timeout=30, tries=1)
+                    log.error("проверка %s → %s %s", u, x.status_code, " ".join(x.text.split())[:120] if x.status_code != 200 else "")
+                except Exception as e:
+                    log.error("проверка %s → %s", u, e)
             log.error("SEC отклонил запрос (403) с подписью «%s». Задайте секрет SEC_USER_AGENT: «Имя Фамилия "
                       "email@домен» — SEC требует реальный контакт", self.ua)
             try:
