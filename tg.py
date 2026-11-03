@@ -14,6 +14,8 @@ Telegram-бот: подписчики, их команды и рассылка �
   /samurai   — включить/выключить сканер продажи путов «Самурай» (samurai.py, 2 раза в день)
   /ma200     — включить/выключить сканер «своей скользящей» (ma200.py, по будням)
   /market    — включить/выключить панель рынка: широта, термометр, компоненты SPX у средних (market.py, по будням)
+  /earnings  — отчёты, которые играются сегодняшними опционами: заложенный ход против истории (earnings.py)
+  /earnings_daily — включить/выключить утреннюю рассылку по отчётам (по будням до открытия)
 
 Подписчики хранятся в cache/tg_settings.json:
   {"offset": 123, "owner": "<chat_id владельца>",
@@ -48,6 +50,8 @@ COMMANDS = [
     {"command": "samurai", "description": "Самурай — продажа путов (2 раза в день): вкл / выкл"},
     {"command": "ma200", "description": "Своя скользящая — подход к средней (по будням): вкл / выкл"},
     {"command": "market", "description": "Панель рынка — широта и компоненты SPX (по будням): вкл / выкл"},
+    {"command": "earnings", "description": "Отчёты сегодня: заложенный ход против истории"},
+    {"command": "earnings_daily", "description": "Отчёты — утренняя рассылка (по будням): вкл / выкл"},
     {"command": "settings", "description": "Текущие настройки"},
     {"command": "stop", "description": "Отписаться от сигналов"},
 ]
@@ -107,13 +111,16 @@ def mode_text(sub: dict) -> str:
           else "📈 Своя скользящая: <b>выключена</b> (включить — /ma200)")
     mk = ("🧭 Панель рынка — широта, термометр, компоненты SPX у средних (по будням): <b>включена</b>" if sub.get("market", True)
           else "🧭 Панель рынка: <b>выключена</b> (включить — /market)")
-    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk
+    er = ("📊 Отчёты — утренняя рассылка (по будням): <b>включена</b>" if sub.get("earnings", True)
+          else "📊 Отчёты: <b>выключены</b> (включить — /earnings_daily)")
+    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk + "\n" + er
 
 
 HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
         "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n"
         "/season — сезонность вкл/выкл\n/hammer — хаммер + бабочка вкл/выкл\n"
         "/samurai — самурай (продажа путов) вкл/выкл\n/ma200 — своя скользящая вкл/выкл\n/market — панель рынка вкл/выкл\n"
+        "/earnings — отчёты сегодня: заложенный ход против истории\n/earnings_daily — утренняя рассылка по отчётам вкл/выкл\n"
         "/settings — текущие настройки\n/stop — отписаться\n\n🌐 Сайт: " + SITE_URL)
 
 WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-блоков 4H</b>\n"
@@ -123,6 +130,25 @@ WELCOME = ("✅ <b>Вы подписаны на сигналы ордер-бло
            "По понедельникам и пятницам — отчёт по сезонности: акции, которые в ближайшие недели "
            "из года в год делают ход ≥10%.\n\n"
            "⚠️ Это не инвестиционная рекомендация.\n\n")
+
+
+def earnings_text() -> str:
+    """Готовый текст из последнего прогона earnings.py (без pandas — эта задача ставит только requests)."""
+    try:
+        res = json.loads((BASE / "cache" / "earnings.json").read_text(encoding="utf-8"))
+    except Exception:
+        return "📊 Данных по отчётам ещё нет — сканер считает по будням до открытия рынка.\n🌐 " + SITE_URL + "#earnings"
+    msg = res.get("msg") or ("📊 Сегодня после закрытия и завтра до открытия крупных отчётов нет.\n"
+                             "Вся неделя: " + SITE_URL + "#earnings")
+    upd = str(res.get("updated", ""))[:16].replace("T", " ")
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        if res.get("today") != datetime.now(ZoneInfo("America/New_York")).date().isoformat():
+            msg = "⚠️ <b>Сегодня сканер ещё не считал — это список прошлого прогона.</b>\n\n" + msg
+    except Exception:
+        pass
+    return msg + (f"\n\n🕒 Данные на {upd} ET" if upd else "")
 
 
 # ---------------------------------------------------------------- команды
@@ -172,7 +198,7 @@ def process_updates(token: str) -> dict:
                 reply = "Вы и так не подписаны. Подписаться — /start"
         elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
                      "/wolfe", "/вульф", "/ob", "/season", "/сезон", "/hammer", "/хаммер", "/samurai", "/самурай", "/ma200",
-                     "/market", "/рынок"):
+                     "/market", "/рынок", "/earnings", "/отчёты", "/отчеты", "/earnings_daily"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
             elif cmd in ("/settings", "/status"):
@@ -188,6 +214,11 @@ def process_updates(token: str) -> dict:
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd == "/ma200":
                 sub["ma200"] = not sub.get("ma200", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
+            elif cmd in ("/earnings", "/отчёты", "/отчеты"):
+                reply = earnings_text()
+            elif cmd == "/earnings_daily":
+                sub["earnings"] = not sub.get("earnings", True)
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd in ("/market", "/рынок"):
                 sub["market"] = not sub.get("market", True)
@@ -207,11 +238,12 @@ def process_updates(token: str) -> dict:
         else:
             reply = None                                     # обычный текст подписчика — молчим
         if reply:
-            try:
-                api(token, "sendMessage", chat_id=cid, text=reply, parse_mode="HTML",
-                    disable_web_page_preview=True)
-            except Exception as e:
-                log.warning("sendMessage %s: %s", cid, e)
+            for part in chunks(reply):                       # длинный ответ (/earnings) — несколькими сообщениями
+                try:
+                    api(token, "sendMessage", chat_id=cid, text=part, parse_mode="HTML",
+                        disable_web_page_preview=True)
+                except Exception as e:
+                    log.warning("sendMessage %s: %s", cid, e)
     old_format = not SETTINGS_FILE.exists() or '"subs"' not in SETTINGS_FILE.read_text(encoding="utf-8")
     if ups or old_format:
         save(st)

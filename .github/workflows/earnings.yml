@@ -1,0 +1,123 @@
+name: Отчёты — заложенный ход против истории (по будням)
+
+on:
+  schedule:
+    # пн–пт 11:40 UTC (до открытия: 6:40 по Нью-Йорку зимой, 7:40 летом; ≈13:40–14:40 по Кишинёву);
+    # второй запуск — на случай, если GitHub пропустит первый (повторно не считает: --if-new)
+    - cron: '40 11 * * 1-5'
+    - cron: '40 12 * * 1-5'
+  # после правок расчёта — пересчитать сразу (без Telegram)
+  push:
+    branches: [main]
+    paths: ['earnings.py', '.github/workflows/earnings.yml']
+  workflow_dispatch:
+    inputs:
+      telegram:
+        description: 'Разослать список подписчикам в Telegram'
+        type: boolean
+        default: false
+      tickers:
+        description: 'Проверить только эти тикеры (через запятую) — без записи на сайт'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Расчёт идёт в своей очереди «earnings»; в общую очередь «scan» встаёт только публикация сайта.
+concurrency:
+  group: earnings
+  cancel-in-progress: false
+
+jobs:
+  earnings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      skip: ${{ steps.calc.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Отчёты недели
+        id: calc
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TICKERS: ${{ inputs.tickers }}
+        run: |
+          if [ -n "$TICKERS" ]; then
+            python earnings.py --tickers "$TICKERS" --no-tg --out cache/earnings_test.json
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            git config user.name "ob-bot"; git config user.email "ob-bot@users.noreply.github.com"
+            git add -f cache/earnings_test.json; git commit -m "Отчёты: проверка тикеров [skip ci]" || true
+            for i in 1 2 3; do git pull --rebase --autostash -X theirs && git push && break; sleep 5; done
+          else
+            python earnings.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.telegram)) && '--no-tg' || '' }}
+          fi
+
+      - name: Сохранить результат
+        if: steps.calc.outputs.skip != 'true'
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          if [ -e cache/earnings.json ]; then git add -f cache/earnings.json; fi
+          git commit -m "Отчёты $(date -u +'%Y-%m-%d') [skip ci]" || echo "без изменений"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs && git push && break
+            sleep 5
+          done
+
+  deploy:
+    needs: earnings
+    if: needs.earnings.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: scan
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main          # свежее состояние репозитория, вместе с только что сохранённым результатом
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Кэш свечей
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/bars
+          key: bars-${{ github.run_id }}
+          restore-keys: bars-
+
+      - name: Выгрузка опционов (из кэша)
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/optscreen.json
+          key: optscreen-${{ github.run_id }}
+          restore-keys: optscreen-
+
+      - name: Сборка сайта
+        run: python build_site.py --site-only
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

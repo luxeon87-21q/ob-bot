@@ -159,6 +159,13 @@ td.best{font-weight:700}
 #tvPop .tvob .o.bull{color:var(--bull);background:var(--bull-bg)} #tvPop .tvob .o.bear{color:var(--bear);background:var(--bear-bg)}
 #tvPop .tvob .o.hit{box-shadow:inset 0 0 0 1.5px var(--bull);font-weight:700}
 #tvPop .tvob .lbl{color:var(--muted)}
+.ses{display:inline-block;font:600 11px/1.6 Inter,sans-serif;padding:0 6px;border-radius:5px;background:var(--panel2);color:var(--muted);margin-left:6px}
+.ses.amc{color:var(--accent)} .ses.bmo{color:var(--warn)}
+.skew{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.skew.cheap{color:var(--bull);background:var(--bull-bg)} .skew.rich{color:var(--bear);background:var(--bear-bg)} .skew.fair{color:var(--muted);background:var(--panel2)}
+.mv{display:inline-flex;gap:2px;vertical-align:middle;align-items:flex-end;height:16px}
+.mv i{width:5px;border-radius:1px;background:var(--muted);opacity:.7} .mv i.u{background:var(--bull)} .mv i.d{background:var(--bear)}
+tr.today td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .obtag{display:inline-block;margin-left:5px;font:700 10px/1.6 "JetBrains Mono",ui-monospace,monospace;padding:0 4px;border-radius:4px;color:var(--bull);background:var(--bull-bg);vertical-align:middle}
 
 /* рынок — панель приборов */
@@ -229,6 +236,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
     <nav id="tabs">
       <button data-v="signals" class="on">Сигналы</button>
       <button data-v="market" title="Панель приборов: широта S&amp;P 500, веса и скользящие компонентов, ротация, риск">Рынок</button>
+      <button data-v="earnings" title="Отчёты недели: сколько закладывают опционы против обычного хода акции после отчёта">Отчёты</button>
       <button data-v="wolfe">Вульф</button>
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
@@ -503,6 +511,48 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       Акции, которые уже не торгуются, в проверку не попали. «Ликвидные опционы» — акции S&amp;P 500 и Nasdaq-100 с OI ≥ 50 000 сейчас и ETF: выборка небольшая, цифры по ней менее надёжны.</div>
   </section>
 
+  <!-- ОТЧЁТЫ -->
+  <section class="view" id="v-earnings">
+    <div class="toolbar">
+      <div class="chips" id="erDay">
+        <button class="chip on" data-f="all" title="Сегодня после закрытия и следующий торговый день до открытия: эти отчёты играются сегодняшними опционами">Играются сегодня</button>
+        <button class="chip" data-f="week">Вся неделя</button>
+      </div>
+      <div class="chips" id="erSkew">
+        <button class="chip on" data-f="all">Любой перекос</button>
+        <button class="chip" data-f="cheap">Дешевле истории</button>
+        <button class="chip" data-f="rich">Дороже истории</button>
+      </div>
+      <span class="switch" id="erOb" role="switch" aria-checked="false" title="Только акции с сигналом ордер-блока 4H за последнюю неделю"><i></i>Есть OB</span>
+      <input type="search" id="erSearch" placeholder="Тикер…" style="width:120px">
+      <span class="count" id="erCount"></span>
+    </div>
+    <div class="card tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-ek="date">Отчёт</th>
+          <th data-ek="ticker">Тикер</th>
+          <th data-ek="price" class="r hide-sm">Цена</th>
+          <th data-ek="implied" class="r" title="ATM-стрэддл первой экспирации после отчёта, % от цены: какой ход закладывают опционы в обе стороны">Заложено</th>
+          <th data-ek="hist_avg" class="r" title="Средний ход закрытие → закрытие в день реакции на прошлых отчётах (в скобках — сколько отчётов)">История</th>
+          <th data-ek="ratio" class="r" title="Заложено / история. Меньше 0,85 — опционы дешевле обычного хода, больше 1,15 — дороже">Перекос</th>
+          <th data-ek="over" class="r" title="Доля прошлых отчётов, где ход был больше, чем закладывают сейчас: столько раз окупилась бы покупка стрэддла">Шире</th>
+          <th data-ek="inside12" class="r hide-sm" title="Доля прошлых отчётов, где ход уместился в 1,2 × заложенного: короткие страйки кондора">Внутри 1,2×</th>
+          <th class="hide-sm" title="Последние отчёты: зелёный — рост, красный — падение, высота — размер хода">Прошлые ходы</th>
+          <th data-ek="eps_est" class="r hide-sm" title="Оценка EPS аналитиков и сколько из последних 8 отчётов было лучше оценки">EPS</th>
+          <th data-ek="vol" class="r hide-sm" title="Объём опционов за день (из списка опционного скринера)">Объём опц.</th>
+        </tr></thead>
+        <tbody id="erBody"><tr><td colspan="11" class="empty">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint">Акции из списка опционного скринера (активные опционы), у которых отчёт в ближайшие 7 дней. <b>До откр.</b> / <b>после закр.</b> — время по Yahoo; «?» — время не подтверждено, проверьте на сайте компании.
+      «Заложено» — цена ATM-стрэддла (колл + пут на страйке у цены) первой экспирации после отчёта, в % от цены; если экспирация на несколько дней позже реакции, оценка немного завышена.
+      «История» — средний ход закрытие → закрытие в день реакции на прошлых отчётах (до 40, ≈10 лет): до открытия — закрытие дня отчёта к закрытию накануне, после закрытия — следующий день к дню отчёта. Внутридневные пики больше.
+      «Шире» — как часто ход был больше сегодняшнего заложенного; «Внутри 1,2×» — как часто ход умещался в 1,2 заложенного.
+      Зелёный перекос — опционы дешевле истории (интереснее покупка волатильности), красный — дороже (интереснее продажа). OB — сигнал ордер-блока 4H за неделю.
+      Считается по будням до открытия: цены опционов — закрытия прошлой сессии, перед сделкой сверьте с терминалом. Это история и цены, не прогноз направления.</div>
+  </section>
+
   <!-- СВОЯ СКОЛЬЗЯЩАЯ -->
   <section class="view" id="v-ma200">
     <div class="toolbar">
@@ -620,6 +670,7 @@ function staticPath(p) {
   if (p.startsWith('/api/samurai')) return 'data/samurai.json';
   if (p.startsWith('/api/ma200')) return 'data/ma200.json';
   if (p.startsWith('/api/market')) return 'data/market.json';
+  if (p.startsWith('/api/earnings')) return 'data/earnings.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -660,7 +711,7 @@ $$('#tabs button').forEach(b => b.onclick = () => { location.hash = b.dataset.v;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('chart/')) { show('chart'); loadChart(h.slice(6)); }
-  else show(['signals', 'market', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
+  else show(['signals', 'market', 'earnings', 'wolfe', 'screener', 'season', 'hammer', 'samurai', 'ma200', 'chart'].includes(h) ? h : 'signals');
 }
 window.addEventListener('hashchange', route);
 const openChart = t => { location.hash = 'chart/' + t; };
@@ -987,6 +1038,54 @@ function renderMa200() {
   }).join('') || '<tr><td colspan="11" class="empty">' + (ma2.rows.length ? 'Под фильтр ничего не попало' : 'Закономерностей не найдено') + '</td></tr>';
 }
 setMaZone(maZoneOn);
+
+/* ---------- отчёты ---------- */
+let ern = null, erK = 'date', erDir = 1, erObOn = store.get('erOb', false);
+const erDay = chipGroup('#erDay', renderEarnings), erSkew = chipGroup('#erSkew', renderEarnings);
+$('#erSearch').oninput = renderEarnings;
+function setErOb(v) { erObOn = v; store.set('erOb', v); const el = $('#erOb'); el.classList.toggle('on', v); el.setAttribute('aria-checked', v); renderEarnings(); }
+$('#erOb').onclick = () => setErOb(!erObOn);
+$$('th[data-ek]').forEach(th => th.onclick = () => {
+  const k = th.dataset.ek; erDir = erK === k ? -erDir : (['date', 'ticker', 'ratio'].includes(k) ? 1 : -1); erK = k; renderEarnings();
+});
+const SES = {BMO: ['bmo', 'до откр.'], AMC: ['amc', 'после закр.'], DMH: ['', 'в торги']};
+const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+const nextBday = iso => { const d = new Date(iso + 'T12:00:00Z'); do d.setUTCDate(d.getUTCDate() + 1); while ([0, 6].includes(d.getUTCDay())); return d.toISOString().slice(0, 10); };
+const c1 = x => x == null ? '—' : Number(x).toFixed(1).replace('.', ',');
+function erTradable(r) {
+  const t = ern.today, n = nextBday(t);
+  return (r.date === t && (r.session === 'AMC' || !r.session)) || (r.date === n && r.session !== 'AMC');
+}
+function renderEarnings() {
+  if (!ern || !ern.rows) { $('#erBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер считает по будням до открытия рынка</td></tr>'; return; }
+  const day = erDay(), sk = erSkew(), q = $('#erSearch').value.trim().toUpperCase();
+  let rows = ern.rows.filter(r => (day === 'week' ? r.date >= ern.today : erTradable(r)) && (sk === 'all' || r.verdict === sk)
+    && (!erObOn || r.ob) && (!q || r.ticker.startsWith(q)));
+  const so = {BMO: 0, DMH: 1, AMC: 2};
+  const val = (r, k) => k === 'date' ? r.date + (so[r.session] ?? 3) + String(1e12 - (r.vol || 0)).padStart(13, '0') : k === 'ticker' ? r.ticker : (r[k] ?? (erDir > 0 ? 1e9 : -1e9));
+  rows.sort((a, b) => { const x = val(a, erK), y = val(b, erK); return (x > y ? 1 : x < y ? -1 : 0) * erDir; });
+  $$('th[data-ek]').forEach(th => { th.querySelector('.arr')?.remove(); if (th.dataset.ek === erK) th.insertAdjacentHTML('beforeend', ` <span class="arr">${erDir > 0 ? '↑' : '↓'}</span>`); });
+  const nc = ern.rows.filter(r => r.verdict === 'cheap').length, nr = ern.rows.filter(r => r.verdict === 'rich').length;
+  $('#erCount').textContent = `показано ${rows.length} · за неделю ${ern.rows.length} · дешевле ${nc} · дороже ${nr} · проверено ${ern.checked} акций · ${dtf(ern.updated)} ET`;
+  $('#erBody').innerHTML = rows.map(r => {
+    const d = new Date(r.date + 'T12:00:00Z'), [cls, lbl] = SES[r.session] || ['', '?'];
+    const mx = Math.max(1, ...(r.moves || []).map(m => Math.abs(m[1])));
+    const bars = (r.moves || []).slice(-8).map(([dt, m]) => `<i class="${m >= 0 ? 'u' : 'd'}" style="height:${Math.max(2, Math.abs(m) / mx * 16)}px" title="${dmy(dt)}: ${m > 0 ? '+' : ''}${c1(m)}%"></i>`).join('');
+    const st = r.straddle, ob = r.ob;
+    return `<tr class="${r.date === ern.today ? 'today' : ''}">
+      <td>${WD[d.getUTCDay()]} ${ddmm(r.date)}<span class="ses ${cls}">${lbl}</span></td>
+      <td><a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.ticker.replace(/-/g, '.'))}&interval=D" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${ob ? `<span class="obtag" style="${ob.side === 'bear' ? 'color:var(--bear);background:var(--bear-bg)' : ''}" title="Ордер-блок 4H: ${ob.side === 'bull' ? 'бычий' : 'медвежий'}, ${TYPE[ob.type] || ob.type}, ${dtf(ob.bar_time)}">OB</span>` : ''}</td>
+      <td class="r mono hide-sm">${fmt(r.price)}</td>
+      <td class="r mono" title="${st ? `стрэддл ${ks(st.strike)}: $${n2(st.price)} (${st.src === 'mid' ? 'середина бид/аск' : 'последняя сделка'}), экспирация ${ddmm(st.exp)}` : 'нет цен опционов'}"><b>${r.implied == null ? '—' : '±' + c1(r.implied) + '%'}</b></td>
+      <td class="r mono">${r.hist_avg == null ? '—' : '±' + c1(r.hist_avg) + '%'} <span style="color:var(--muted)">(${r.hist_n || 0})</span></td>
+      <td class="r">${r.ratio == null ? '—' : `<span class="skew ${r.verdict}">${Number(r.ratio).toFixed(2).replace(".", ",")}×</span>`}</td>
+      <td class="r mono">${r.over == null ? '—' : Math.round(r.over * 100) + '%'}</td>
+      <td class="r mono hide-sm">${r.inside12 == null ? '—' : Math.round(r.inside12 * 100) + '%'}</td>
+      <td class="hide-sm"><span class="mv">${bars}</span> <span class="mono" style="color:var(--muted);font-size:12px">${r.last_move == null ? '' : (r.last_move > 0 ? '+' : '') + c1(r.last_move) + '%'}</span></td>
+      <td class="r mono hide-sm">${r.eps_est == null ? '—' : n2(r.eps_est)}${r.beat_n ? ` <span style="color:var(--muted)">${r.beats}/${r.beat_n}</span>` : ''}</td>
+      <td class="r mono hide-sm">${r.vol == null ? '—' : Number(r.vol).toLocaleString('ru-RU')}</td></tr>`;
+  }).join('') || '<tr><td colspan="11" class="empty">' + (ern.rows.length ? 'Под фильтр ничего не попало' : 'Отчётов на неделю не найдено') + '</td></tr>';
+}
 
 /* ---------- хаммер + бабочка ---------- */
 let ham = null, hamBt = null, hmAll = store.get('hmAll', false);
@@ -1642,7 +1741,8 @@ async function loadAll() {
   try { sam = await api('/api/samurai'); } catch (e) { sam = null; }
   try { ma2 = await api('/api/ma200'); } catch (e) { ma2 = null; }
   try { mkt = await api('/api/market'); } catch (e) { mkt = null; }
-  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200(); renderMarket();
+  try { ern = await api('/api/earnings'); } catch (e) { ern = null; }
+  renderSignals(); renderWolfe(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderMa200(); renderMarket(); setErOb(erObOn);
 }
 /* ---------- быстрый просмотр TradingView при наведении на тикер ---------- */
 (function () {
