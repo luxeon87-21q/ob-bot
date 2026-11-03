@@ -550,7 +550,8 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       «История» — средний ход закрытие → закрытие в день реакции на прошлых отчётах (до 40, ≈10 лет): до открытия — закрытие дня отчёта к закрытию накануне, после закрытия — следующий день к дню отчёта. Внутридневные пики больше.
       «Шире» — как часто ход был больше сегодняшнего заложенного; «Внутри 1,2×» — как часто ход умещался в 1,2 заложенного.
       Зелёный перекос — опционы дешевле истории (интереснее покупка волатильности), красный — дороже (интереснее продажа). OB — сигнал ордер-блока 4H за неделю.
-      Считается по будням до открытия: цены опционов — закрытия прошлой сессии, перед сделкой сверьте с терминалом. Это история и цены, не прогноз направления.</div>
+      ≈ и «мес» — ближайшая экспирация через несколько дней после отчёта (обычно месячная): заложенный ход завышен, перекос не считается.
+      Считается по будням через ≈20 минут после открытия по живым бид/аск; перед сделкой сверьте с терминалом. Это история и цены, не прогноз направления.</div>
   </section>
 
   <!-- СВОЯ СКОЛЬЗЯЩАЯ -->
@@ -1057,7 +1058,7 @@ function erTradable(r) {
   return (r.date === t && (r.session === 'AMC' || !r.session)) || (r.date === n && r.session !== 'AMC');
 }
 function renderEarnings() {
-  if (!ern || !ern.rows) { $('#erBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер считает по будням до открытия рынка</td></tr>'; return; }
+  if (!ern || !ern.rows) { $('#erBody').innerHTML = '<tr><td colspan="11" class="empty">Данных ещё нет — сканер считает по будням после открытия рынка</td></tr>'; return; }
   const day = erDay(), sk = erSkew(), q = $('#erSearch').value.trim().toUpperCase();
   let rows = ern.rows.filter(r => (day === 'week' ? r.date >= ern.today : erTradable(r)) && (sk === 'all' || r.verdict === sk)
     && (!erObOn || r.ob) && (!q || r.ticker.startsWith(q)));
@@ -1076,7 +1077,7 @@ function renderEarnings() {
       <td>${WD[d.getUTCDay()]} ${ddmm(r.date)}<span class="ses ${cls}">${lbl}</span></td>
       <td><a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.ticker.replace(/-/g, '.'))}&interval=D" target="_blank" rel="noopener"><b>${esc(r.ticker)}</b></a>${ob ? `<span class="obtag" style="${ob.side === 'bear' ? 'color:var(--bear);background:var(--bear-bg)' : ''}" title="Ордер-блок 4H: ${ob.side === 'bull' ? 'бычий' : 'медвежий'}, ${TYPE[ob.type] || ob.type}, ${dtf(ob.bar_time)}">OB</span>` : ''}</td>
       <td class="r mono hide-sm">${fmt(r.price)}</td>
-      <td class="r mono" title="${st ? `стрэддл ${ks(st.strike)}: $${n2(st.price)} (${st.src === 'mid' ? 'середина бид/аск' : 'последняя сделка'}), экспирация ${ddmm(st.exp)}` : 'нет цен опционов'}"><b>${r.implied == null ? '—' : '±' + c1(r.implied) + '%'}</b></td>
+      <td class="r mono" title="${st ? `стрэддл ${ks(st.strike)}: $${n2(st.price)} (${st.src === 'mid' ? 'середина бид/аск' : 'последняя сделка'}), экспирация ${ddmm(st.exp)}` : 'нет цен опционов'}"><b>${r.implied == null ? '—' : (r.note === 'far' ? '≈' : '±') + c1(r.implied) + '%'}</b>${r.note ? `<sup title="${r.note === 'far' ? 'Ближайшая экспирация через ' + (st && st.exp_days) + ' дн. после реакции — в стрэддл входят лишние дни, заложенный ход завышен, перекос не считается' : 'Цена по старым сделкам и подозрительно низкая — перекос не считается'}">${r.note === 'far' ? 'мес' : '?'}</sup>` : ''}</td>
       <td class="r mono">${r.hist_avg == null ? '—' : '±' + c1(r.hist_avg) + '%'} <span style="color:var(--muted)">(${r.hist_n || 0})</span></td>
       <td class="r">${r.ratio == null ? '—' : `<span class="skew ${r.verdict}">${Number(r.ratio).toFixed(2).replace(".", ",")}×</span>`}</td>
       <td class="r mono">${r.over == null ? '—' : Math.round(r.over * 100) + '%'}</td>

@@ -18,7 +18,7 @@
 
 Важно: это история и цены опционов, а не прогноз направления.
 
-Запуск (по будням утром до открытия, .github/workflows/earnings.yml):
+Запуск (по будням через ≈20 минут после открытия — бид/аск уже живые, .github/workflows/earnings.yml):
   python earnings.py                       — полный прогон, Telegram, cache/earnings.json
   python earnings.py --no-tg               — без Telegram
   python earnings.py --tickers AMD,DOCN --no-tg --out cache/earnings_test.json
@@ -49,6 +49,8 @@ WINDOW = 7            # дней вперёд
 HIST_MAX = 40         # прошлых отчётов в истории (≈10 лет)
 MIN_HIST = 4          # меньше — перекос не считаем
 CHEAP, RICH = 0.85, 1.15
+MAX_EXP_DAYS = 4      # экспирация дальше дня реакции — в стрэддле лишние дни обычной волатильности, перекос не считаем
+STALE_SHARE = 0.4     # стрэддл по последним сделкам дешевле 0,4 × истории — цена старая, перекос не считаем
 SITE_URL = "https://luxeon87-21q.github.io/ob-bot/#earnings"
 log = logging.getLogger("ob_bot.earnings")
 
@@ -153,6 +155,18 @@ def stats(moves: Sequence[Tuple[str, float]], implied: Optional[float]) -> dict:
         out["over"] = round(float((a > implied).mean()), 2)
         out["inside12"] = round(float((a <= 1.2 * implied).mean()), 2)
     return out
+
+
+def quality(implied: Optional[float], st: Optional[dict], hist_avg: Optional[float]) -> Optional[str]:
+    """Почему заложенному ходу нельзя верить для сравнения: far — экспирация через несколько дней после
+    реакции (стрэддл завышен), stale — по последним сделкам и подозрительно дёшево. None — всё в порядке."""
+    if implied is None or not st:
+        return None
+    if (st.get("exp_days") or 0) > MAX_EXP_DAYS:
+        return "far"
+    if st.get("src") == "last" and hist_avg and implied < STALE_SHARE * hist_avg:
+        return "stale"
+    return None
 
 
 def verdict(ratio: Optional[float]) -> Optional[str]:
@@ -268,7 +282,10 @@ def details(ticker: str, d_cal: date, today: date) -> dict:
     rec["implied"] = imp["pct"] if imp else None
     rec["straddle"] = imp
     st = stats(moves, rec["implied"])
-    rec.update(st, verdict=verdict(st["ratio"]))
+    note = quality(rec["implied"], imp, st["hist_avg"])
+    if note:
+        st.update(ratio=None, over=None, inside12=None)
+    rec.update(st, note=note, verdict=verdict(st["ratio"]))
     return rec
 
 
@@ -346,6 +363,10 @@ def _line(r: dict) -> str:
     if r.get("ob"):
         head += " 📦" + ("🟢" if r["ob"]["side"] == "bull" else "🔴")
     imp = f"±{_n(r.get('implied'))}%" if r.get("implied") else "опционы н/д"
+    if r.get("note") == "far":
+        imp = "≈" + imp + " (дальняя экспирация)"
+    elif r.get("note") == "stale":
+        imp += " (цена старая)"
     hist = f"история ±{_n(r.get('hist_avg'))}% ({r['hist_n']})" if r.get("hist_n") else "истории нет"
     s = f"{head}: {imp} · {hist}"
     v = r.get("verdict")
@@ -415,8 +436,8 @@ def main():
             prev = json.loads(out.read_text(encoding="utf-8"))
         except Exception:
             prev = {}
-        if prev.get("today") == now.date().isoformat():
-            log.info("за сегодня уже посчитано — пропускаю")
+        if prev.get("today") == now.date().isoformat() and prev.get("live"):
+            log.info("за сегодня уже посчитано по живым ценам — пропускаю")
             gh = os.environ.get("GITHUB_OUTPUT")
             if gh:
                 with open(gh, "a") as f:
@@ -429,6 +450,8 @@ def main():
     res = run(tickers, vol, window=a.window)
     msg = build_message(res)
     res["msg"] = msg
+    hm = now.hour * 60 + now.minute
+    res["live"] = now.weekday() < 5 and 9 * 60 + 40 <= hm <= 16 * 60     # бид/аск живые (идут торги)
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":"), allow_nan=False), encoding="utf-8")
     token = os.environ.get("TELEGRAM_TOKEN", "")

@@ -109,3 +109,11 @@ def test_details_with_fake_yahoo(monkeypatch):
     assert r["hist_n"] == 4 and abs(r["hist_avg"] - 10.0) < 0.01
     assert r["beats"] == 3 and r["beat_n"] == 4
     assert r["verdict"] == "cheap"                       # стрэддл ≈ 8% < 0,85 × 10%
+
+
+def test_quality():
+    assert E.quality(8.0, dict(exp_days=2, src="last"), 10.0) is None
+    assert E.quality(8.0, dict(exp_days=17, src="mid"), 10.0) == "far"
+    assert E.quality(0.3, dict(exp_days=1, src="last"), 3.7) == "stale"
+    assert E.quality(0.3, dict(exp_days=1, src="mid"), 3.7) is None       # живой бид/аск — верим
+    assert E.quality(None, None, 5.0) is None
