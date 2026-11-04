@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import re
 import sys
 import xml.etree.ElementTree as ET_XML
@@ -451,7 +450,6 @@ def build(s: dict, with_news: bool = True, bars: Optional[Dict[str, pd.DataFrame
     now = pd.Timestamp.now(tz=data.ET)
     sigs = read_recent_signals(RECENT_DAYS, now)
     if bars is None:
-        import bot
         bars = load_bars(data.load_universe(s["universe"], BASE / "tickers.txt"))
     tm_rows = []
     det_cache: Dict[str, list] = {}

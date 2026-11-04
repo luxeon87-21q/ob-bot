@@ -133,7 +133,8 @@ def save(st: dict) -> None:
 
 
 def api(token: str, method: str, **params):
-    r = requests.post(f"https://api.telegram.org/bot{token}/{method}", json=params, timeout=30)
+    r = requests.post(f"https://api.telegram.org/bot{token}/{method}", json=params,
+                      timeout=30 + int(params.get("timeout") or 0))
     j = r.json()
     if not j.get("ok"):
         raise RuntimeError(f"Telegram {method}: {j.get('description')}")
@@ -255,14 +256,21 @@ def fund_text(t: str) -> str:
 
 
 # ---------------------------------------------------------------- команды
-def process_updates(token: str) -> dict:
-    """Читает новые сообщения боту и выполняет команды подписчиков. Возвращает настройки."""
+LAST_UPDATES = 0
+
+
+def process_updates(token: str, poll: int = 0) -> dict:
+    """Читает новые сообщения боту и выполняет команды подписчиков. Возвращает настройки.
+    poll — сколько секунд ждать новых сообщений (long polling Telegram), 0 — забрать то, что есть."""
+    global LAST_UPDATES
+    LAST_UPDATES = 0
     st = load()
     if not token:
         return st
     try:
-        ups = api(token, "getUpdates", offset=st["offset"] + 1 if st["offset"] else None, timeout=0,
+        ups = api(token, "getUpdates", offset=st["offset"] + 1 if st["offset"] else None, timeout=poll,
                   allowed_updates=["message", "my_chat_member"])
+        LAST_UPDATES = len(ups)
     except Exception as e:
         log.warning("getUpdates: %s", e)
         return st
@@ -436,11 +444,55 @@ def set_commands(token: str) -> None:
         log.warning("setMyCommands: %s", e)
 
 
+def _git(*args) -> bool:
+    import subprocess
+    return subprocess.run(["git", *args], cwd=BASE, capture_output=True, text=True).returncode == 0
+
+
+def commit_settings() -> None:
+    """Сохранить настройки подписчиков в репозиторий сразу (режим --loop)."""
+    import subprocess
+    _git("add", "cache/tg_settings.enc")
+    if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=BASE).returncode == 0:
+        return
+    _git("commit", "-q", "-m", "Настройки Telegram [skip ci]")
+    for _ in range(3):
+        if _git("pull", "-q", "--rebase", "--autostash", "-X", "theirs") and _git("push", "-q"):
+            return
+        time.sleep(5)
+    log.warning("настройки не отправлены в репозиторий — повторю при следующем изменении")
+
+
+def loop(token: str, minutes: float) -> None:
+    """Бот отвечает на команды почти сразу: long polling Telegram в течение minutes минут.
+    Раньше команды обрабатывались только при запуске по расписанию, а GitHub запускал его раз в несколько часов."""
+    end = time.time() + minutes * 60
+    last_pull = 0.0
+    while time.time() < end - 60:
+        if time.time() - last_pull > 300:           # свежие данные для /earnings, /fund и т.п.
+            _git("pull", "-q", "--rebase", "--autostash", "-X", "theirs")
+            last_pull = time.time()
+        try:
+            process_updates(token, poll=50)
+        except Exception as e:
+            log.warning("обработка команд: %s", e)
+            time.sleep(10)
+            continue
+        if LAST_UPDATES:
+            commit_settings()
+
+
 if __name__ == "__main__":
+    import argparse
     import os
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         handlers=[logging.StreamHandler(sys.stdout)])
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--loop", type=float, default=0, help="минут слушать команды без перерыва")
+    a = ap.parse_args()
     tok = os.environ.get("TELEGRAM_TOKEN", "")
     set_commands(tok)
+    if a.loop and tok:
+        loop(tok, a.loop)
     s = process_updates(tok)
     log.info("подписчиков: %d, offset=%s", len(s["subs"]), s["offset"])

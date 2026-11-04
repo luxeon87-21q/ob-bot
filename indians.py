@@ -23,7 +23,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List
 
 import numpy as np
 import pandas as pd

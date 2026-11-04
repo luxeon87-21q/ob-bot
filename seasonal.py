@@ -44,7 +44,7 @@ import time
 from dataclasses import dataclass, asdict
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -333,20 +333,91 @@ def prefilter(u: pd.DataFrame, P: Params) -> List[str]:
     return u.loc[m, "ticker"].tolist()
 
 
+DAILY_DIR = BASE / "cache" / "daily"          # кэш дневных свечей (хранится в кэше GitHub Actions, не в git)
+DAILY_INDEX = DAILY_DIR / "_index.json"
+
+
+def _cache_ok() -> bool:
+    return os.environ.get("DAILY_CACHE", "1") != "0"
+
+
 def download(tickers: List[str], years: int, batch: int = 80) -> Dict[str, pd.DataFrame]:
-    """Дневные свечи (скорректированы на сплиты и дивиденды) за years лет."""
-    start = (pd.Timestamp.now() - pd.DateOffset(years=years, days=120)).strftime("%Y-%m-%d")
+    """Дневные свечи (скорректированы на сплиты и дивиденды) за years лет.
+
+    С кэшем (cache/daily): у тикеров, история которых уже есть за нужный срок, докачивается только
+    последний месяц и приклеивается к кэшу. Если Yahoo пересчитал прошлые цены (дивиденды) — старая
+    часть масштабируется по общему дню; если разница большая (сплит) — тикер качается целиком заново."""
+    start_ts = pd.Timestamp.now() - pd.DateOffset(years=years, days=120)
+    start = start_ts.strftime("%Y-%m-%d")
     out: Dict[str, pd.DataFrame] = {}
+    if not _cache_ok():
+        _download_full(tickers, start, batch, out)
+        return out
+    DAILY_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        idx = json.loads(DAILY_INDEX.read_text())
+    except Exception:
+        idx = {}
+    recent = (pd.Timestamp.now() - pd.Timedelta(days=25)).strftime("%Y-%m-%d")
+    cached: Dict[str, pd.DataFrame] = {}
+    for t in tickers:
+        m = idx.get(t)
+        f = DAILY_DIR / f"{t}.pkl.gz"
+        if m and m.get("from", "9999") <= start and m.get("last", "") >= recent and f.exists():
+            try:
+                cached[t] = pd.read_pickle(f, compression="gzip")
+            except Exception:
+                pass
+    full = [t for t in tickers if t not in cached]
+    log.info("история: из кэша %d, целиком %d (из %d)", len(cached), len(full), len(tickers))
+    fresh: Dict[str, pd.DataFrame] = {}
+    if cached:
+        _fetch(sorted(cached), (pd.Timestamp.now() - pd.Timedelta(days=35)).strftime("%Y-%m-%d"), 200, fresh, min_rows=1)
+    for t, old in cached.items():
+        new = fresh.get(t)
+        if new is None or new.empty:
+            out[t] = old                                  # Yahoo не отдал хвост — пусть будет вчерашнее
+            continue
+        common = old.index.intersection(new.index)
+        common = common[common < old.index[-1]]           # последний день кэша мог быть неполным
+        if len(common):
+            d = common[-1]
+            ratio = float(new.at[d, "close"]) / float(old.at[d, "close"]) if old.at[d, "close"] else 1.0
+            if abs(ratio - 1) > 0.15:                     # сплит или пересчёт — целиком заново
+                full.append(t)
+                continue
+            if abs(ratio - 1) > 1e-4:                     # дивиденд — Yahoo пересчитал прошлые цены
+                old = old.copy()
+                old[["open", "high", "low", "close"]] *= ratio
+        elif new.index[0] > old.index[-1] + pd.Timedelta(days=10):
+            full.append(t)
+            continue
+        out[t] = pd.concat([old[old.index < new.index[0]], new])
+    if full:
+        _download_full(full, start, batch, out)
+    for t, df in out.items():
+        try:
+            df.astype("float32").to_pickle(DAILY_DIR / f"{t}.pkl.gz", compression="gzip")
+            prev = idx.get(t, {})
+            idx[t] = {"from": min(prev.get("from", start), start) if t in cached else start,
+                      "last": str(df.index[-1].date())}
+        except Exception as e:
+            log.debug("кэш %s: %s", t, e)
+    DAILY_INDEX.write_text(json.dumps(idx, separators=(",", ":")))
+    cut = pd.Timestamp(start)
+    return {t: df[df.index >= cut] for t, df in out.items() if len(df[df.index >= cut]) > 250}
+
+
+def _download_full(tickers: List[str], start: str, batch: int, out: Dict[str, pd.DataFrame]) -> None:
     _fetch(tickers, start, batch, out)
     missing = [t for t in tickers if t not in out]
     if missing and len(missing) < len(tickers):
         log.info("история: повторная загрузка %d тикеров", len(missing))
         time.sleep(30)
         _fetch(missing, start, 40, out)
-    return out
 
 
-def _fetch(tickers: List[str], start: str, batch: int, out: Dict[str, pd.DataFrame]) -> None:
+def _fetch(tickers: List[str], start: str, batch: int, out: Dict[str, pd.DataFrame], min_rows: int = 251) -> None:
     import yfinance as yf
     for b in range(0, len(tickers), batch):
         part = tickers[b:b + batch]
@@ -365,7 +436,7 @@ def _fetch(tickers: List[str], start: str, batch: int, out: Dict[str, pd.DataFra
                 df = raw[t] if isinstance(raw.columns, pd.MultiIndex) else raw
                 df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]]
                 df = df.dropna(subset=["open", "high", "low", "close"])
-                if len(df) > 250:
+                if len(df) >= min_rows:
                     df.index = pd.to_datetime(df.index).tz_localize(None)
                     out[t] = df
             except Exception:

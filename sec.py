@@ -47,7 +47,7 @@ class SEC:
                 self._last = time.time()
             try:
                 r = self.s.get(url, timeout=timeout)
-            except requests.RequestException as e:
+            except requests.RequestException:
                 if k == tries - 1:
                     raise
                 time.sleep(2 * (k + 1))

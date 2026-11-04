@@ -2,7 +2,9 @@ name: Команды Telegram
 
 on:
   schedule:
-    - cron: '*/5 * * * *'     # GitHub выполняет расписание с пропусками, поэтому чаще
+    # каждый запуск слушает команды ~110 минут без перерыва (long polling), бот отвечает за секунды;
+    # запуски раз в час с запасом — следующий ждёт в очереди и стартует, когда закончится предыдущий
+    - cron: '7 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -18,7 +20,7 @@ env:
 jobs:
   commands:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 125
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,7 +30,10 @@ jobs:
       - name: Обработать команды боту
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        run: python tg.py
+        run: |
+          git config user.name "ob-bot"
+          git config user.email "ob-bot@users.noreply.github.com"
+          python tg.py --loop 110
       - name: Сохранить настройки
         run: |
           git config user.name "ob-bot"
@@ -38,6 +43,6 @@ jobs:
           if git diff --cached --quiet; then echo "без изменений"; exit 0; fi
           git commit -m "Настройки Telegram [skip ci]"
           for i in 1 2 3; do
-            git pull --rebase -X theirs && git push && break
+            git pull --rebase --autostash -X theirs && git push && break
             sleep 5
           done

@@ -47,6 +47,14 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Кэш дневных свечей
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/daily
+          key: daily-${{ github.run_id }}
+          restore-keys: daily-
+
+
       - name: Выгрузка опционов для сайта
         id: scan
         env:
@@ -71,6 +79,13 @@ jobs:
       - name: Пут-ратио под отчёт — поиск страйков
         if: steps.scan.outputs.skip != 'true'
         run: python ratio.py || echo "пут-ратио не посчитан"
+
+      - name: Сохранить кэш дневных свечей
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/daily
+          key: daily-${{ github.run_id }}
 
       - name: Сохранить выгрузку в кэш
         if: steps.scan.outputs.skip != 'true'

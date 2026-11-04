@@ -534,7 +534,7 @@ def build_message(res: dict) -> str:
                 + (f"\n  ещё {alt[0]['exp'][8:10]}.{alt[0]['exp'][5:7]}: {_f(alt[0]['cost'])}, ×{alt[0].get('rr', 0):.1f}" if alt else "")
                 + (f"\n  ⚠️ отчёт {c['earnings'][8:10]}.{c['earnings'][5:7]}" if c.get("earnings") and c["earnings"] <= f["exp"] else "")
                 + (f"\n  ⚠️ старые цены: {', '.join(_f(k, 1) for k in f['stale'])}" if f["stale"] else "")
-                + (f"\n  ⚠️ подозрительно дёшево — проверьте цены в терминале" if f.get("suspect") else ""))
+                + ("\n  ⚠️ подозрительно дёшево — проверьте цены в терминале" if f.get("suspect") else ""))
     lines.append(f"\n🌐 {SITE_URL}\n⚠️ Цены — последние сделки пятницы. Не инвестиционная рекомендация.")
     return "\n".join(lines)
 

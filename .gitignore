@@ -6,3 +6,4 @@ __pycache__/
 cache/tg_settings.json
 cache/chat_id
 cache/*.tmp
+cache/daily/

@@ -46,6 +46,14 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Кэш дневных свечей
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/daily
+          key: daily-${{ github.run_id }}
+          restore-keys: daily-
+
+
       - name: Поиск подходов к своей скользящей
         id: scan
         env:
@@ -61,6 +69,13 @@ jobs:
           else
             python ma200.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ github.event_name == 'workflow_dispatch' && !inputs.telegram && '--no-tg' || '' }}
           fi
+
+      - name: Сохранить кэш дневных свечей
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/daily
+          key: daily-${{ github.run_id }}
 
       - name: Сохранить результат
         if: steps.scan.outputs.skip != 'true'

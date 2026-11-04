@@ -46,12 +46,27 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Кэш дневных свечей
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/daily
+          key: daily-${{ github.run_id }}
+          restore-keys: daily-
+
+
       - name: Расчёт панели
         id: calc
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         run: |
           python market.py ${{ github.event_name == 'schedule' && '--if-new' || '' }} ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.telegram)) && '--no-tg' || '' }}
+
+      - name: Сохранить кэш дневных свечей
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/daily
+          key: daily-${{ github.run_id }}
 
       - name: Сохранить результат
         if: steps.calc.outputs.skip != 'true'

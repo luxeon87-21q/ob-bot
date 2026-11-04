@@ -244,12 +244,16 @@ def test_options_oi(tmp_path):
             raise RuntimeError("yahoo")
         return {"oi": {"AAPL": 900000, "SMALL": 1200}.get(t, 0), "exp": 4}
 
-    d = options.refresh(["AAPL", "SMALL", "BAD", "BRK.B"], fetch=fetch, workers=2)
+    d = options.refresh(["AAPL", "SMALL", "BAD", "BRK.B"], fetch=fetch, workers=2,
+                        now=pd.Timestamp("2026-11-04 11:00", tz="America/New_York"))
     assert d["AAPL"]["oi"] == 900000 and d["SMALL"]["oi"] == 1200 and "BAD" not in d
+    # до 9:45 NY не обновляет (Yahoo отдаёт пустой OI)
+    pre = options.refresh(["NEW"], fetch=fetch, now=pd.Timestamp("2026-11-04 08:00", tz="America/New_York"))
+    assert "NEW" not in pre
     assert "BRK-B" in calls                                        # тикер в формате Yahoo
     assert options.passes(d, "AAPL") and not options.passes(d, "SMALL") and options.passes(d, "BAD")
     calls.clear()
-    options.refresh(["AAPL", "SMALL", "BAD"], fetch=fetch)          # за сегодня уже есть — повторно не качаем
+    options.refresh(["AAPL", "SMALL", "BAD"], fetch=fetch, now=pd.Timestamp("2026-11-04 12:00", tz="America/New_York"))  # за сегодня уже есть — повторно не качаем
     assert set(calls) == {"BAD"}
     assert options.fmt_oi(912345) == "OI 912.3K" and options.fmt_oi(None) == "OI н/д"
 

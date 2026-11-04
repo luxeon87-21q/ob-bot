@@ -57,11 +57,11 @@ def _yahoo_oi(ticker: str, today: pd.Timestamp, days: int = DAYS) -> Optional[di
     return {"oi": total, "exp": len(use)}
 
 
-def refresh(tickers: Iterable[str], fetch=_yahoo_oi, workers: int = 6, budget_s: float = 900) -> Dict[str, dict]:
+def refresh(tickers: Iterable[str], fetch=_yahoo_oi, workers: int = 6, budget_s: float = 900, now=None) -> Dict[str, dict]:
     """Обновляет OI тикеров, у которых данные не сегодняшние. Ошибки не валят проверку:
     при неудаче остаётся прошлое значение. Ограничение по времени — остальные дообновятся в следующий раз."""
     data = load()
-    now = pd.Timestamp.now(tz=ET)
+    now = now if now is not None else pd.Timestamp.now(tz=ET)
     # До ≈9:45 по Нью-Йорку Yahoo отдаёт открытый интерес почти нулевым (новые данные OCC ещё не залиты) —
     # 04.11 из-за этого у AAPL было OI 0 и фильтр отсёк почти все сигналы. До этого времени не обновляем.
     if now.weekday() < 5 and now.hour * 60 + now.minute < 9 * 60 + 45:
