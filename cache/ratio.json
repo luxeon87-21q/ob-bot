@@ -1,14 +1,15 @@
 {
- "made": "2026-11-03T20:44:09.369361+00:00",
- "data_et": "2026-11-03 15:28",
- "today": "2026-11-03",
- "candidates": 0,
+ "made": "2026-11-04T20:58:03.177861+00:00",
+ "data_et": "2026-11-04 15:45",
+ "today": "2026-11-04",
+ "candidates": 1,
  "funnel": {
-  "stocks": 555,
-  "earn_window": 79,
-  "vol": 39,
-  "iv_lt": 8,
-  "ivr_le": 7
+  "stocks": 536,
+  "earn_window": 86,
+  "vol": 58,
+  "iv_lt": 12,
+  "ivr_le": 13,
+  "both": 1
  },
  "params": {
   "days": [
@@ -26,5 +27,18 @@
   "delta_max": 8.0,
   "max_loss": 0.2
  },
- "rows": []
+ "rows": [
+  {
+   "ticker": "AVGO",
+   "name": "Broadcom Inc.",
+   "price": 324.9,
+   "earn": "2026-12-09",
+   "iv30": 0.4345,
+   "ivr": 27.3,
+   "ivs": "hv",
+   "vol": 225126,
+   "n_combos": 0,
+   "best": []
+  }
+ ]
 }
