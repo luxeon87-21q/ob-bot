@@ -64,7 +64,7 @@ def settings():
     return dict(
         token=cfg("TELEGRAM_TOKEN", ""),
         chat_id=cfg("TELEGRAM_CHAT_ID", ""),
-        universe=cfg("UNIVERSE", "sp500,nasdaq100"),
+        universe=cfg("UNIVERSE", "sp500,nasdaq100,file"),   # file — свои тикеры из tickers.txt
         length=cfg("OB_LENGTH", 5, int),
         mitigation=cfg("OB_MITIGATION", "Wick"),
         track_last=cfg("OB_TRACK_LAST", 5, int),

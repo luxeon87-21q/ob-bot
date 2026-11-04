@@ -11,3 +11,7 @@ GOOGL
 AMD
 PLTR
 COIN
+# не в S&P 500 / Nasdaq-100, добавлены по просьбе (портфель)
+SOFI
+FIVN
+CBRS
