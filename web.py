@@ -129,6 +129,7 @@ def chart_payload(ticker: str, s: dict, bars_limit: int = 500) -> dict:
             d = bot.wolfe_dict(ticker, e)
             d["t"] = wall_epoch(e.bar_time)
             d["pts_t"] = [wall_epoch(tm) for tm in e.w.times]
+            d["p5_t"] = wall_epoch(e.w.p5_time)
             wv.append(d)
     candles = [dict(time=wall_epoch(t), open=round(r.open, 4), high=round(r.high, 4), low=round(r.low, 4),
                     close=round(r.close, 4), volume=int(r.volume)) for t, r in view.iterrows()]

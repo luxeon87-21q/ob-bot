@@ -219,19 +219,27 @@ def test_wolfe():
     assert len(ev) == 1
     e = ev[0]
     assert e.w.side == "bull" and e.w.idx == [10, 20, 30, 40]
-    assert e.low <= e.w.line13 + 1e-9 and e.w.target > e.close           # цель выше цены
-    assert 40 + 3 <= e.bar_idx <= 52                                    # не раньше подтверждения точки 4
+    assert e.w.p5_idx == 52 and e.bar_idx > e.w.p5_idx                 # сигнал — на развороте после точки 5
+    assert e.close > df["high"].iloc[e.w.p5_idx]                         # закрытие выше свечи точки 5
+    assert e.w.stop < e.w.p5 < e.close < e.w.epa <= e.w.target           # стоп под 5, цель — линия 1–4
     # зеркально — медвежья
     m = df.copy(); m["open"] = 200 - df["open"]; m["close"] = 200 - df["close"]
     m["high"] = 200 - df["low"]; m["low"] = 200 - df["high"]
     eb = wolfe.detect(m, 3)
-    assert len(eb) == 1 and eb[0].w.side == "bear" and eb[0].w.target < eb[0].close
+    assert len(eb) == 1 and eb[0].w.side == "bear" and eb[0].w.stop > eb[0].w.p5 > eb[0].close > eb[0].w.epa
     # расходящиеся линии (не клин) — не Вульф
     bad = _wolfe_df([(0, 105), (10, 100), (20, 110), (30, 95), (40, 106), (52, 88), (75, 113)], 80)
     assert wolfe.detect(bad, 3) == []
     # цена ушла выше точки 4 до касания линии 1–3 — фигура сломана
     brk = _wolfe_df([(0, 105), (10, 100), (20, 112), (30, 96), (40, 104), (46, 101), (50, 108), (60, 85)], 70)
     assert wolfe.detect(brk, 3) == []
+    # дошли до линии 1–3, но разворота нет — сигнала нет (касания мало)
+    fall = _wolfe_df([(0, 105), (10, 100), (20, 112), (30, 96), (40, 104), (52, 90), (79, 70)], 80)
+    assert wolfe.detect(fall, 3) == []
+    # точка 3 выше точки 1 — по Рашке это не бычий Вульф
+    hi3 = _wolfe_df([(0, 105), (10, 96), (20, 112), (30, 100), (40, 106), (52, 92), (75, 113)], 80)
+    assert all(x.w.side != "bull" or x.w.price[2] < x.w.price[0] for x in wolfe.detect(hi3, 3))
+
 
 def test_options_oi(tmp_path):
     import options

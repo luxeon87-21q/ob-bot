@@ -192,29 +192,32 @@ def build_message(found: Dict[str, List[Event]], oi_min: int = 0) -> str:
 
 
 def build_wolfe_message(found: Dict[str, list]) -> str:
-    """Отдельное сообщение по волнам Вульфа: цена дошла до линии 1–3 (зона точки 5)."""
+    """Отдельное сообщение по волнам Вульфа: разворот от точки 5 (правила Рашке, «Street Smarts»)."""
     if not found:
         return ""
     bars = sorted({e.bar_time for evs in found.values() for e in evs})
     head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
     n = sum(len(v) for v in found.values())
     lines = [f"🌊 <b>Волны Вульфа 4H</b> — свеча {head} ET",
-             f"Цена дошла до линии 1–3 (зона точки 5): <b>{n}</b>"]
-    for side, title in (("bull", "🟢 Бычья волна — ждём разворот вверх"),
-                        ("bear", "🔴 Медвежья волна — ждём разворот вниз")):
+             f"Разворот от точки 5 у линии 1–3: <b>{n}</b>"]
+    for side, title in (("bull", "🟢 Бычья волна — разворот вверх"),
+                        ("bear", "🔴 Медвежья волна — разворот вниз")):
         rows = []
         for t in sorted(found):
             for e in found[t]:
                 if e.w.side != side:
                     continue
                 w = e.w
-                pct = (w.target - e.close) / e.close * 100
-                rows.append(f"• {link(t)}  цена {fmt(e.close)} · линия 1–3 {fmt(w.line13)} · "
-                            f"точка 3 {fmt(w.price[2])}\n   🎯 цель (линия 1–4) <b>{fmt(w.target)}</b> "
-                            f"({pct:+.1f}%) <i>≈ через {max(1, round(w.eta_bars))} св.</i>")
+                pct = (w.epa - e.close) / e.close * 100
+                risk = abs(e.close - w.stop)
+                rr = abs(w.epa - e.close) / risk if risk else 0
+                rows.append(f"• {link(t)}  вход {fmt(e.close)} · точка 5 {fmt(w.p5)} · 🛑 стоп {fmt(w.stop)}\n"
+                            f"   🎯 EPA (линия 1–4) <b>{fmt(w.epa)}</b> ({pct:+.1f}%, R:R {rr:.1f}) "
+                            f"<i>→ {fmt(w.target)} к ≈{max(1, round(w.eta_bars))} св.</i>")
         if rows:
             lines += ["", f"<b>{title}</b>"] + rows
-    lines += ["", "<i>Стоп — за экстремумом точки 5. Не инвестиционная рекомендация.</i>"]
+    lines += ["", "<i>По Рашке: стоп сразу за точкой 5, после движения — в безубыток. "
+              "Цель — линия 1–4, она наклонная. Не инвестиционная рекомендация.</i>"]
     return "\n".join(lines)
 
 
@@ -223,6 +226,8 @@ def wolfe_dict(t: str, e) -> dict:
     return dict(ticker=t, type="wolfe", side=w.side, bar_time=e.bar_time.isoformat(),
                 top=round(w.target, 4), btm=round(w.line13, 4), target=round(w.target, 4),
                 line13=round(w.line13, 4), eta_bars=round(w.eta_bars, 1),
+                epa=round(w.epa, 4), stop=round(w.stop, 4), p5=round(w.p5, 4),
+                p5_time=w.p5_time.isoformat() if w.p5_time is not None else None,
                 pts=[[tm.isoformat(), round(p, 4)] for tm, p in zip(w.times, w.price)],
                 close=round(e.close, 4), high=round(e.high, 4), low=round(e.low, 4))
 

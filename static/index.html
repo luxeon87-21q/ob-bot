@@ -978,14 +978,14 @@ function renderWolfe() {
   for (const r of rows.slice(0, 400)) {
     const d = r.bar_time.slice(0, 10);
     if (d !== day) { day = d; html += `<div class="day">${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}</div>`; }
-    const up = r.side === 'bull', p = (r.target / r.close - 1) * 100;
+    const up = r.side === 'bull', tg = r.epa ?? r.target, p = (tg / r.close - 1) * 100;
     html += `<div class="sig" data-t="${esc(r.ticker)}">
       <span class="time mono">${r.bar_time.slice(11, 16)}</span>
       <span class="tk">${esc(r.ticker)}</span>
       <span class="desc"><span class="badge ${r.side}">🌊 ${up ? '▲ бычья' : '▼ медвежья'}</span>&nbsp;
-        цена <b class="mono">${fmt(r.close)}</b> · линия 1–3 <span class="mono">${fmt(r.line13)}</span>
-        · 🎯 цель <b class="mono ${up ? 'up' : 'down'}">${fmt(r.target)}</b> <span class="mono ${up ? 'up' : 'down'}">(${pct(p)})</span>
-        <span class="hide-sm">· ≈ ${Math.max(1, Math.round(r.eta_bars))} св.</span></span>
+        вход <b class="mono">${fmt(r.close)}</b>${r.stop != null ? ` · 🛑 стоп <span class="mono">${fmt(r.stop)}</span>` : ` · линия 1–3 <span class="mono">${fmt(r.line13)}</span>`}
+        · 🎯 EPA <b class="mono ${up ? 'up' : 'down'}">${fmt(tg)}</b> <span class="mono ${up ? 'up' : 'down'}">(${pct(p)})</span>
+        <span class="hide-sm">· → ${fmt(r.target)} к ≈ ${Math.max(1, Math.round(r.eta_bars))} св.</span></span>
       </div>`;
   }
   $('#wList').innerHTML = html;
@@ -1563,14 +1563,17 @@ function chartDraw() {
   }
   // волны Вульфа: линии 1–3, 2–4 (клин), 1–4 (цель), точки 1–5
   for (const w of (cur.wolfe || []).slice(-2)) {                 // две последние фигуры, чтобы не было каши
-    const ix = w.pts_t.map(t => idxOfTime(t)), i5 = idxOfTime(w.t);
+    const ix = w.pts_t.map(t => idxOfTime(t)), i5 = idxOfTime(w.t), ip5 = w.p5_t ? idxOfTime(w.p5_t) : i5;
     if (ix[3] < i0 - 200 || ix[0] > i1) continue;
     const ie = i5 + Math.max(1, w.eta_bars), clr = w.side === 'bull' ? col.bull : col.bear;
     const P = w.pts.map(p => p[1]);
     const lineAt = (a, b, i) => P[a] + (P[b] - P[a]) * (i - ix[a]) / (ix[b] - ix[a]);
     ctx.lineWidth = 1.5; ctx.strokeStyle = '#8b7cf6'; ctx.globalAlpha = .9;
     ctx.beginPath(); ctx.moveTo(xOf(ix[0]), yOf(P[0])); for (let k = 1; k < 4; k++) ctx.lineTo(xOf(ix[k]), yOf(P[k]));
-    ctx.lineTo(xOf(i5), yOf(w.side === 'bull' ? C[i5].low : C[i5].high)); ctx.stroke();
+    const y5 = w.p5 ?? (w.side === 'bull' ? C[ip5].low : C[ip5].high);
+    ctx.lineTo(xOf(ip5), yOf(y5)); ctx.lineTo(xOf(i5), yOf(C[i5].close)); ctx.stroke();
+    if (w.stop != null) { ctx.save(); ctx.strokeStyle = col.bear; ctx.setLineDash([2, 3]); ctx.beginPath();
+      ctx.moveTo(xOf(ip5), yOf(w.stop)); ctx.lineTo(xOf(i5 + 6), yOf(w.stop)); ctx.stroke(); ctx.restore(); }
     ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.moveTo(xOf(ix[0]), yOf(P[0])); ctx.lineTo(xOf(ie), yOf(lineAt(0, 2, ie)));
     ctx.moveTo(xOf(ix[1]), yOf(P[1])); ctx.lineTo(xOf(ie), yOf(lineAt(1, 3, ie))); ctx.stroke();
@@ -1584,7 +1587,7 @@ function chartDraw() {
       ctx.strokeStyle = '#8b7cf6'; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = col.fg; ctx.fillText(k, x, y + .5); };
     const bull = w.side === 'bull';
     for (let k = 0; k < 4; k++) lbl(String(k + 1), ix[k], P[k], bull ? k % 2 === 0 : k % 2 === 1);
-    lbl('5', i5, bull ? C[i5].low : C[i5].high, bull);
+    lbl('5', ip5, y5, bull);
     ctx.fillStyle = clr; ctx.textAlign = 'left'; ctx.font = 'bold 10px Inter, sans-serif';
     ctx.fillText('🎯 ' + fmt(w.target), xOf(ie) + 7, yOf(w.target));
     ctx.font = '11px "JetBrains Mono", ui-monospace, monospace'; ctx.lineWidth = 1;
@@ -1668,7 +1671,7 @@ async function loadChart(t) {
     ((d.wolfe || []).length ? `<h3>🌊 Волны Вульфа</h3>` + d.wolfe.slice(-4).reverse().map(w => `
     <div class="obrow"><div><span class="badge ${w.side}">${w.side === 'bull' ? '▲ Бычья' : '▼ Медвежья'}</span>
       <span class="z mono">&nbsp;🎯 ${fmt(w.target)}</span></div>
-      <div class="m mono">точка 5: ${dtf(w.bar_time)} · линия 1–3 ${fmt(w.line13)}</div></div>`).join('') : '') +
+      <div class="m mono">разворот ${dtf(w.bar_time)} · вход ${fmt(w.close)}${w.stop != null ? ' · стоп ' + fmt(w.stop) + ' · EPA ' + fmt(w.epa) : ' · линия 1–3 ' + fmt(w.line13)}</div></div>`).join('') : '') +
     `<h3>Последние события</h3>` + (evs.length ? evs.map(e => `
     <div class="obrow"><div><span class="badge ${e.type === 'mitigated' ? 'gray' : e.side}">${TYPE[e.type]} ${SIDE[e.side]}</span>${kindTag(e)}</div>
       <div class="m mono">${dtf(e.bar_time)} · ${fmt(e.btm)}–${fmt(e.top)}</div></div>`).join('') : '<div class="empty">—</div>');
