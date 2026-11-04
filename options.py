@@ -61,7 +61,13 @@ def refresh(tickers: Iterable[str], fetch=_yahoo_oi, workers: int = 6, budget_s:
     """Обновляет OI тикеров, у которых данные не сегодняшние. Ошибки не валят проверку:
     при неудаче остаётся прошлое значение. Ограничение по времени — остальные дообновятся в следующий раз."""
     data = load()
-    today = pd.Timestamp.now(tz=ET).normalize().tz_localize(None)
+    now = pd.Timestamp.now(tz=ET)
+    # До ≈9:45 по Нью-Йорку Yahoo отдаёт открытый интерес почти нулевым (новые данные OCC ещё не залиты) —
+    # 04.11 из-за этого у AAPL было OI 0 и фильтр отсёк почти все сигналы. До этого времени не обновляем.
+    if now.weekday() < 5 and now.hour * 60 + now.minute < 9 * 60 + 45:
+        log.info("опционы: до 9:45 NY OI у Yahoo пустой — беру прошлые значения")
+        return data
+    today = now.normalize().tz_localize(None)
     tstr = today.strftime("%Y-%m-%d")
     # exp == 0 — «экспираций не нашлось»: перепроверяем, это часто сбой Yahoo, а не отсутствие опционов
     todo = [t for t in tickers if data.get(t, {}).get("date") != tstr or not data.get(t, {}).get("exp")]
@@ -74,8 +80,13 @@ def refresh(tickers: Iterable[str], fetch=_yahoo_oi, workers: int = 6, budget_s:
         futs = {pool.submit(_safe, fetch, y, today): t for t, y in zip(todo, yahoo)}
         for f in as_completed(futs):
             t, r = futs[f], f.result()
+            old = data.get(t, {})
             if r is None:
                 fail += 1
+            elif old.get("oi", 0) >= 5000 and r["oi"] < old["oi"] * 0.1:
+                # OI не падает в 10 раз за день — это сбой ответа Yahoo, оставляем прошлое значение
+                fail += 1
+                log.debug("OI %s: %s → %s, похоже на сбой", t, old.get("oi"), r["oi"])
             else:
                 data[t] = dict(r, date=tstr)
                 ok += 1
