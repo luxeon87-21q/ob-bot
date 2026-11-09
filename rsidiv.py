@@ -131,43 +131,100 @@ def detect(df: pd.DataFrame, period: int = 9, level: float = 30.0, max_bars: int
 
 
 # ---------------------------------------------------------------- проверочный прогон
+STOP_ATR = (0.0, 0.5, 1.0, 1.5)       # стоп: минимум B минус k × ATR(14)
+HOLD = 20                              # держим не дольше 20 свечей 4H (~10 торговых дней)
+
+
+def _atr(h, l, c, n=14):
+    prev = np.concatenate([[c[0]], c[:-1]])
+    tr = np.maximum(h - l, np.maximum(abs(h - prev), abs(l - prev)))
+    return pd.Series(tr).rolling(n, min_periods=1).mean().values
+
+
+def _trade(h, l, c, i, stop):
+    """Вход по закрытию свечи i; выход по стопу или через HOLD свечей. Возвращает (доходность %, стоп?)."""
+    for j in range(i + 1, i + HOLD + 1):
+        if l[j] <= stop:
+            o = min(stop, float(c[j - 1]))      # гэп ниже стопа — выходим хуже
+            return (o / c[i] - 1) * 100, True
+    return (c[i + HOLD] / c[i] - 1) * 100, False
+
+
+def _stats(vals):
+    if not vals:
+        return dict(n=0)
+    v = np.array(vals, float)
+    return dict(n=len(v), win=round(float((v > 0).mean() * 100), 1), avg=round(float(v.mean()), 2),
+                med=round(float(np.median(v)), 2))
+
+
 def report(tickers=None, out=None, recent_bars: int = 20) -> dict:
-    """Прогон по ETF на всей истории (~2 года 4H): все сигналы + что было с ценой после них."""
+    """Прогон по ETF на всей истории (~2 года 4H): все сигналы, что было с ценой после них,
+    сравнение со случайным входом и разные стопы."""
     import json
     from pathlib import Path
     import data
     tickers = list(tickers or ETFS)
     bars = data.update_bars(tickers)
-    rows, last = [], {}
+    rows, last, base_by = [], {}, {}
+    rng = np.random.default_rng(7)
     for t, df in bars.items():
-        h, l, c = df["high"].values, df["low"].values, df["close"].values
-        last[t] = dict(bar=df.index[-1].isoformat(), close=round(float(c[-1]), 2),
-                       rsi=round(float(rsi(c)[-1]), 1), bars=len(df))
+        h, l, c = (df[k].values.astype(float) for k in ("high", "low", "close"))
+        a = _atr(h, l, c)
+        r = rsi(c)
+        last[t] = dict(bar=df.index[-1].isoformat(), close=round(float(c[-1]), 2), rsi=round(float(r[-1]), 1), bars=len(df))
+        # случайный вход: любая свеча этого ETF (та же доходность через HOLD свечей)
+        fwd = (c[HOLD:] / c[:-HOLD] - 1) * 100
+        base_by[t] = fwd[30:]
         for e in detect(df):
             i = e.bar_idx
             res = dict(ticker=t, variant=e.variant, bar_time=e.bar_time.isoformat(), close=round(e.close, 2),
                        a_time=e.a_time.isoformat(), a_rsi=round(e.a_rsi, 1), a_low=round(e.a_low, 2),
                        b_time=e.b_time.isoformat(), b_rsi=round(e.b_rsi, 1), b_low=round(e.b_low, 2),
-                       bars=e.bars, recent=i >= len(df) - recent_bars)
-            for k in (5, 10, 20):                 # доходность через k свечей
+                       bars=e.bars, recent=i >= len(df) - recent_bars, atr=round(float(a[i]), 3))
+            for k in (5, 10, 20):
                 res[f"ret{k}"] = round((c[i + k] / e.close - 1) * 100, 2) if i + k < len(c) else None
-            stop_at = next((j for j in range(i + 1, min(len(c), i + 21)) if l[j] < e.b_low), None)
-            res["stop20"] = stop_at is not None   # стоп под минимумом B задет за 20 свечей
             res["max20"] = round((h[i + 1:i + 21].max() / e.close - 1) * 100, 2) if i + 1 < len(c) else None
+            if i + HOLD < len(c):
+                res["base20"] = round(float(base_by[t].mean()), 2)        # средний ход этого ETF за 20 свечей
+                res["trades"] = {}
+                for k in STOP_ATR:
+                    stop = e.b_low - k * a[i]
+                    ret, hit = _trade(h, l, c, i, stop)
+                    risk = (e.close - stop) / e.close * 100
+                    res["trades"][str(k)] = dict(ret=round(ret, 2), stop=hit, risk=round(risk, 2),
+                                                 R=round(ret / risk, 2) if risk > 0 else None)
             rows.append(res)
     rows.sort(key=lambda r: r["bar_time"])
-    summ = {}
-    for v in ["all"] + list(VARIANTS):
-        rr = [r for r in rows if v == "all" or r["variant"] == v]
-        done = [r for r in rr if r["ret20"] is not None]
-        summ[v] = dict(n=len(rr), n20=len(done),
-                       win20=round(100 * sum(r["ret20"] > 0 for r in done) / len(done), 1) if done else None,
-                       avg20=round(float(np.mean([r["ret20"] for r in done])), 2) if done else None,
-                       stop20=round(100 * sum(r["stop20"] for r in done) / len(done), 1) if done else None)
+
+    def summarize(rr):
+        done = [x for x in rr if "trades" in x]
+        out_ = dict(signals=len(rr), closed=len(done), hold20=_stats([x["ret20"] for x in done]))
+        # случайный вход по тем же ETF: средний ход за 20 свечей, взвешенный как сигналы
+        out_["random20"] = _stats([float(v) for x in done for v in rng.choice(base_by[x["ticker"]], 20)])
+        if done:
+            out_["edge20"] = round(out_["hold20"]["avg"] - out_["random20"]["avg"], 2)
+        out_["stops"] = {}
+        for k in STOP_ATR:
+            tr = [x["trades"][str(k)] for x in done]
+            st = _stats([x["ret"] for x in tr])
+            if tr:
+                st["stopped"] = round(100 * sum(x["stop"] for x in tr) / len(tr), 1)
+                st["risk"] = round(float(np.mean([x["risk"] for x in tr])), 2)
+                st["avgR"] = round(float(np.mean([x["R"] for x in tr if x["R"] is not None])), 2)
+            out_["stops"][f"B-{k}ATR"] = st
+        return out_
+
+    summ = {v: summarize([x for x in rows if v == "all" or x["variant"] == v]) for v in ["all"] + list(VARIANTS)}
+    # одна дивергенция — один сигнал (самое раннее подтверждение), чтобы не считать её трижды
+    first = {}
+    for x in rows:
+        first.setdefault((x["ticker"], x["b_time"]), x)
+    summ["unique"] = summarize(list(first.values()))
     res = dict(updated=pd.Timestamp.now(tz="America/New_York").isoformat(), tickers=len(tickers),
-               loaded=len(bars), summary=summ, signals=rows, last=last)
+               loaded=len(bars), hold=HOLD, summary=summ, signals=rows, last=last)
     if out:
-        Path(out).write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+        Path(out).write_text(json.dumps(res, ensure_ascii=False, indent=1, default=float), encoding="utf-8")
     return res
 
 
