@@ -262,7 +262,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <button data-v="earnings" title="Отчёты недели: сколько закладывают опционы против обычного хода акции после отчёта">Отчёты</button>
       <button data-v="fund" title="Карточка компании: выручка, маржа, EPS из отчётов в SEC">Компания</button>
       <button data-v="wolfe">Вульф</button>
-      <button data-v="rsidiv">RSI ETF</button>
+      <button data-v="rsidiv">RSI</button>
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
       <button data-v="hammer">Хаммер</button>
@@ -436,12 +436,18 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
         <button class="chip" data-f="rev">Разворотный бар</button>
         <button class="chip" data-f="break">Пробой 2 максимумов</button>
       </div>
+      <div class="chips" id="dKind">
+        <button class="chip on" data-f="all">ETF и акции</button>
+        <button class="chip" data-f="etf">ETF</button>
+        <button class="chip" data-f="stock">Акции</button>
+      </div>
       <input type="search" id="dSearch" placeholder="Тикер…" style="width:120px">
       <span class="count" id="dCount"></span>
     </div>
     <div class="card" id="dList"><div class="empty">Загрузка…</div></div>
-    <div class="hint">Бычья дивергенция RSI(9) на 4H свечах основной сессии, <b>только крупные ETF</b>: индексы (SPY, QQQ, IWM, DIA…),
-      секторные SPDR, отраслевые (SMH, XBI, KRE…), золото, нефть, облигации, страны и ликвидные ETF с плечом (TQQQ, SOXL, TNA, LABU). Логика индикатора TradingView «RSI divergence»:
+    <div class="hint">Бычья дивергенция RSI(9) на 4H свечах основной сессии: <b>крупные ETF</b> — индексы (SPY, QQQ, IWM, DIA…),
+      секторные SPDR, отраслевые (SMH, XBI, KRE…), золото, нефть, облигации, страны и ликвидные ETF с плечом (TQQQ, SOXL, TNA, LABU), —
+      и <b>акции</b> S&amp;P 500 + Nasdaq-100. Логика индикатора TradingView «RSI divergence»:
       минимумы ищутся на RSI (5 свечей слева), цена — low той же свечи. Оба минимума RSI ниже 30, второй выше первого (например, 25 → 29),
       а цена во втором минимуме ниже, чем в первом; между минимумами не больше 15 свечей.
       Подтверждение второго минимума: «как в TV» — 5 свечей справа (сигнал позже, совпадает с индикатором);
@@ -455,7 +461,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
         <th class="r">Медиана</th><th class="r">Случайный вход</th><th class="r">Перевес</th></tr></thead>
       <tbody id="dtSum"><tr><td colspan="7" class="empty">Загрузка…</td></tr></tbody></table></div>
     <div class="card tbl-wrap" style="margin-top:10px"><table>
-      <thead><tr><th>Стоп (все варианты, каждая дивергенция один раз)</th><th class="r">Выбито</th><th class="r">В плюсе</th>
+      <thead><tr><th>Стоп (каждая дивергенция один раз; ETF / акции — фильтр сверху)</th><th class="r">Выбито</th><th class="r">В плюсе</th>
         <th class="r">Средний итог</th><th class="r">Средний риск</th><th class="r">Итог в R</th></tr></thead>
       <tbody id="dtStops"></tbody></table></div>
     <div class="toolbar" style="margin-top:14px">
@@ -463,12 +469,12 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <label style="font-size:13px;color:var(--muted);margin-left:auto"><input type="checkbox" id="dtRecent"> только последние 20 свечей</label>
     </div>
     <div class="card tbl-wrap"><table>
-      <thead><tr><th>Сигнал</th><th>ETF</th><th>Вариант</th><th class="r">Вход</th><th class="r">RSI A → B</th>
+      <thead><tr><th>Сигнал</th><th>Тикер</th><th>Вариант</th><th class="r">Вход</th><th class="r">RSI A → B</th>
         <th class="r hide-sm">Low A → B</th><th class="r">Через 5</th><th class="r">Через 20</th><th class="r hide-sm">Макс. за 20</th>
         <th class="r hide-sm">Стоп под B</th></tr></thead>
       <tbody id="dtBody"></tbody></table></div>
     <div class="hint">Вход по закрытию свечи сигнала, выход через 20 свечей 4H (≈10 торговых дней) или по стопу.
-      «Случайный вход» — средний ход того же ETF за 20 свечей с любой свечи; «перевес» — разница со средним итогом сигналов.
+      «Случайный вход» — средний ход того же ETF или акции за 20 свечей с любой свечи; «перевес» — разница со средним итогом сигналов.
       Стоп «B − k ATR» — минимум второй точки минус k × ATR(14). Комиссии и проскальзывание не учтены.
       Вариант «как в TV» в таблице сигналов — фильтр сверху.</div>
   </section>
@@ -1042,11 +1048,13 @@ function renderWolfe() {
 
 const DVAR = {tv: 'как в TV', rev: 'разворотный бар', break: 'пробой 2 максимумов'};
 const dVar = chipGroup('#dVar', () => renderDivAll());
+const dKind = chipGroup('#dKind', () => renderDivAll());
+const kindOk = r => dKind() === 'all' || (dKind() === 'etf') === (r.etf !== false);   // старые записи — только ETF
 $('#dSearch').oninput = () => renderDivAll();
 function renderDiv() {
   const all = signals.filter(r => r.type === 'rsidiv');
   const q = $('#dSearch').value.trim().toUpperCase();
-  const rows = all.filter(r => (dVar() === 'all' || r.variant === dVar()) && (!q || r.ticker.startsWith(q)));
+  const rows = all.filter(r => (dVar() === 'all' || r.variant === dVar()) && kindOk(r) && (!q || r.ticker.startsWith(q)));
   $('#dCount').textContent = rows.length ? `${rows.length} сигналов` : '';
   if (!rows.length) { $('#dList').innerHTML = `<div class="empty">${all.length ? 'Под фильтр ничего не попало' : 'Сигналов пока нет — они появятся после ближайшей проверки'}</div>`; return; }
   let html = '', day = '';
@@ -1056,7 +1064,7 @@ function renderDiv() {
     html += `<div class="sig" data-t="${esc(r.ticker)}">
       <span class="time mono">${r.bar_time.slice(11, 16)}</span>
       <span class="tk">${esc(r.ticker)}</span>
-      <span class="desc"><span class="badge bull">▲ ${esc(DVAR[r.variant] || r.variant)}</span>&nbsp;
+      <span class="desc"><span class="badge bull">▲ ${esc(DVAR[r.variant] || r.variant)}</span>${r.etf === false ? '' : ' <span class="badge gray">ETF</span>'}&nbsp;
         цена <b class="mono">${fmt(r.close)}</b> · RSI <span class="mono">${r.a_rsi.toFixed(0)} → ${r.b_rsi.toFixed(0)}</span>
         · low <span class="mono">${fmt(r.a_low)} → ${fmt(r.b_low)}</span>
         <span class="hide-sm">· ${r.bars} св. · 🛑 ${fmt(r.b_low)}</span></span>
@@ -1074,25 +1082,28 @@ function renderDivTest() {
   const S = dvt.summary, sig = x => x == null ? '—' : `<span class="${x > 0 ? 'up' : x < 0 ? 'down' : ''}">${pct(x)}</span>`;
   const p1 = x => x == null ? '—' : String(x).replace('.', ',') + '%';
   const first = dvt.signals.length ? dvt.signals[0].bar_time.slice(0, 10) : '';
-  $('#dtMeta').textContent = `Прогон ${dtf(dvt.updated)} · ETF ${dvt.loaded} из ${dvt.tickers} · история с ${first.slice(8, 10)}.${first.slice(5, 7)}.${first.slice(0, 4)} · удержание ${dvt.hold} свечей 4H`;
-  const NAMES = {unique: 'Каждая дивергенция один раз', tv: 'Как в TV', rev: 'Разворотный бар', break: 'Пробой 2 максимумов'};
-  $('#dtSum').innerHTML = ['unique', 'tv', 'rev', 'break'].filter(k => S[k]).map(k => {
+  $('#dtMeta').textContent = `Прогон ${dtf(dvt.updated)} · ETF ${dvt.etfs ?? dvt.loaded}${dvt.stocks ? ' · акций ' + dvt.stocks : ''} · `
+    + `сигналов ${dvt.total_signals ?? dvt.signals.length}${dvt.total_signals > dvt.signals.length ? ' (в таблице последние ' + dvt.signals.length + ')' : ''} · удержание ${dvt.hold} свечей 4H`;
+  const NAMES = {unique: 'Все: каждая дивергенция один раз', unique_etf: 'ETF: каждая дивергенция один раз', unique_stock: 'Акции: каждая дивергенция один раз',
+    tv_etf: 'ETF: как в TV', tv_stock: 'Акции: как в TV', tv: 'Все: как в TV', rev: 'Все: разворотный бар', break: 'Все: пробой 2 максимумов'};
+  $('#dtSum').innerHTML = ['unique', 'unique_etf', 'unique_stock', 'tv_etf', 'tv_stock', 'tv', 'rev', 'break'].filter(k => S[k] && S[k].closed).map(k => {
     const v = S[k], h = v.hold20 || {}, r = v.random20 || {};
     return `<tr><td>${NAMES[k]}</td><td class="r mono">${v.closed}</td><td class="r mono">${p1(h.win)}</td>
       <td class="r mono">${sig(h.avg)}</td><td class="r mono">${sig(h.med)}</td>
       <td class="r mono">${sig(r.avg)} <span class="time">(${p1(r.win)})</span></td><td class="r mono"><b>${sig(v.edge20)}</b></td></tr>`;
   }).join('');
-  const st = (S.unique || S.all).stops || {}, h = (S.unique || S.all).hold20 || {};
+  const SK = (dKind() === 'etf' && S.unique_etf) ? S.unique_etf : (dKind() === 'stock' && S.unique_stock) ? S.unique_stock : (S.unique || S.all);
+  const st = SK.stops || {}, h = SK.hold20 || {};
   $('#dtStops').innerHTML = Object.entries(st).map(([k, v]) => `<tr><td>${k === 'B-0.0ATR' ? 'Под минимумом B' : 'B − ' + k.slice(2, -3).replace('.', ',') + ' ATR'}</td>
       <td class="r mono">${p1(v.stopped)}</td><td class="r mono">${p1(v.win)}</td><td class="r mono">${sig(v.avg)}</td>
       <td class="r mono">${p1(v.risk)}</td><td class="r mono">${v.avgR == null ? '—' : (v.avgR > 0 ? '+' : '') + String(v.avgR).replace('.', ',') + 'R'}</td></tr>`).join('')
     + `<tr><td>Без стопа</td><td class="r mono">—</td><td class="r mono">${p1(h.win)}</td><td class="r mono">${sig(h.avg)}</td><td class="r mono">—</td><td class="r mono">—</td></tr>`;
   const q = $('#dSearch').value.trim().toUpperCase(), onlyRecent = $('#dtRecent').checked;
-  const rows = dvt.signals.filter(r => (dVar() === 'all' || r.variant === dVar()) && (!q || r.ticker.startsWith(q)) && (!onlyRecent || r.recent)).reverse();
+  const rows = dvt.signals.filter(r => (dVar() === 'all' || r.variant === dVar()) && kindOk(r) && (!q || r.ticker.startsWith(q)) && (!onlyRecent || r.recent)).reverse();
   $('#dtCount').textContent = `${rows.length} сигналов в истории`;
   $('#dtBody').innerHTML = rows.slice(0, 500).map(r => {
     const s0 = r.trades && r.trades['0.0'];
-    return `<tr data-t="${esc(r.ticker)}"><td class="mono">${r.bar_time.slice(8, 10)}.${r.bar_time.slice(5, 7)}.${r.bar_time.slice(2, 4)} ${r.bar_time.slice(11, 16)}</td><td><b>${esc(r.ticker)}</b></td><td>${esc(DVAR[r.variant] || r.variant)}</td>
+    return `<tr data-t="${esc(r.ticker)}"><td class="mono">${r.bar_time.slice(8, 10)}.${r.bar_time.slice(5, 7)}.${r.bar_time.slice(2, 4)} ${r.bar_time.slice(11, 16)}</td><td><b>${esc(r.ticker)}</b>${r.etf === false ? '' : ' <span class="badge gray">ETF</span>'}</td><td>${esc(DVAR[r.variant] || r.variant)}</td>
       <td class="r mono">${fmt(r.close)}</td><td class="r mono">${r.a_rsi.toFixed(0)} → ${r.b_rsi.toFixed(0)}</td>
       <td class="r mono hide-sm">${fmt(r.a_low)} → ${fmt(r.b_low)}</td>
       <td class="r mono">${r.ret5 == null ? '—' : sig(r.ret5)}</td><td class="r mono">${r.ret20 == null ? '<span class="time">идёт</span>' : sig(r.ret20)}</td>

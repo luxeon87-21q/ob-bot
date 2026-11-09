@@ -79,6 +79,7 @@ def settings():
         rsidiv=cfg("RSIDIV", True, bool),               # бычья дивергенция RSI(9) — отдельная функция
         rsidiv_max_bars=cfg("RSIDIV_MAX_BARS", 15, int),
         rsidiv_tickers=cfg("RSIDIV_TICKERS", ""),        # свой список ETF через запятую (пусто — rsidiv.ETFS)
+        rsidiv_stocks=cfg("RSIDIV_STOCKS", True, bool),  # плюс акции из основного списка (S&P 500, Nasdaq-100, свои)
         oi_min=cfg("OI_MIN", options.OI_MIN, int),    # фильтр OB по открытому интересу опционов (0 — выкл)
     )
 
@@ -234,16 +235,24 @@ def build_div_message(found: Dict[str, list]) -> str:
         return ""
     bars = sorted({e.bar_time for evs in found.values() for e in evs})
     head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
-    lines = [f"📉📈 <b>Дивергенция RSI(9) 4H · ETF</b> — свеча {head} ET",
+    lines = [f"📉📈 <b>Дивергенция RSI(9) 4H</b> — свеча {head} ET",
              "Цена сделала минимум ниже, RSI — выше (оба минимума RSI под 30)"]
-    for t in sorted(found):
-        evs = found[t]
-        e = evs[0]
-        vs = ", ".join(DIV_LABEL.get(x.variant, x.variant) for x in evs)
-        oi_lbl = ""
-        lines.append(f"• {link(t)}  цена {fmt(e.close)} · RSI {e.a_rsi:.0f} → {e.b_rsi:.0f} · "
-                     f"low {fmt(e.a_low)} → {fmt(e.b_low)} · {e.bars} св.{oi_lbl}\n"
-                     f"   <i>подтверждение: {vs}</i> · 🛑 стоп под {fmt(e.b_low)}")
+    etfs = set(rsidiv.ETFS)
+    for title, pick in (("🧺 ETF", lambda t: t in etfs), ("🏢 Акции", lambda t: t not in etfs)):
+        rows = []
+        for t in sorted(found):
+            if not pick(t):
+                continue
+            evs = found[t]
+            e = evs[0]
+            vs = ", ".join(DIV_LABEL.get(x.variant, x.variant) for x in evs)
+            oi = options.oi_of(LAST_OI, t) if LAST_OI and t not in etfs else None
+            oi_lbl = f" · OI {oi:,}".replace(",", " ") if oi else ""
+            rows.append(f"• {link(t)}  цена {fmt(e.close)} · RSI {e.a_rsi:.0f} → {e.b_rsi:.0f} · "
+                        f"low {fmt(e.a_low)} → {fmt(e.b_low)} · {e.bars} св.{oi_lbl}\n"
+                        f"   <i>подтверждение: {vs}</i> · 🛑 стоп под {fmt(e.b_low)}")
+        if rows:
+            lines += ["", f"<b>{title}</b>"] + rows
     lines += ["", "<i>Не инвестиционная рекомендация.</i>"]
     return "\n".join(lines)
 
@@ -252,7 +261,7 @@ def div_dict(t: str, e) -> dict:
     return dict(ticker=t, type="rsidiv", side="bull", variant=e.variant, bar_time=e.bar_time.isoformat(),
                 close=round(e.close, 4), a_time=e.a_time.isoformat(), a_rsi=round(e.a_rsi, 1),
                 a_low=round(e.a_low, 4), b_time=e.b_time.isoformat(), b_rsi=round(e.b_rsi, 1),
-                b_low=round(e.b_low, 4), rsi=round(e.rsi, 1), bars=e.bars)
+                b_low=round(e.b_low, 4), rsi=round(e.rsi, 1), bars=e.bars, etf=t in set(rsidiv.ETFS))
 
 
 def wolfe_dict(t: str, e) -> dict:
@@ -310,12 +319,18 @@ def div_tickers(s: dict) -> List[str]:
     return own or list(rsidiv.ETFS)
 
 
-def scan_div(s: dict, state: Dict[str, str], seed: bool, found_d: Dict[str, list], progress=None) -> List[dict]:
-    """Бычья дивергенция RSI(9) по крупным ETF. Новые сигналы — в found_d, возвращает записи для ленты."""
+def scan_div(s: dict, state: Dict[str, str], seed: bool, found_d: Dict[str, list], progress=None,
+             stock_bars: Dict[str, pd.DataFrame] = None) -> List[dict]:
+    """Бычья дивергенция RSI(9): крупные ETF + (если включено) акции основного списка, свечи которых
+    уже загружены. Новые сигналы — в found_d, возвращает записи для ленты."""
     etfs = div_tickers(s)
     if progress:
-        progress("дивергенция RSI (ETF)", 0, len(etfs))
-    bars = data.update_bars(etfs)
+        progress("дивергенция RSI", 0, len(etfs))
+    bars = dict(data.update_bars(etfs))
+    n_etf = len(bars)
+    if s.get("rsidiv_stocks", True) and stock_bars:
+        for t, df in stock_bars.items():
+            bars.setdefault(t, df)
     hist: List[dict] = []
     for t, df in bars.items():
         if len(df) < 30:                              # мало истории для RSI
@@ -333,7 +348,7 @@ def scan_div(s: dict, state: Dict[str, str], seed: bool, found_d: Dict[str, list
         if dnew:
             found_d[t] = dnew
         state[key] = df.index[-1].isoformat()
-    log.info("дивергенция RSI: ETF %d, с данными %d", len(etfs), len(bars))
+    log.info("дивергенция RSI: ETF %d (с данными %d), акций %d", len(etfs), n_etf, len(bars) - n_etf)
     return hist
 
 
@@ -432,7 +447,7 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
 
     if s.get("rsidiv"):                               # дивергенция RSI — отдельно, только крупные ETF
         try:
-            history += scan_div(s, state, div_seed, found_d, progress)
+            history += scan_div(s, state, div_seed, found_d, progress, stock_bars=bars)
         except Exception as e:                       # ETF не должны ломать проверку акций
             log.warning("дивергенция RSI: %s", e)
 

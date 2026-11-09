@@ -158,13 +158,20 @@ def _stats(vals):
                 med=round(float(np.median(v)), 2))
 
 
-def report(tickers=None, out=None, recent_bars: int = 20) -> dict:
-    """Прогон по ETF на всей истории (~2 года 4H): все сигналы, что было с ценой после них,
-    сравнение со случайным входом и разные стопы."""
+KEEP_SIGNALS = 4000     # сколько последних сигналов класть в файл для сайта (сводка — по всем)
+
+
+def report(tickers=None, out=None, recent_bars: int = 20, stocks: bool = False) -> dict:
+    """Прогон на всей истории (~2 года 4H): ETF (и акции, если stocks) — все сигналы, что было с ценой
+    после них, сравнение со случайным входом и разные стопы."""
     import json
     from pathlib import Path
     import data
     tickers = list(tickers or ETFS)
+    if stocks:
+        base = Path(__file__).resolve().parent
+        tickers += [t for t in data.load_universe("sp500,nasdaq100,file", base / "tickers.txt") if t not in tickers]
+    etfset = set(ETFS)
     bars = data.update_bars(tickers)
     rows, last, base_by = [], {}, {}
     rng = np.random.default_rng(7)
@@ -181,7 +188,7 @@ def report(tickers=None, out=None, recent_bars: int = 20) -> dict:
             res = dict(ticker=t, variant=e.variant, bar_time=e.bar_time.isoformat(), close=round(e.close, 2),
                        a_time=e.a_time.isoformat(), a_rsi=round(e.a_rsi, 1), a_low=round(e.a_low, 2),
                        b_time=e.b_time.isoformat(), b_rsi=round(e.b_rsi, 1), b_low=round(e.b_low, 2),
-                       bars=e.bars, recent=i >= len(df) - recent_bars, atr=round(float(a[i]), 3))
+                       bars=e.bars, recent=i >= len(df) - recent_bars, atr=round(float(a[i]), 3), etf=t in etfset)
             for k in (5, 10, 20):
                 res[f"ret{k}"] = round((c[i + k] / e.close - 1) * 100, 2) if i + k < len(c) else None
             res["max20"] = round((h[i + 1:i + 21].max() / e.close - 1) * 100, 2) if i + 1 < len(c) else None
@@ -220,11 +227,24 @@ def report(tickers=None, out=None, recent_bars: int = 20) -> dict:
     first = {}
     for x in rows:
         first.setdefault((x["ticker"], x["b_time"]), x)
-    summ["unique"] = summarize(list(first.values()))
+    uniq = list(first.values())
+    summ["unique"] = summarize(uniq)
+    for kind, flag in (("etf", True), ("stock", False)):
+        summ["unique_" + kind] = summarize([x for x in uniq if x["etf"] == flag])
+        summ["tv_" + kind] = summarize([x for x in rows if x["variant"] == "tv" and x["etf"] == flag])
+    # для сайта — последние сигналы, из сделок только стоп под B
+    keep = []
+    for x in rows[-KEEP_SIGNALS:]:
+        y = {k: v for k, v in x.items() if k != "trades"}
+        if "trades" in x:
+            y["trades"] = {"0.0": x["trades"]["0.0"]}
+        keep.append(y)
     res = dict(updated=pd.Timestamp.now(tz="America/New_York").isoformat(), tickers=len(tickers),
-               loaded=len(bars), hold=HOLD, summary=summ, signals=rows, last=last)
+               loaded=len(bars), etfs=sum(t in etfset for t in bars), stocks=sum(t not in etfset for t in bars),
+               hold=HOLD, total_signals=len(rows), summary=summ, signals=keep,
+               last={k: v for k, v in last.items() if k in etfset})
     if out:
-        Path(out).write_text(json.dumps(res, ensure_ascii=False, indent=1, default=float), encoding="utf-8")
+        Path(out).write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":"), default=float), encoding="utf-8")
     return res
 
 
@@ -232,12 +252,11 @@ if __name__ == "__main__":
     import argparse
     import logging
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    ap = argparse.ArgumentParser(description="Дивергенция RSI(9) по ETF — проверочный прогон")
+    ap = argparse.ArgumentParser(description="Дивергенция RSI(9) — проверочный прогон")
     ap.add_argument("--tickers", default="", help="через запятую; по умолчанию — список ETFS")
+    ap.add_argument("--stocks", action="store_true", help="плюс акции S&P 500 + Nasdaq-100 + tickers.txt")
     ap.add_argument("--out", default="cache/rsidiv_test.json")
     a = ap.parse_args()
-    r = report([x.strip().upper() for x in a.tickers.split(",") if x.strip()] or None, a.out)
+    r = report([x.strip().upper() for x in a.tickers.split(",") if x.strip()] or None, a.out, stocks=a.stocks)
     print(r["summary"])
-    for s in r["signals"]:
-        if s["recent"]:
-            print(s)
+    print("сигналов:", r["total_signals"])

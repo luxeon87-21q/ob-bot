@@ -325,3 +325,15 @@ def test_rsidiv_etf_only(monkeypatch):
     state = {"rsidiv:SPY": df.index[30].isoformat()}       # повторный запуск — новые сигналы уходят в рассылку
     bot.scan_div(dict(s, rsidiv_tickers="spy"), state, False, found)
     assert list(found) == ["SPY"]
+    # акции основного списка тоже сканируются (свечи уже загружены), без повторной загрузки
+    state, found, asked[:] = {"rsidiv:SPY": df.index[30].isoformat(), "rsidiv:AAPL": df.index[30].isoformat()}, {}, []
+    hist = bot.scan_div(dict(s, rsidiv_tickers="spy"), state, False, found, stock_bars={"AAPL": df})
+    assert asked == [["SPY"]] and sorted(found) == ["AAPL", "SPY"]
+    assert {r["etf"] for r in hist if r["ticker"] == "AAPL"} == {False}
+    msg = bot.build_div_message(found)
+    assert "ETF" in msg and "Акции" in msg
+    # акции можно выключить
+    found = {}
+    st2 = {"rsidiv:SPY": df.index[30].isoformat(), "rsidiv:AAPL": df.index[30].isoformat()}
+    bot.scan_div(dict(s, rsidiv_tickers="spy", rsidiv_stocks=False), st2, False, found, stock_bars={"AAPL": df})
+    assert list(found) == ["SPY"]
