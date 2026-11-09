@@ -447,6 +447,30 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       Подтверждение второго минимума: «как в TV» — 5 свечей справа (сигнал позже, совпадает с индикатором);
       «разворотный бар» — минимумы 2 прошлых свечей ниже текущей и свеча растущая; «пробой 2 максимумов» — закрытие выше их максимумов.
       Стоп — под вторым минимумом цены.</div>
+
+    <h3 style="margin:22px 0 6px">Проверка на истории</h3>
+    <div class="hint" id="dtMeta" style="margin-top:0"></div>
+    <div class="card tbl-wrap"><table>
+      <thead><tr><th>Сигналы</th><th class="r">Сделок</th><th class="r">В плюсе через 20 св.</th><th class="r">Средний итог</th>
+        <th class="r">Медиана</th><th class="r">Случайный вход</th><th class="r">Перевес</th></tr></thead>
+      <tbody id="dtSum"><tr><td colspan="7" class="empty">Загрузка…</td></tr></tbody></table></div>
+    <div class="card tbl-wrap" style="margin-top:10px"><table>
+      <thead><tr><th>Стоп (все варианты, каждая дивергенция один раз)</th><th class="r">Выбито</th><th class="r">В плюсе</th>
+        <th class="r">Средний итог</th><th class="r">Средний риск</th><th class="r">Итог в R</th></tr></thead>
+      <tbody id="dtStops"></tbody></table></div>
+    <div class="toolbar" style="margin-top:14px">
+      <span class="count" id="dtCount" style="margin-left:0"></span>
+      <label style="font-size:13px;color:var(--muted);margin-left:auto"><input type="checkbox" id="dtRecent"> только последние 20 свечей</label>
+    </div>
+    <div class="card tbl-wrap"><table>
+      <thead><tr><th>Сигнал</th><th>ETF</th><th>Вариант</th><th class="r">Вход</th><th class="r">RSI A → B</th>
+        <th class="r hide-sm">Low A → B</th><th class="r">Через 5</th><th class="r">Через 20</th><th class="r hide-sm">Макс. за 20</th>
+        <th class="r hide-sm">Стоп под B</th></tr></thead>
+      <tbody id="dtBody"></tbody></table></div>
+    <div class="hint">Вход по закрытию свечи сигнала, выход через 20 свечей 4H (≈10 торговых дней) или по стопу.
+      «Случайный вход» — средний ход того же ETF за 20 свечей с любой свечи; «перевес» — разница со средним итогом сигналов.
+      Стоп «B − k ATR» — минимум второй точки минус k × ATR(14). Комиссии и проскальзывание не учтены.
+      Вариант «как в TV» в таблице сигналов — фильтр сверху.</div>
   </section>
 
   <!-- СКРИНЕР -->
@@ -774,6 +798,7 @@ function staticPath(p) {
   if (p.startsWith('/api/earnings')) return 'data/earnings.json';
   if (p.startsWith('/api/fund')) return 'data/fund.json';
   if (p.startsWith('/api/trader')) return 'data/trader.json';
+  if (p.startsWith('/api/rsidiv_test')) return 'data/rsidiv_test.json';
   if (p.startsWith('/api/hammer')) return 'data/hammer.json';
   if (p.startsWith('/api/chart/')) return 'data/chart/' + p.slice(11) + '.json';
   return p;
@@ -1016,8 +1041,8 @@ function renderWolfe() {
 }
 
 const DVAR = {tv: 'как в TV', rev: 'разворотный бар', break: 'пробой 2 максимумов'};
-const dVar = chipGroup('#dVar', renderDiv);
-$('#dSearch').oninput = renderDiv;
+const dVar = chipGroup('#dVar', () => renderDivAll());
+$('#dSearch').oninput = () => renderDivAll();
 function renderDiv() {
   const all = signals.filter(r => r.type === 'rsidiv');
   const q = $('#dSearch').value.trim().toUpperCase();
@@ -1039,6 +1064,42 @@ function renderDiv() {
   }
   $('#dList').innerHTML = html;
   $$('#dList .sig').forEach(el => el.onclick = () => openChart(el.dataset.t));
+}
+function renderDivAll() { renderDiv(); renderDivTest(); }
+
+let dvt = null;
+$('#dtRecent').onchange = renderDivTest;
+function renderDivTest() {
+  if (!dvt || !dvt.summary) { $('#dtSum').innerHTML = '<tr><td colspan="7" class="empty">Проверочного прогона ещё нет</td></tr>'; return; }
+  const S = dvt.summary, sig = x => x == null ? '—' : `<span class="${x > 0 ? 'up' : x < 0 ? 'down' : ''}">${pct(x)}</span>`;
+  const p1 = x => x == null ? '—' : String(x).replace('.', ',') + '%';
+  const first = dvt.signals.length ? dvt.signals[0].bar_time.slice(0, 10) : '';
+  $('#dtMeta').textContent = `Прогон ${dtf(dvt.updated)} · ETF ${dvt.loaded} из ${dvt.tickers} · история с ${first.slice(8, 10)}.${first.slice(5, 7)}.${first.slice(0, 4)} · удержание ${dvt.hold} свечей 4H`;
+  const NAMES = {unique: 'Каждая дивергенция один раз', tv: 'Как в TV', rev: 'Разворотный бар', break: 'Пробой 2 максимумов'};
+  $('#dtSum').innerHTML = ['unique', 'tv', 'rev', 'break'].filter(k => S[k]).map(k => {
+    const v = S[k], h = v.hold20 || {}, r = v.random20 || {};
+    return `<tr><td>${NAMES[k]}</td><td class="r mono">${v.closed}</td><td class="r mono">${p1(h.win)}</td>
+      <td class="r mono">${sig(h.avg)}</td><td class="r mono">${sig(h.med)}</td>
+      <td class="r mono">${sig(r.avg)} <span class="time">(${p1(r.win)})</span></td><td class="r mono"><b>${sig(v.edge20)}</b></td></tr>`;
+  }).join('');
+  const st = (S.unique || S.all).stops || {}, h = (S.unique || S.all).hold20 || {};
+  $('#dtStops').innerHTML = Object.entries(st).map(([k, v]) => `<tr><td>${k === 'B-0.0ATR' ? 'Под минимумом B' : 'B − ' + k.slice(2, -3).replace('.', ',') + ' ATR'}</td>
+      <td class="r mono">${p1(v.stopped)}</td><td class="r mono">${p1(v.win)}</td><td class="r mono">${sig(v.avg)}</td>
+      <td class="r mono">${p1(v.risk)}</td><td class="r mono">${v.avgR == null ? '—' : (v.avgR > 0 ? '+' : '') + String(v.avgR).replace('.', ',') + 'R'}</td></tr>`).join('')
+    + `<tr><td>Без стопа</td><td class="r mono">—</td><td class="r mono">${p1(h.win)}</td><td class="r mono">${sig(h.avg)}</td><td class="r mono">—</td><td class="r mono">—</td></tr>`;
+  const q = $('#dSearch').value.trim().toUpperCase(), onlyRecent = $('#dtRecent').checked;
+  const rows = dvt.signals.filter(r => (dVar() === 'all' || r.variant === dVar()) && (!q || r.ticker.startsWith(q)) && (!onlyRecent || r.recent)).reverse();
+  $('#dtCount').textContent = `${rows.length} сигналов в истории`;
+  $('#dtBody').innerHTML = rows.slice(0, 500).map(r => {
+    const s0 = r.trades && r.trades['0.0'];
+    return `<tr data-t="${esc(r.ticker)}"><td class="mono">${r.bar_time.slice(8, 10)}.${r.bar_time.slice(5, 7)}.${r.bar_time.slice(2, 4)} ${r.bar_time.slice(11, 16)}</td><td><b>${esc(r.ticker)}</b></td><td>${esc(DVAR[r.variant] || r.variant)}</td>
+      <td class="r mono">${fmt(r.close)}</td><td class="r mono">${r.a_rsi.toFixed(0)} → ${r.b_rsi.toFixed(0)}</td>
+      <td class="r mono hide-sm">${fmt(r.a_low)} → ${fmt(r.b_low)}</td>
+      <td class="r mono">${r.ret5 == null ? '—' : sig(r.ret5)}</td><td class="r mono">${r.ret20 == null ? '<span class="time">идёт</span>' : sig(r.ret20)}</td>
+      <td class="r mono hide-sm">${r.max20 == null ? '—' : sig(r.max20)}</td>
+      <td class="r mono hide-sm">${s0 ? (s0.stop ? '<span class="down">выбит</span>' : '<span class="up">цел</span>') : '—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="10" class="empty">Под фильтр ничего не попало</td></tr>';
+  $$('#dtBody tr[data-t]').forEach(el => el.onclick = () => openChart(el.dataset.t));
 }
 
 /* ---------- скринер ---------- */
@@ -2034,7 +2095,8 @@ async function loadAll() {
   try { mkt = await api('/api/market'); } catch (e) { mkt = null; }
   try { ern = await api('/api/earnings'); } catch (e) { ern = null; }
   try { rto = await api('/api/ratio'); } catch (e) { rto = null; }
-  renderSignals(); renderWolfe(); renderDiv(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderRatio(); calcRatio(); renderMa200(); renderMarket(); setErOb(erObOn);
+  try { dvt = await api('/api/rsidiv_test'); } catch (e) { dvt = null; }
+  renderSignals(); renderWolfe(); renderDivAll(); renderScreener(); renderSeason(); setHmAll(hmAll); renderSamurai(); renderRatio(); calcRatio(); renderMa200(); renderMarket(); setErOb(erObOn);
   fundP = null;
   if (location.hash.startsWith('#fund/')) loadFund(location.hash.slice(6));
 }

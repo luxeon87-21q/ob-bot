@@ -101,7 +101,7 @@ def build(s: dict, telegram: bool, site_only: bool = False) -> None:
     shutil.copy(bot.SNAPSHOT_FILE, SITE / "data" / "snapshot.json")
     (SITE / "options.html").write_text((BASE / "static" / "options.html").read_text(encoding="utf-8"), encoding="utf-8")
     shutil.copy(BASE / "static" / "trader.js", SITE / "trader.js")
-    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json", "samurai.json", "ratio.json", "optscreen.json", "ma200.json", "market.json", "earnings.json", "fund.json", "trader.json"):
+    for name in ("seasonal.json", "hammer.json", "hammer_backtest.json", "samurai.json", "ratio.json", "optscreen.json", "ma200.json", "market.json", "earnings.json", "fund.json", "trader.json", "rsidiv_test.json"):
         f = BASE / "cache" / name
         if f.exists():
             shutil.copy(f, SITE / "data" / name)

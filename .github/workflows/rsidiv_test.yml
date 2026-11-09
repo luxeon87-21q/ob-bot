@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: rsidiv-test
@@ -33,3 +35,44 @@ jobs:
           git config user.name "ob-bot"; git config user.email "ob-bot@users.noreply.github.com"
           git add -f cache/rsidiv_test.json; git commit -m "Дивергенция RSI: проверочный прогон [skip ci]" || true
           for i in 1 2 3; do git pull --rebase --autostash -X theirs && git push && break; sleep 5; done
+
+  # результат — сразу на сайт (вкладка «RSI ETF» → «Проверка на истории»)
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: scan
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Кэш свечей
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/bars
+          key: bars-${{ github.run_id }}
+          restore-keys: bars-
+      - name: Выгрузка опционов (из кэша)
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/optscreen.json
+          key: optscreen-${{ github.run_id }}
+          restore-keys: optscreen-
+      - name: Сборка сайта
+        run: python build_site.py --site-only
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
