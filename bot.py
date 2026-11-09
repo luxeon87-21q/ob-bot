@@ -78,6 +78,7 @@ def settings():
         wolfe_pivot=cfg("WOLFE_PIVOT", 4, int),
         rsidiv=cfg("RSIDIV", True, bool),               # бычья дивергенция RSI(9) — отдельная функция
         rsidiv_max_bars=cfg("RSIDIV_MAX_BARS", 15, int),
+        rsidiv_tickers=cfg("RSIDIV_TICKERS", ""),        # свой список ETF через запятую (пусто — rsidiv.ETFS)
         oi_min=cfg("OI_MIN", options.OI_MIN, int),    # фильтр OB по открытому интересу опционов (0 — выкл)
     )
 
@@ -233,14 +234,13 @@ def build_div_message(found: Dict[str, list]) -> str:
         return ""
     bars = sorted({e.bar_time for evs in found.values() for e in evs})
     head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
-    lines = [f"📉📈 <b>Дивергенция RSI(9) 4H</b> — свеча {head} ET",
+    lines = [f"📉📈 <b>Дивергенция RSI(9) 4H · ETF</b> — свеча {head} ET",
              "Цена сделала минимум ниже, RSI — выше (первый минимум RSI был под 30)"]
     for t in sorted(found):
         evs = found[t]
         e = evs[0]
         vs = ", ".join(DIV_LABEL.get(x.variant, x.variant) for x in evs)
-        oi = options.oi_of(LAST_OI, t) if LAST_OI else None
-        oi_lbl = f" · OI {oi:,}".replace(",", " ") if oi else ""
+        oi_lbl = ""
         lines.append(f"• {link(t)}  цена {fmt(e.close)} · RSI {e.a_rsi:.0f} → {e.b_rsi:.0f} · "
                      f"low {fmt(e.a_low)} → {fmt(e.b_low)} · {e.bars} св.{oi_lbl}\n"
                      f"   <i>подтверждение: {vs}</i> · 🛑 стоп под {fmt(e.b_low)}")
@@ -303,6 +303,38 @@ def event_dict(t: str, e: Event) -> dict:
                 top=round(e.ob.top, 4), btm=round(e.ob.btm, 4), ob_time=e.ob.ob_time.isoformat(),
                 close=round(e.close, 4), high=round(e.high, 4), low=round(e.low, 4),
                 kind=getattr(e.ob, "kind", "internal"))
+
+
+def div_tickers(s: dict) -> List[str]:
+    own = [x.strip().upper() for x in (s.get("rsidiv_tickers") or "").split(",") if x.strip()]
+    return own or list(rsidiv.ETFS)
+
+
+def scan_div(s: dict, state: Dict[str, str], seed: bool, found_d: Dict[str, list], progress=None) -> List[dict]:
+    """Бычья дивергенция RSI(9) по крупным ETF. Новые сигналы — в found_d, возвращает записи для ленты."""
+    etfs = div_tickers(s)
+    if progress:
+        progress("дивергенция RSI (ETF)", 0, len(etfs))
+    bars = data.update_bars(etfs)
+    hist: List[dict] = []
+    for t, df in bars.items():
+        if len(df) < 30:                              # мало истории для RSI
+            continue
+        key = "rsidiv:" + t                          # своя отметка, чтобы не путать с акциями
+        last_seen = state.get(key)
+        dev = rsidiv.detect(df, max_bars=s.get("rsidiv_max_bars", 15))
+        if last_seen and not seed:
+            dnew = [e for e in dev if e.bar_time > pd.Timestamp(last_seen)]
+            hist += [div_dict(t, e) for e in dnew]
+        else:                                        # первый запуск: история в ленту без отправки
+            dnew = []
+            seed_from = df.index[max(0, len(df) - HISTORY_SEED_BARS)]
+            hist += [div_dict(t, e) for e in dev if e.bar_time >= seed_from]
+        if dnew:
+            found_d[t] = dnew
+        state[key] = df.index[-1].isoformat()
+    log.info("дивергенция RSI: ETF %d, с данными %d", len(etfs), len(bars))
+    return hist
 
 
 def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
@@ -388,18 +420,6 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
                 history += [wolfe_dict(t, e) for e in wnew]
             if wnew:
                 found_w[t] = wnew
-
-        if s.get("rsidiv"):
-            dev = rsidiv.detect(df, max_bars=s.get("rsidiv_max_bars", 15))
-            if last_seen and not div_seed:
-                dnew = [e for e in dev if e.bar_time > pd.Timestamp(last_seen)]
-                history += [div_dict(t, e) for e in dnew]
-            else:                                # первый запуск: история в ленту без отправки
-                dnew = [e for e in dev if e.bar_time == df.index[-1]] if not last_seen else []
-                seed_from = df.index[max(0, len(df) - HISTORY_SEED_BARS)]
-                history += [div_dict(t, e) for e in dev if e.bar_time >= seed_from]
-            if dnew:
-                found_d[t] = dnew
         state[t] = df.index[-1].isoformat()
 
         close = float(df["close"].iloc[-1])
@@ -409,6 +429,12 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         obs = [ob_dict(o, close, o.detected_idx >= fresh_from) for o in bulls + bears]
         snap_rows.append(dict(ticker=t, close=round(close, 4), chg=round((close / prev - 1) * 100, 2),
                               bar_time=df.index[-1].isoformat(), obs=obs, oi=options.oi_of(LAST_OI, t)))
+
+    if s.get("rsidiv"):                               # дивергенция RSI — отдельно, только крупные ETF
+        try:
+            history += scan_div(s, state, div_seed, found_d, progress)
+        except Exception as e:                       # ETF не должны ломать проверку акций
+            log.warning("дивергенция RSI: %s", e)
 
     if oi_min and found:                              # OB — только акции с большим OI опционов
         before = len(found)

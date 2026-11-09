@@ -1,5 +1,5 @@
 """
-Бычья дивергенция RSI(9) с ценой на 4H свечах основной сессии.
+Бычья дивергенция RSI(9) с ценой на 4H свечах основной сессии — только крупные ETF (список ETFS ниже).
 
 Основа — стандартный индикатор TradingView «RSI divergence indicator» (Regular Bullish):
   минимумы ищутся НА RSI (ta.pivotlow: lbL свечей слева, lbR справа), цена берётся low той же свечи;
@@ -27,6 +27,14 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+
+# Сканируются только крупные ETF (не акции): индексы, сектора, отрасли, сырьё, облигации, страны
+# и самые ликвидные ETF с плечом. Свой список — переменная RSIDIV_TICKERS (через запятую).
+ETFS = ["SPY", "QQQ", "IWM", "DIA", "RSP", "MDY",
+        "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC",
+        "SMH", "SOXX", "IGV", "XBI", "IBB", "KRE", "XHB", "ITB", "XOP", "XME", "TAN", "URA", "ARKK",
+        "IYR", "VNQ", "GLD", "SLV", "GDX", "USO", "TLT", "HYG", "EEM", "EFA", "FXI", "KWEB",
+        "TQQQ", "SOXL", "TNA", "LABU"]
 
 VARIANTS = {"tv": "как в индикаторе TV", "rev": "разворотный бар", "break": "закрытие выше 2 максимумов"}
 

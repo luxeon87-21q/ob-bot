@@ -309,3 +309,19 @@ def test_rsidiv_broadcast():
     st = {"subs": {"1": {"only_new": True}, "2": {"only_new": True, "rsidiv": False}}}
     tg.broadcast("x", st, "", "", "", "DIV")
     assert sent == [("1", "DIV\n")]
+
+
+def test_rsidiv_etf_only(monkeypatch):
+    import bot, data, rsidiv
+    asked = []
+    df = _div_df([(0, 100), (8, 92), (10, 95), (20, 80), (25, 87), (32, 79), (45, 90)], 46)
+    monkeypatch.setattr(data, "update_bars", lambda t: asked.append(list(t)) or {x: df for x in t})
+    s = dict(rsidiv_max_bars=15, rsidiv_tickers="")
+    state, found = {}, {}
+    hist = bot.scan_div(s, state, False, found)           # первый запуск — только лента, без рассылки
+    assert asked[0] == rsidiv.ETFS and "AAPL" not in asked[0]
+    assert found == {} and hist and all(r["type"] == "rsidiv" for r in hist)
+    assert state["rsidiv:SPY"] == df.index[-1].isoformat()
+    state = {"rsidiv:SPY": df.index[30].isoformat()}       # повторный запуск — новые сигналы уходят в рассылку
+    bot.scan_div(dict(s, rsidiv_tickers="spy"), state, False, found)
+    assert list(found) == ["SPY"]

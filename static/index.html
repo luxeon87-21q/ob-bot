@@ -262,7 +262,7 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <button data-v="earnings" title="Отчёты недели: сколько закладывают опционы против обычного хода акции после отчёта">Отчёты</button>
       <button data-v="fund" title="Карточка компании: выручка, маржа, EPS из отчётов в SEC">Компания</button>
       <button data-v="wolfe">Вульф</button>
-      <button data-v="rsidiv">Дивергенция</button>
+      <button data-v="rsidiv">RSI ETF</button>
       <button data-v="screener">Скринер</button>
       <button data-v="season">Сезонность</button>
       <button data-v="hammer">Хаммер</button>
@@ -440,7 +440,8 @@ td.better{color:var(--bull);font-weight:600} td.worse{color:var(--bear);font-wei
       <span class="count" id="dCount"></span>
     </div>
     <div class="card" id="dList"><div class="empty">Загрузка…</div></div>
-    <div class="hint">Бычья дивергенция RSI(9) на 4H свечах основной сессии — логика индикатора TradingView «RSI divergence»:
+    <div class="hint">Бычья дивергенция RSI(9) на 4H свечах основной сессии, <b>только крупные ETF</b>: индексы (SPY, QQQ, IWM, DIA…),
+      секторные SPDR, отраслевые (SMH, XBI, KRE…), золото, нефть, облигации, страны и ликвидные ETF с плечом (TQQQ, SOXL, TNA, LABU). Логика индикатора TradingView «RSI divergence»:
       минимумы ищутся на RSI (5 свечей слева), цена — low той же свечи. Первый минимум RSI ниже 30, второй выше него,
       а цена во втором минимуме ниже, чем в первом; между минимумами не больше 15 свечей.
       Подтверждение второго минимума: «как в TV» — 5 свечей справа (сигнал позже, совпадает с индикатором);
