@@ -7,7 +7,7 @@
 
 Плюс условия Denis:
   1. Предыдущий минимум RSI (A) — ниже 30.
-  2. Новый минимум RSI (B) — выше A (сам B может быть где угодно, хоть выше 30).
+  2. Новый минимум RSI (B) — тоже ниже 30, но выше A (например, A = 25, B = 29).
   3. low цены на свече B ниже low на свече A.
   4. Между A и B не больше `max_bars` 4H баров (по умолчанию 15).
   5. RSI(9) вместо 14.
@@ -105,7 +105,7 @@ def detect(df: pd.DataFrame, period: int = 9, level: float = 30.0, max_bars: int
             continue
         a = prev[-1]
         dist = m - a
-        if not (r[a] < level and dist <= max_bars and r[m] > r[a] and l[m] < l[a]):
+        if not (r[a] < r[m] < level and dist <= max_bars and l[m] < l[a]):
             continue
         for v in variants:
             sig = None

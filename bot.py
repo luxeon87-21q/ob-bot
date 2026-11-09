@@ -235,7 +235,7 @@ def build_div_message(found: Dict[str, list]) -> str:
     bars = sorted({e.bar_time for evs in found.values() for e in evs})
     head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
     lines = [f"📉📈 <b>Дивергенция RSI(9) 4H · ETF</b> — свеча {head} ET",
-             "Цена сделала минимум ниже, RSI — выше (первый минимум RSI был под 30)"]
+             "Цена сделала минимум ниже, RSI — выше (оба минимума RSI под 30)"]
     for t in sorted(found):
         evs = found[t]
         e = evs[0]

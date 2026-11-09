@@ -288,7 +288,7 @@ def test_rsidiv():
     ev = rsidiv.detect(_div_df(base + [(32, 79), (45, 90)], 46))
     assert {e.variant for e in ev} == {"tv", "rev", "break"}
     for e in ev:
-        assert e.a_idx == 20 and e.b_idx == 32 and e.a_rsi < 30 < 100
+        assert e.a_idx == 20 and e.b_idx == 32 and e.a_rsi < e.b_rsi < 30
         assert e.b_rsi > e.a_rsi and e.b_low < e.a_low and e.bars == 12
         assert e.bar_idx > e.b_idx
     tv = next(e for e in ev if e.variant == "tv")
@@ -298,8 +298,8 @@ def test_rsidiv():
     assert rsidiv.detect(_div_df(base + [(42, 79), (55, 88)], 56)) == []
     # цена не обновила минимум — не дивергенция
     assert rsidiv.detect(_div_df(base + [(32, 81), (45, 88)], 46)) == []
-    # без условия «A ниже 30» тот же график даёт сигнал, с порогом 5 — нет (RSI в A около 6)
-    assert rsidiv.detect(_div_df(base + [(32, 79), (45, 90)], 46), level=5) == []
+    # второй минимум RSI выше порога — не сигнал (здесь B ≈ 22: с порогом 20 сигнала нет)
+    assert rsidiv.detect(_div_df(base + [(32, 79), (45, 90)], 46), level=20) == []
 
 
 def test_rsidiv_broadcast():
