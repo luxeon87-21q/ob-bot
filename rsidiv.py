@@ -128,3 +128,59 @@ def detect(df: pd.DataFrame, period: int = 9, level: float = 30.0, max_bars: int
                                    m, df.index[m], float(r[m]), float(l[m]), float(r[sig]), dist))
     events.sort(key=lambda e: (e.bar_idx, e.variant))
     return events
+
+
+# ---------------------------------------------------------------- проверочный прогон
+def report(tickers=None, out=None, recent_bars: int = 20) -> dict:
+    """Прогон по ETF на всей истории (~2 года 4H): все сигналы + что было с ценой после них."""
+    import json
+    from pathlib import Path
+    import data
+    tickers = list(tickers or ETFS)
+    bars = data.update_bars(tickers)
+    rows, last = [], {}
+    for t, df in bars.items():
+        h, l, c = df["high"].values, df["low"].values, df["close"].values
+        last[t] = dict(bar=df.index[-1].isoformat(), close=round(float(c[-1]), 2),
+                       rsi=round(float(rsi(c)[-1]), 1), bars=len(df))
+        for e in detect(df):
+            i = e.bar_idx
+            res = dict(ticker=t, variant=e.variant, bar_time=e.bar_time.isoformat(), close=round(e.close, 2),
+                       a_time=e.a_time.isoformat(), a_rsi=round(e.a_rsi, 1), a_low=round(e.a_low, 2),
+                       b_time=e.b_time.isoformat(), b_rsi=round(e.b_rsi, 1), b_low=round(e.b_low, 2),
+                       bars=e.bars, recent=i >= len(df) - recent_bars)
+            for k in (5, 10, 20):                 # доходность через k свечей
+                res[f"ret{k}"] = round((c[i + k] / e.close - 1) * 100, 2) if i + k < len(c) else None
+            stop_at = next((j for j in range(i + 1, min(len(c), i + 21)) if l[j] < e.b_low), None)
+            res["stop20"] = stop_at is not None   # стоп под минимумом B задет за 20 свечей
+            res["max20"] = round((h[i + 1:i + 21].max() / e.close - 1) * 100, 2) if i + 1 < len(c) else None
+            rows.append(res)
+    rows.sort(key=lambda r: r["bar_time"])
+    summ = {}
+    for v in ["all"] + list(VARIANTS):
+        rr = [r for r in rows if v == "all" or r["variant"] == v]
+        done = [r for r in rr if r["ret20"] is not None]
+        summ[v] = dict(n=len(rr), n20=len(done),
+                       win20=round(100 * sum(r["ret20"] > 0 for r in done) / len(done), 1) if done else None,
+                       avg20=round(float(np.mean([r["ret20"] for r in done])), 2) if done else None,
+                       stop20=round(100 * sum(r["stop20"] for r in done) / len(done), 1) if done else None)
+    res = dict(updated=pd.Timestamp.now(tz="America/New_York").isoformat(), tickers=len(tickers),
+               loaded=len(bars), summary=summ, signals=rows, last=last)
+    if out:
+        Path(out).write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+    return res
+
+
+if __name__ == "__main__":
+    import argparse
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    ap = argparse.ArgumentParser(description="Дивергенция RSI(9) по ETF — проверочный прогон")
+    ap.add_argument("--tickers", default="", help="через запятую; по умолчанию — список ETFS")
+    ap.add_argument("--out", default="cache/rsidiv_test.json")
+    a = ap.parse_args()
+    r = report([x.strip().upper() for x in a.tickers.split(",") if x.strip()] or None, a.out)
+    print(r["summary"])
+    for s in r["signals"]:
+        if s["recent"]:
+            print(s)
