@@ -272,3 +272,40 @@ if __name__ == "__main__":
     test_to_4h_incomplete_last_bar(); test_wolfe()
     test_telegram_subscribers(Path(tempfile.mkdtemp())); test_options_oi(Path(tempfile.mkdtemp()))
     print("OK")
+
+
+def _div_df(pts, n):
+    import numpy as np
+    c = np.interp(np.arange(n), [p[0] for p in pts], [p[1] for p in pts]) + 0.4 * np.sin(np.arange(n) * 1.7)
+    o = np.r_[c[0], c[:-1]]
+    idx = pd.date_range("2026-01-05 09:30", periods=n, freq="4h", tz="America/New_York")
+    return pd.DataFrame(dict(open=o, high=np.maximum(c, o) + .2, low=np.minimum(c, o) - .2, close=c, volume=1e3), index=idx)
+
+
+def test_rsidiv():
+    import rsidiv
+    base = [(0, 100), (8, 92), (10, 95), (20, 80), (25, 87)]
+    ev = rsidiv.detect(_div_df(base + [(32, 79), (45, 90)], 46))
+    assert {e.variant for e in ev} == {"tv", "rev", "break"}
+    for e in ev:
+        assert e.a_idx == 20 and e.b_idx == 32 and e.a_rsi < 30 < 100
+        assert e.b_rsi > e.a_rsi and e.b_low < e.a_low and e.bars == 12
+        assert e.bar_idx > e.b_idx
+    tv = next(e for e in ev if e.variant == "tv")
+    assert tv.bar_idx == tv.b_idx + 5                                  # как в индикаторе: 5 свечей справа
+    assert all(e.bar_idx < tv.bar_idx for e in ev if e.variant != "tv")  # ранние варианты — раньше
+    # минимумы дальше 15 свечей — нет сигнала
+    assert rsidiv.detect(_div_df(base + [(42, 79), (55, 88)], 56)) == []
+    # цена не обновила минимум — не дивергенция
+    assert rsidiv.detect(_div_df(base + [(32, 81), (45, 88)], 46)) == []
+    # без условия «A ниже 30» тот же график даёт сигнал, с порогом 5 — нет (RSI в A около 6)
+    assert rsidiv.detect(_div_df(base + [(32, 79), (45, 90)], 46), level=5) == []
+
+
+def test_rsidiv_broadcast():
+    import tg
+    sent = []
+    tg.send_parts = lambda token, cid, sub, parts: sent.append((cid, "".join(parts))) or True
+    st = {"subs": {"1": {"only_new": True}, "2": {"only_new": True, "rsidiv": False}}}
+    tg.broadcast("x", st, "", "", "", "DIV")
+    assert sent == [("1", "DIV\n")]

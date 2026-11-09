@@ -148,7 +148,7 @@ def read_signals(limit: int) -> list:
             r = json.loads(line)
         except Exception:
             continue
-        key = (r["ticker"], r["type"], r["side"], r["bar_time"], r.get("top"))
+        key = (r["ticker"], r["type"], r["side"], r["bar_time"], r.get("top"), r.get("variant"))
         if key in seen:
             continue
         seen.add(key)

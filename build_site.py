@@ -62,16 +62,18 @@ def build(s: dict, telegram: bool, site_only: bool = False) -> None:
     s["only_new"] = False                      # собираем все сигналы, режим выбирает каждый подписчик
     live = bool(telegram and s["token"] and n_subs)
 
-    def deliver(found, found_w=None):
+    def deliver(found, found_w=None, found_d=None):
         msg_all = bot.build_message(found, s.get("oi_min", 0))
         msg_new = bot.build_message(bot.only_new(found), s.get("oi_min", 0))
         msg_wolfe = bot.build_wolfe_message(found_w or {})
+        msg_div = bot.build_div_message(found_d or {})
         if live:
-            k = tg.broadcast(s["token"], tgs, msg_all, msg_new, msg_wolfe)
+            k = tg.broadcast(s["token"], tgs, msg_all, msg_new, msg_wolfe, msg_div)
             log.info("разослано подписчикам: %d из %d", k, n_subs)
         else:
             print(msg_all)
             print(msg_wolfe)
+            print(msg_div)
 
     prev = {}
     if site_only:                              # только пересобрать сайт из сохранённых данных (суббота, хаммер)

@@ -32,6 +32,7 @@ from order_blocks import Event, detect
 import options
 import trader
 import wolfe
+import rsidiv
 
 BASE = Path(__file__).resolve().parent
 STATE_FILE = BASE / "cache" / "state.json"
@@ -75,6 +76,8 @@ def settings():
         delay_min=cfg("CHECK_DELAY_MIN", 10, int),
         wolfe=cfg("WOLFE", True, bool),                 # волны Вульфа — отдельная функция
         wolfe_pivot=cfg("WOLFE_PIVOT", 4, int),
+        rsidiv=cfg("RSIDIV", True, bool),               # бычья дивергенция RSI(9) — отдельная функция
+        rsidiv_max_bars=cfg("RSIDIV_MAX_BARS", 15, int),
         oi_min=cfg("OI_MIN", options.OI_MIN, int),    # фильтр OB по открытому интересу опционов (0 — выкл)
     )
 
@@ -221,6 +224,37 @@ def build_wolfe_message(found: Dict[str, list]) -> str:
     return "\n".join(lines)
 
 
+DIV_LABEL = {"tv": "как в TV", "rev": "разворотный бар", "break": "пробой 2 максимумов"}
+
+
+def build_div_message(found: Dict[str, list]) -> str:
+    """Отдельное сообщение: бычья дивергенция RSI(9) с ценой (4H)."""
+    if not found:
+        return ""
+    bars = sorted({e.bar_time for evs in found.values() for e in evs})
+    head = ", ".join(b.strftime("%d.%m %H:%M") for b in bars)
+    lines = [f"📉📈 <b>Дивергенция RSI(9) 4H</b> — свеча {head} ET",
+             "Цена сделала минимум ниже, RSI — выше (первый минимум RSI был под 30)"]
+    for t in sorted(found):
+        evs = found[t]
+        e = evs[0]
+        vs = ", ".join(DIV_LABEL.get(x.variant, x.variant) for x in evs)
+        oi = options.oi_of(LAST_OI, t) if LAST_OI else None
+        oi_lbl = f" · OI {oi:,}".replace(",", " ") if oi else ""
+        lines.append(f"• {link(t)}  цена {fmt(e.close)} · RSI {e.a_rsi:.0f} → {e.b_rsi:.0f} · "
+                     f"low {fmt(e.a_low)} → {fmt(e.b_low)} · {e.bars} св.{oi_lbl}\n"
+                     f"   <i>подтверждение: {vs}</i> · 🛑 стоп под {fmt(e.b_low)}")
+    lines += ["", "<i>Не инвестиционная рекомендация.</i>"]
+    return "\n".join(lines)
+
+
+def div_dict(t: str, e) -> dict:
+    return dict(ticker=t, type="rsidiv", side="bull", variant=e.variant, bar_time=e.bar_time.isoformat(),
+                close=round(e.close, 4), a_time=e.a_time.isoformat(), a_rsi=round(e.a_rsi, 1),
+                a_low=round(e.a_low, 4), b_time=e.b_time.isoformat(), b_rsi=round(e.b_rsi, 1),
+                b_low=round(e.b_low, 4), rsi=round(e.rsi, 1), bars=e.bars)
+
+
 def wolfe_dict(t: str, e) -> dict:
     w = e.w
     return dict(ticker=t, type="wolfe", side=w.side, bar_time=e.bar_time.isoformat(),
@@ -249,7 +283,8 @@ SNAPSHOT_FILE = BASE / "cache" / "snapshot.json"
 HISTORY_FILE = BASE / "cache" / "signals.jsonl"
 HISTORY_MAX = 30000         # сколько последних событий хранить в ленте
 HISTORY_SEED_BARS = 30      # при первом запуске кладём в ленту сигналы за последние ~15 дней (без отправки)
-WOLFE_SEEDED_FILE = BASE / "cache" / "wolfe_seeded.json"   # лента Вульфа уже заполнена историей
+WOLFE_SEEDED_FILE = BASE / "cache" / "wolfe_seeded.json"
+DIV_SEEDED_FILE = BASE / "cache" / "rsidiv_seeded.json"     # лента дивергенций уже заполнена историей   # лента Вульфа уже заполнена историей
 SMC_SEEDED_FILE = BASE / "cache" / "smc_seeded.json"       # лента OB пересобрана под Smart Money Concepts
 
 
@@ -302,6 +337,8 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
     found: Dict[str, List[Event]] = {}
     det: Dict[str, list] = {}               # все события OB по акции (история для Time Machine)
     found_w: Dict[str, list] = {}          # волны Вульфа
+    found_d: Dict[str, list] = {}          # дивергенции RSI
+    div_seed = bool(s.get("rsidiv")) and not DIV_SEEDED_FILE.exists()
     wolfe_seed = bool(s.get("wolfe")) and not WOLFE_SEEDED_FILE.exists()
     smc_seed = not SMC_SEEDED_FILE.exists()
     if smc_seed and HISTORY_FILE.exists():    # сигналы старого индикатора убираем из ленты
@@ -351,6 +388,18 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
                 history += [wolfe_dict(t, e) for e in wnew]
             if wnew:
                 found_w[t] = wnew
+
+        if s.get("rsidiv"):
+            dev = rsidiv.detect(df, max_bars=s.get("rsidiv_max_bars", 15))
+            if last_seen and not div_seed:
+                dnew = [e for e in dev if e.bar_time > pd.Timestamp(last_seen)]
+                history += [div_dict(t, e) for e in dnew]
+            else:                                # первый запуск: история в ленту без отправки
+                dnew = [e for e in dev if e.bar_time == df.index[-1]] if not last_seen else []
+                seed_from = df.index[max(0, len(df) - HISTORY_SEED_BARS)]
+                history += [div_dict(t, e) for e in dev if e.bar_time >= seed_from]
+            if dnew:
+                found_d[t] = dnew
         state[t] = df.index[-1].isoformat()
 
         close = float(df["close"].iloc[-1])
@@ -378,18 +427,22 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
                 tm = None
             if tm:
                 LAST_TM[tm_key(t, e)] = tm
-    if not found and not found_w:
+    if not found and not found_w and not found_d:
         log.info("новых сигналов нет")
     elif deliver:
-        deliver(found, found_w)
+        deliver(found, found_w, found_d)
     else:
         if found:
             send(build_message(found, oi_min), s, dry)
         if found_w:
             send(build_wolfe_message(found_w), s, dry)
+        if found_d:
+            send(build_div_message(found_d), s, dry)
     save_state(state)
     if wolfe_seed:
         WOLFE_SEEDED_FILE.write_text(json.dumps({"seeded": pd.Timestamp.now(tz=data.ET).isoformat()}))
+    if div_seed:
+        DIV_SEEDED_FILE.write_text(json.dumps({"seeded": pd.Timestamp.now(tz=data.ET).isoformat()}))
     if smc_seed:
         SMC_SEEDED_FILE.write_text(json.dumps({"seeded": pd.Timestamp.now(tz=data.ET).isoformat()}))
 
@@ -406,8 +459,10 @@ def run_once(s: dict, dry: bool = False, progress=None, deliver=None) -> int:
         lines = HISTORY_FILE.read_text(encoding="utf-8").splitlines()
         if len(lines) > HISTORY_MAX:                      # не даём файлу расти бесконечно
             HISTORY_FILE.write_text("\n".join(lines[-HISTORY_MAX:]) + "\n", encoding="utf-8")
-    log.info("волн Вульфа: %d", sum(len(v) for v in found_w.values()))
-    return sum(len(v) for v in found.values()) + sum(len(v) for v in found_w.values())
+    log.info("волн Вульфа: %d, дивергенций RSI: %d", sum(len(v) for v in found_w.values()),
+             sum(len(v) for v in found_d.values()))
+    return sum(len(v) for v in found.values()) + sum(len(v) for v in found_w.values()) + \
+        sum(len(v) for v in found_d.values())
 
 
 def next_run(now: pd.Timestamp, delay_min: int) -> pd.Timestamp:

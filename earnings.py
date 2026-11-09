@@ -189,7 +189,7 @@ def ob_marks(path: Path = SIGNALS_FILE, days: int = 7) -> Dict[str, dict]:
     for ln in lines:
         try:
             s = json.loads(ln)
-            if s.get("type") == "wolfe" or pd.Timestamp(s["bar_time"]) < since:
+            if s.get("type") in ("wolfe", "rsidiv") or pd.Timestamp(s["bar_time"]) < since:
                 continue
             out[s["ticker"]] = dict(side=s.get("side"), type=s.get("type"), bar_time=s["bar_time"])
         except Exception:

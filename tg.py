@@ -8,6 +8,7 @@ Telegram-бот: подписчики, их команды и рассылка �
   /all       — присылать все сигналы (новые OB + касания)
   /settings  — показать текущий режим
   /wolfe     — включить/выключить волны Вульфа (отдельная функция)
+  /rsi       — включить/выключить бычью дивергенцию RSI(9) (rsidiv.py)
   /ob        — включить/выключить ордер-блоки
   /season    — включить/выключить пятничный отчёт по сезонности (seasonal.py)
   /hammer    — включить/выключить субботний отчёт «хаммер + бабочка» (hammer.py)
@@ -52,6 +53,7 @@ COMMANDS = [
     {"command": "only_new", "description": "Ордер-блоки: только новые"},
     {"command": "all", "description": "Ордер-блоки: новые OB и касания"},
     {"command": "wolfe", "description": "Волны Вульфа: вкл / выкл"},
+    {"command": "rsi", "description": "Дивергенция RSI(9) 4H: вкл / выкл"},
     {"command": "ob", "description": "Ордер-блоки: вкл / выкл"},
     {"command": "season", "description": "Сезонность (пн и пт): вкл / выкл"},
     {"command": "hammer", "description": "Хаммер + бабочка (сб): вкл / выкл"},
@@ -151,6 +153,8 @@ def mode_text(sub: dict) -> str:
         ob = "📦 Ордер-блоки: <b>все сигналы</b> — новые и касания"
     wv = ("🌊 Волны Вульфа: <b>включены</b>" if sub.get("wolfe", True)
           else "🌊 Волны Вульфа: <b>выключены</b> (включить — /wolfe)")
+    dv = ("📉📈 Дивергенция RSI(9) 4H: <b>включена</b>" if sub.get("rsidiv", True)
+          else "📉📈 Дивергенция RSI: <b>выключена</b> (включить — /rsi)")
     se = ("📅 Сезонность (пн и пт): <b>включена</b>" if sub.get("season", True)
           else "📅 Сезонность: <b>выключена</b> (включить — /season)")
     hm = ("🔨 Хаммер + бабочка (сб): <b>включён</b>" if sub.get("hammer", True)
@@ -163,11 +167,11 @@ def mode_text(sub: dict) -> str:
           else "🧭 Панель рынка: <b>выключена</b> (включить — /market)")
     er = ("📊 Отчёты — рассылка после открытия (по будням): <b>включена</b>" if sub.get("earnings", True)
           else "📊 Отчёты: <b>выключены</b> (включить — /earnings_daily)")
-    return ob + "\n" + wv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk + "\n" + er
+    return ob + "\n" + wv + "\n" + dv + "\n" + se + "\n" + hm + "\n" + sm + "\n" + ma + "\n" + mk + "\n" + er
 
 
 HELP = ("\n\nКоманды:\n/only_new — ордер-блоки: только новые\n/all — ордер-блоки: новые + касания\n"
-        "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n"
+        "/ob — ордер-блоки вкл/выкл\n/wolfe — волны Вульфа вкл/выкл\n/rsi — дивергенция RSI вкл/выкл\n"
         "/season — сезонность вкл/выкл\n/hammer — хаммер + бабочка вкл/выкл\n"
         "/samurai — самурай (продажа путов) вкл/выкл\n/ma200 — своя скользящая вкл/выкл\n/market — панель рынка вкл/выкл\n"
         "/earnings — отчёты сегодня: заложенный ход против истории\n/earnings_daily — рассылка по отчётам вкл/выкл\n"
@@ -311,7 +315,7 @@ def process_updates(token: str, poll: int = 0) -> dict:
             else:
                 reply = "Вы и так не подписаны. Подписаться — /start"
         elif cmd in ("/only_new", "/onlynew", "/new", "/all", "/все", "/settings", "/status",
-                     "/wolfe", "/вульф", "/ob", "/season", "/сезон", "/hammer", "/хаммер", "/samurai", "/самурай", "/ma200",
+                     "/wolfe", "/вульф", "/rsi", "/дивергенция", "/ob", "/season", "/сезон", "/hammer", "/хаммер", "/samurai", "/самурай", "/ma200",
                      "/market", "/рынок", "/earnings", "/отчёты", "/отчеты", "/earnings_daily"):
             if not sub:
                 reply = "Сначала подпишитесь — /start"
@@ -319,6 +323,9 @@ def process_updates(token: str, poll: int = 0) -> dict:
                 reply = mode_text(sub) + HELP
             elif cmd in ("/wolfe", "/вульф"):
                 sub["wolfe"] = not sub.get("wolfe", True)
+                reply = "✅ Готово.\n" + mode_text(sub)
+            elif cmd in ("/rsi", "/дивергенция"):
+                sub["rsidiv"] = not sub.get("rsidiv", True)
                 reply = "✅ Готово.\n" + mode_text(sub)
             elif cmd in ("/season", "/сезон"):
                 sub["season"] = not sub.get("season", True)
@@ -380,7 +387,7 @@ def chunks(text: str, limit: int = 3900):
     return out
 
 
-def broadcast(token: str, st: dict, msg_all: str, msg_new: str, msg_wolfe: str = "") -> int:
+def broadcast(token: str, st: dict, msg_all: str, msg_new: str, msg_wolfe: str = "", msg_div: str = "") -> int:
     """Рассылает сигналы: ордер-блоки (only_new — msg_new, иначе msg_all) и отдельным
     сообщением волны Вульфа (кто их не выключил). Возвращает число подписчиков, кому всё дошло."""
     sent = 0
@@ -390,6 +397,8 @@ def broadcast(token: str, st: dict, msg_all: str, msg_new: str, msg_wolfe: str =
             texts.append(msg_new if sub.get("only_new", True) else msg_all)
         if sub.get("wolfe", True):
             texts.append(msg_wolfe)
+        if sub.get("rsidiv", True):
+            texts.append(msg_div)
         parts = [p for t in texts if t for p in chunks(t)]
         if parts and send_parts(token, cid, sub, parts):
             sent += 1
