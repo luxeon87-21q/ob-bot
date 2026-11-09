@@ -17,6 +17,9 @@ concurrency:
   group: rsidiv-test
   cancel-in-progress: true
 
+env:
+  TG_STATE_KEY: ${{ secrets.TG_STATE_KEY }}   # нужен сборке сайта (cache/tg_settings.enc)
+
 jobs:
   test:
     runs-on: ubuntu-latest
