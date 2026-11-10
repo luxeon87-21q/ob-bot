@@ -9,7 +9,8 @@ on:
   # правки вкладки «Трейдер» — пересчитать и опубликовать сразу (сигналы не повторяются: state.json)
   push:
     branches: [main]
-    paths: ['trader.py', 'static/trader.js', '.github/workflows/scan.yml']
+    # run_now.txt — «запустить проверку сейчас» (GitHub часто пропускает запуски по расписанию)
+    paths: ['trader.py', 'static/trader.js', '.github/workflows/scan.yml', 'run_now.txt']
   workflow_dispatch: {}
 
 permissions:
